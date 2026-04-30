@@ -4,25 +4,25 @@
 
 <details><summary><h2>Fullscreen</h2></summary>
 
-![](/assets/screenshot-20250116-203807Z-all.png)
+![](/assets/Screenshot_2026-04-30_17-12-09.jpg)
 
 </details><br>
 
 <details><summary><h2>Rofi Launcher</h2></summary>
 
-![](/assets/screenshot-rofi.png)
+![](/assets/Screenshot_2026-04-30_17-12-45.jpg)
 
 </details><br>
 
 <details><summary><h2>Wallpaper Selector</h2></summary>
 
-![](/assets/walselector.png)
+![](/assets/Screenshot_2026-04-30_17-13-07.jpg)
 
 </details><br>
 
 <details><summary><h2>Rofi Powermenu</h2></summary>
 
-![](/assets/screenshot-powermenu.png)
+![](/assets/Screenshot_2026-04-30_17-13-40.jpg)
 
 </details><br>
 
