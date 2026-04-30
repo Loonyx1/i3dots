@@ -53,7 +53,7 @@ cd i3dotsbyloonyx
 
 | Keys | Action |
 |:-|:-|
-|<kbd>super</kbd> + <kbd>A</kbd>|Rofi Launcher
+|<kbd>super</kbd> + <kbd>D</kbd>|Rofi Launcher
 |<kbd>super</kbd> + <kbd>F</kbd>| Fullscreen switcher
 |<kbd>super</kbd> + <kbd>Q</kbd>| Kill Focused Window
 |<kbd>super</kbd> + <kbd>W</kbd>|  wallpaper Selector
