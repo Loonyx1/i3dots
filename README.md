@@ -44,16 +44,10 @@ git clone https://github.com/Loonyx1/i3dotsbyloonyx.git
 ```
 cd i3dotsbyloonyx
 ```
- ### Para una instalcion del dotfile en void kinux haz
-
-```
-./install_arch.sh
-```
 ### Para install del dotfile en debian 13
 ```
 ./install.sh
 ```
-
 
 # Teclas/Atajos
 
