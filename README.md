@@ -26,9 +26,10 @@
 
 </details><br>
 
-### Dependencias: 
+### Dependencias Debian: 
 ```
-i3 polybar rofi feh ttf-jetbrains-mono-nerd python-pywal maim xclip xdotool nemo autotiling
+sudo apt install i3 polybar rofi feh maim xclip xdotool nemo autotiling
+cargo install matugen
 ```
 # Instalacion 
 
@@ -37,11 +38,11 @@ mkdir screenshots
 ```
 
 ```
-git clone https://github.com/Derszi65g/I3dots.git
+git clone https://github.com/Loonyx1/i3dotsbyloonyx.git
 ```
 
 ```
-cd I3dots
+cd i3dotsbyloonyx
 ```
  ### Para una instalcion del dotfile en void kinux haz
 
