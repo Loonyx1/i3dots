@@ -1,0 +1,11 @@
+# colors.generated - AUTO-GENERATED
+set $bg #1A1C27
+set $accent #FB9172
+set $text #CCC7C3
+set $secondary #434A6B
+
+# Windows
+client.focused $accent $accent $bg #FFFFFF $accent
+client.focused_inactive $bg $bg #FFFFFF $secondary $bg
+client.unfocused $bg $bg #FFFFFF $secondary $bg
+client.urgent #f44336 #f44336 #ffffff #ffffff #f44336

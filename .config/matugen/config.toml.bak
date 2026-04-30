@@ -1,0 +1,9 @@
+[config]
+
+[templates.polybar]
+input_path = '~/.config/matugen/templates/polybar-colors.ini'
+output_path = '~/.config/polybar/colors.ini'
+
+[templates.rofi]
+input_path = '~/.config/matugen/templates/rofi-colors.rasi'
+output_path = '~/.config/rofi/themes/shared/colors.rasi'

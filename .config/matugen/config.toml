@@ -1,0 +1,22 @@
+[config]
+default_type = "scheme-fruit"
+
+[templates.polybar]
+input_path = "/home/micha/.config/matugen/templates/polybar-colors.ini"
+output_path = "/home/micha/.config/polybar/colors.ini"
+
+[templates.rofi]
+input_path = "/home/micha/.config/matugen/templates/rofi-colors.rasi"
+output_path = "/home/micha/.config/rofi/themes/shared/colors.rasi"
+
+[templates.kitty]
+input_path = "/home/micha/.config/matugen/templates/kitty.conf"
+output_path = "/home/micha/.config/kitty/colors.conf"
+
+[templates.vesktop]
+input_path = '~/.config/matugen/templates/discord.css'
+output_path = '~/.var/app/dev.vencord.Vesktop/config/vesktop/themes/midnight.theme.css'
+
+[templates.prismlauncher]
+input_path = '~/.config/matugen/templates/prismlauncher.json'
+output_path = '~/.local/share/PrismLauncher/themes/Matugen/theme.json'

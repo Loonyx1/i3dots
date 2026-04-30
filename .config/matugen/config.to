@@ -1,0 +1,2 @@
+[config]
+templates = { i3 = { source = 'i3.conf', output = '~/.config/i3/colors.conf' } }
