@@ -43,18 +43,18 @@ git clone https://github.com/Derszi65g/I3dots.git
 ```
 cd I3dots
 ```
- ### Para una instalcion del dot eb void kinux haz
+ ### Para una instalcion del dotfile en void kinux haz
 
 ```
 ./install_arch.sh
 ```
-### y Para debian 
+### Para install del dotfile en debian 13
 ```
 ./install.sh
 ```
 
 
-# keybinding
+# Teclas/Atajos
 
 | Keys | Action |
 |:-|:-|
