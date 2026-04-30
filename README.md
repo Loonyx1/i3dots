@@ -1,6 +1,6 @@
 # i3 dots
 
-# Screenshots
+# Imagenes
 
 <details><summary><h2>Fullscreen</h2></summary>
 
@@ -28,7 +28,7 @@
 
 ### Dependencias: 
 ```
-i3 polybar rofi feh ttf-jetbrains-mono-nerd python-pywal maim xclip xdotool pcmanfm autotiling 
+i3 polybar rofi feh ttf-jetbrains-mono-nerd python-pywal maim xclip xdotool nemo autotiling
 ```
 # Instalacion 
 
@@ -43,12 +43,12 @@ git clone https://github.com/Derszi65g/I3dots.git
 ```
 cd I3dots
 ```
- ### Para una instalcion limpia de archlinux vanilla (archinstall)/cachyOS sin entorno grafico (tienes que instalar el por tu cuenta un login de tu gusto )
+ ### Para una instalcion del dot eb void kinux haz
 
 ```
 ./install_arch.sh
 ```
-### Medianamente manual ejecutar este si instalaste las dependencias en otra distro que tenga systemd
+### y Para debian 
 ```
 ./install.sh
 ```
