@@ -55,10 +55,10 @@ cd i3dotsbyloonyx
 |:-|:-|
 |<kbd>super</kbd> + <kbd>A</kbd>|Rofi Launcher
 |<kbd>super</kbd> + <kbd>F</kbd>| Fullscreen switcher
-|<kbd>super</kbd> + <kbd>shift</kbd> + <kbd>Q</kbd>| Kill Focused Window
+|<kbd>super</kbd> + <kbd>Q</kbd>| Kill Focused Window
 |<kbd>super</kbd> + <kbd>W</kbd>|  wallpaper Selector
 |<kbd>super</kbd> + <kbd>Tab</kbd>|Powermenu
-|<kbd>Super</kbd> + <kbd> E | pcmanfm
+|<kbd>Super</kbd> + <kbd> E | nemo
 |<kbd>super</kbd> + <kbd>Shift</kbd> + <kbd>R</kbd>| Restart I3
 |<kbd>Super</kbd> | Hold to drag floating windows to the desired position
 # Screenshots keys on clipboard
@@ -69,7 +69,7 @@ cd i3dotsbyloonyx
 |<kbd>super</kbd> + <kbd>print</kbd>|Active Window
 |<kbd>Print</kbd>|Full Screen|
 
-# Screenshots (directory ~/screenshots)
+# Screenshots (Carpeta ~/screenshots)
 
 | Keys | Screenshot  |
 |:-|:-|
