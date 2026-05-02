@@ -28,7 +28,7 @@
 
 ### Dependencias Debian: 
 ```
-sudo apt install i3 polybar rofi feh maim xclip xdotool nemo autotiling kitty fish
+sudo apt install i3 polybar rofi feh maim xclip xdotool nemo autotiling kitty
 cargo install matugen
 ```
 # Instalacion 
@@ -47,6 +47,10 @@ cd i3dotsbyloonyx
 ### Para install del dotfile en debian 13
 ```
 ./install.sh
+```
+### Para install del dotfile en voidlinux/nekovoid
+```
+./installvoid.sh
 ```
 
 # Teclas/Atajos
