@@ -18,7 +18,7 @@ sudo xbps-install -Syu
 echo -e "${BLUE}>>> Instalando dependencias de Void Linux...${NC}"
 # Mapeo de paquetes para Void Linux
 PACKAGES=(
-    i3-gaps
+    i3
     polybar
     rofi
     kitty
@@ -55,7 +55,7 @@ PACKAGES=(
     libxkbcommon-devel
     font-awesome6
     fontconfig
-    imagemagick
+    ImageMagick
 )
 
 # Instalamos uno por uno para ignorar los ya instalados sin que el script se detenga
