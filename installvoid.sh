@@ -81,14 +81,13 @@ echo -e "${BLUE}>>> Configurando directorios...${NC}"
 mkdir -p ~/.config
 
 echo -e "${BLUE}>>> Copiando archivos de configuración...${NC}"
-cp -r .config/* ~/.config/
+cp -r .configvoid/* ~/.config/
 
-echo -e "${BLUE}>>> Moviendo carpeta 'wall' a /home/${USER}/...${NC}"
-if [ -d "~/.config/wall" ]; then
-    mv ~/.config/wall ~/wall
-elif [ -d ".config/wall" ]; then
-    cp -r .config/wall ~/wall
-    rm -rf ~/.config/wall
+echo -e "${BLUE}>>> Instalando wallpapers en ~/wall...${NC}"
+if [ -d "wall" ]; then
+    cp -r wall ~/wall
+elif [ -d ".configvoid/wall" ]; then
+    cp -r .configvoid/wall ~/wall
 fi
 
 echo -e "${BLUE}>>> Ajustando permisos de ejecución...${NC}"
