@@ -26,7 +26,7 @@
 
 </details><br>
 
-### Dependencias Debian: 
+### Dependencias: 
 ```
 sudo apt install i3 polybar rofi feh maim xclip xdotool nemo autotiling kitty
 cargo install matugen
