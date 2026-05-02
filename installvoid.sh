@@ -24,8 +24,9 @@ PACKAGES=(
     kitty
     picom
     qt6ct
+    lxappearance
     feh
-    dex
+    dex \
     polkit-gnome
     pipewire
     wireplumber
@@ -63,6 +64,16 @@ for pkg in "${PACKAGES[@]}"; do
     echo -e "${BLUE}>>> Intentando instalar: $pkg...${NC}"
     sudo xbps-install -y "$pkg" || echo -e "${GREEN}>>> $pkg ya instalado o no disponible.${NC}"
 done
+
+echo -e "${BLUE}>>> Instalando tema adw-gtk3...${NC}"
+mkdir -p ~/.local/share/themes
+if [ ! -d ~/.local/share/themes/adw-gtk3 ]; then
+    wget https://github.com/lassekongo83/adw-gtk3/releases/download/v6.5/adw-gtk3v6.5.tar.xz -O /tmp/adw-gtk3.tar.xz
+    tar -xf /tmp/adw-gtk3.tar.xz -C ~/.local/share/themes
+    rm /tmp/adw-gtk3.tar.xz
+else
+    echo "adw-gtk3 ya está instalado."
+fi
 
 echo -e "${BLUE}>>> Instalando Nerd Fonts adicionales (JetBrainsMono y Hack)...${NC}"
 mkdir -p ~/.local/share/fonts
@@ -129,6 +140,24 @@ echo -e "${BLUE}>>> Ajustando permisos de ejecución...${NC}"
 find ~/.config -type f -name "*.sh" -exec chmod +x {} +
 chmod +x ~/.config/i3/mini-matugen-j 2>/dev/null || true
 [ -d ~/.config/rofi/bin ] && chmod +x ~/.config/rofi/bin/*
+
+echo -e "${BLUE}>>> Configurando temas personalizados (Matugen, qt6ct, GTK)...${NC}"
+# Configurar variable de entorno para Qt
+# En Void/i3 es común usar .xinitrc o .bash_profile
+if ! grep -q 'QT_QPA_PLATFORMTHEME' ~/.profile 2>/dev/null; then
+    echo 'export QT_QPA_PLATFORMTHEME=qt6ct' >> ~/.profile
+fi
+if ! grep -q 'QT_QPA_PLATFORMTHEME' ~/.bash_profile 2>/dev/null; then
+    echo 'export QT_QPA_PLATFORMTHEME=qt6ct' >> ~/.bash_profile
+fi
+export QT_QPA_PLATFORMTHEME=qt6ct
+
+# Inicializar temas con Matugen si hay un wallpaper disponible
+WALLPAPER="$HOME/wall/wall.png"
+if [ -f "$WALLPAPER" ] && command -v matugen &> /dev/null; then
+    echo -e "${BLUE}>>> Generando colores con Matugen...${NC}"
+    matugen image "$WALLPAPER"
+fi
 
 echo -e "${GREEN}>>> ¡Instalación completada!${NC}"
 echo -e "${BLUE}>>> Notas importantes para Void Linux:${NC}"
