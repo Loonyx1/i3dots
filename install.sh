@@ -95,13 +95,20 @@ else
     echo "Matugen ya está instalado."
 fi
 
-echo -e "${BLUE}>>> Configurando directorios...${NC}"
-mkdir -p ~/.config
-
 echo -e "${BLUE}>>> Copiando archivos de configuración...${NC}"
 # Copiar todo el contenido de .config del directorio actual al del usuario
-cp -r .config/* ~/.config/
 [ -d ".cache" ] && cp -r .cache/* ~/.cache/
+mkdir -p ~/.config
+for item in .config/*; do
+    name=$(basename "$item")
+    echo -e "${BLUE}>>> Procesando $name...${NC}"
+    if [ -d "$item" ]; then
+        mkdir -p "$HOME/.config/$name"
+        cp -rv "$item"/* "$HOME/.config/$name/"
+    else
+        cp -v "$item" "$HOME/.config/"
+    fi
+done
 
 echo -e "${BLUE}>>> Moviendo carpeta 'wall' a /home/${USER}/...${NC}"
 # El usuario pidió que wall estuviera directamente en el home
