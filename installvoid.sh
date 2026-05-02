@@ -122,15 +122,13 @@ for item in .configvoid/*; do
         cp -r "$item" ~/.themes/
         continue
     fi
-    if [ -d "$HOME/.config/$name" ] || [ -f "$HOME/.config/$name" ]; then
-        echo -e "${GREEN}>>> ~/.config/$name ya existe. Saltando...${NC}"
-        # Si es settings.ini, lo sobreescribimos para asegurar el tema
-        if [ "$name" == "gtk-3.0" ]; then
-             cp .configvoid/gtk-3.0/settings.ini ~/.config/gtk-3.0/settings.ini
-        fi
+    
+    echo -e "${BLUE}>>> Procesando $name...${NC}"
+    if [ -d "$item" ]; then
+        mkdir -p "$HOME/.config/$name"
+        cp -rv "$item"/* "$HOME/.config/$name/"
     else
-        echo -e "${BLUE}>>> Copiando $name a ~/.config/...${NC}"
-        cp -r "$item" ~/.config/
+        cp -v "$item" "$HOME/.config/"
     fi
 done
 
