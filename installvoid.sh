@@ -18,7 +18,7 @@ sudo xbps-install -Syu
 echo -e "${BLUE}>>> Instalando dependencias de Void Linux...${NC}"
 # Mapeo de paquetes para Void Linux
 PACKAGES=(
-    i3
+    i3-gaps
     polybar
     rofi
     kitty
@@ -57,23 +57,11 @@ PACKAGES=(
     fontconfig
 )
 
-MISSING_PACKAGES=()
+# Instalamos uno por uno para ignorar los ya instalados sin que el script se detenga
 for pkg in "${PACKAGES[@]}"; do
-    if ! xbps-query -S "$pkg" &> /dev/null; then
-        echo -e "${BLUE}>>> Paquete $pkg no encontrado en repos. Saltando...${NC}"
-        continue
-    fi
-    if ! xbps-query -l "$pkg" &> /dev/null; then
-        MISSING_PACKAGES+=("$pkg")
-    fi
+    echo -e "${BLUE}>>> Intentando instalar: $pkg...${NC}"
+    sudo xbps-install -y "$pkg" || echo -e "${GREEN}>>> $pkg ya instalado o no disponible.${NC}"
 done
-
-if [ ${#MISSING_PACKAGES[@]} -gt 0 ]; then
-    echo -e "${BLUE}>>> Instalando paquetes faltantes: ${MISSING_PACKAGES[*]}${NC}"
-    sudo xbps-install -y "${MISSING_PACKAGES[@]}"
-else
-    echo -e "${GREEN}>>> Todos los paquetes ya están instalados.${NC}"
-fi
 
 echo -e "${BLUE}>>> Instalando Nerd Fonts adicionales (JetBrainsMono y Hack)...${NC}"
 mkdir -p ~/.local/share/fonts
