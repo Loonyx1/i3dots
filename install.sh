@@ -53,7 +53,8 @@ sudo apt install -y \
     libxkbcommon-x11-dev \
     python3-pip \
     unzip \
-    fontconfig
+    fontconfig \
+    imagemagick
 
 echo -e "${BLUE}>>> Instalando Nerd Fonts (JetBrainsMono y Hack)...${NC}"
 mkdir -p ~/.local/share/fonts
