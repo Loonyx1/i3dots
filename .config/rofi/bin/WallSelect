@@ -22,8 +22,8 @@ if [[ -n "$selected_wallpaper" ]]; then
     wallpaper_path="$WALLPAPER_DIR/$selected_wallpaper"
     echo "wallpaper: $wallpaper_path" >> /tmp/wallselect.log
     
-    # Matugen corregido: usando el PATH directamente y agregando --prefer
-    matugen image "$wallpaper_path" --prefer saturation >> /tmp/wallselect.log 2>&1
+    # Matugen corregido: usando el PATH directamente
+    matugen image "$wallpaper_path" >> /tmp/wallselect.log 2>&1
     echo "matugen done" >> /tmp/wallselect.log
     
     # Aplicar fondo de pantalla
