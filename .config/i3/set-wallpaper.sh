@@ -17,7 +17,7 @@ feh --bg-fill "$WALLPAPER"
 # 🔹 Update app themes with real matugen
 if command -v matugen &> /dev/null; then
     echo "🎨 Generando colores con Matugen..."
-    matugen image "$WALLPAPER"
+    matugen image "$WALLPAPER" --mode dark --prefer saturation
 else
     echo "⚠️ Matugen no encontrado, saltando generación de colores"
 fi
