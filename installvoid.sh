@@ -17,54 +17,83 @@ sudo xbps-install -Syu
 
 echo -e "${BLUE}>>> Instalando dependencias de Void Linux...${NC}"
 # Mapeo de paquetes para Void Linux
-sudo xbps-install -y \
-    i3 \
-    polybar \
-    rofi \
-    kitty \
-    picom \
-    qt6ct \
-    feh \
-    dex \
-    lxpolkit \
-    pipewire \
-    wireplumber \
-    setxkbmap \
-    brightnessctl \
-    playerctl \
-    git \
-    curl \
-    wget \
-    unzip \
-    base-devel \
-    cargo \
-    pkg-config \
-    openssl-devel \
-    libxcb-devel \
-    xcb-util-devel \
-    xcb-util-image-devel \
-    xcb-util-keysyms-devel \
-    xcb-util-renderutil-devel \
-    xcb-util-wm-devel \
-    libxkbcommon-devel \
-    font-jetbrains-mono-nerd \
+PACKAGES=(
+    i3
+    polybar
+    rofi
+    kitty
+    picom
+    qt6ct
+    feh
+    dex
+    polkit-gnome
+    pipewire
+    wireplumber
+    pulseaudio-utils
+    setxkbmap
+    brightnessctl
+    playerctl
+    maim
+    xclip
+    xdotool
+    nemo
+    dmenu
+    git
+    curl
+    wget
+    unzip
+    base-devel
+    cargo
+    pkg-config
+    openssl-devel
+    libxcb-devel
+    xcb-util-devel
+    xcb-util-image-devel
+    xcb-util-keysyms-devel
+    xcb-util-renderutil-devel
+    xcb-util-wm-devel
+    libxkbcommon-devel
+    font-jetbrains-mono-nerd
     fontconfig
+)
 
-echo -e "${BLUE}>>> Instalando Nerd Fonts adicionales (Hack)...${NC}"
+MISSING_PACKAGES=()
+for pkg in "${PACKAGES[@]}"; do
+    if ! xbps-query -l "$pkg" &> /dev/null; then
+        MISSING_PACKAGES+=("$pkg")
+    fi
+done
+
+if [ ${#MISSING_PACKAGES[@]} -gt 0 ]; then
+    echo -e "${BLUE}>>> Instalando paquetes faltantes: ${MISSING_PACKAGES[*]}${NC}"
+    sudo xbps-install -y "${MISSING_PACKAGES[@]}"
+else
+    echo -e "${GREEN}>>> Todos los paquetes ya están instalados.${NC}"
+fi
+
+echo -e "${BLUE}>>> Instalando Nerd Fonts adicionales (JetBrainsMono y Hack)...${NC}"
 mkdir -p ~/.local/share/fonts
-TEMP_FONTS=$(mktemp -d)
+if [ ! -d ~/.local/share/fonts/JetBrainsMonoNerd ] || [ ! -d ~/.local/share/fonts/HackNerd ]; then
+    TEMP_FONTS=$(mktemp -d)
 
-# Descargar JetBrainsMono (por seguridad, aunque esté en xbps)
-wget -P "$TEMP_FONTS" https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/JetBrainsMono.zip
-unzip "$TEMP_FONTS/JetBrainsMono.zip" -d ~/.local/share/fonts/JetBrainsMonoNerd
+    if [ ! -d ~/.local/share/fonts/JetBrainsMonoNerd ]; then
+        echo -e "${BLUE}>>> Descargando JetBrainsMono...${NC}"
+        wget -P "$TEMP_FONTS" https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/JetBrainsMono.zip
+        unzip "$TEMP_FONTS/JetBrainsMono.zip" -d ~/.local/share/fonts/JetBrainsMonoNerd
+    fi
 
-# Descargar Hack
-wget -P "$TEMP_FONTS" https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/Hack.zip
-unzip "$TEMP_FONTS/Hack.zip" -d ~/.local/share/fonts/HackNerd
+    if [ ! -d ~/.local/share/fonts/HackNerd ]; then
+        echo -e "${BLUE}>>> Descargando Hack...${NC}"
+        wget -P "$TEMP_FONTS" https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/Hack.zip
+        unzip "$TEMP_FONTS/Hack.zip" -d ~/.local/share/fonts/HackNerd
+    fi
 
-# Limpiar y actualizar cache
-rm -rf "$TEMP_FONTS"
-fc-cache -fv
+    # Limpiar y actualizar cache
+    rm -rf "$TEMP_FONTS"
+    fc-cache -fv
+else
+    echo -e "${GREEN}>>> Las fuentes ya están instaladas.${NC}"
+fi
 
 echo -e "${BLUE}>>> Instalando Matugen (vía Cargo)...${NC}"
 if ! command -v matugen &> /dev/null; then
@@ -81,13 +110,25 @@ echo -e "${BLUE}>>> Configurando directorios...${NC}"
 mkdir -p ~/.config
 
 echo -e "${BLUE}>>> Copiando archivos de configuración...${NC}"
-cp -r .configvoid/* ~/.config/
+for item in .configvoid/*; do
+    name=$(basename "$item")
+    if [ -d "$HOME/.config/$name" ] || [ -f "$HOME/.config/$name" ]; then
+        echo -e "${GREEN}>>> ~/.config/$name ya existe. Saltando...${NC}"
+    else
+        echo -e "${BLUE}>>> Copiando $name a ~/.config/...${NC}"
+        cp -r "$item" ~/.config/
+    fi
+done
 
 echo -e "${BLUE}>>> Instalando wallpapers en ~/wall...${NC}"
-if [ -d "wall" ]; then
-    cp -r wall ~/wall
-elif [ -d ".configvoid/wall" ]; then
-    cp -r .configvoid/wall ~/wall
+if [ -d "$HOME/wall" ]; then
+    echo -e "${GREEN}>>> ~/wall ya existe. Saltando...${NC}"
+else
+    if [ -d "wall" ]; then
+        cp -r wall ~/wall
+    elif [ -d ".configvoid/wall" ]; then
+        cp -r .configvoid/wall ~/wall
+    fi
 fi
 
 echo -e "${BLUE}>>> Ajustando permisos de ejecución...${NC}"
