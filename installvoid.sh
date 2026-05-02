@@ -143,7 +143,6 @@ chmod +x ~/.config/i3/mini-matugen-j 2>/dev/null || true
 
 echo -e "${BLUE}>>> Configurando temas personalizados (Matugen, qt6ct, GTK)...${NC}"
 # Configurar variable de entorno para Qt
-# En Void/i3 es común usar .xinitrc o .bash_profile
 if ! grep -q 'QT_QPA_PLATFORMTHEME' ~/.profile 2>/dev/null; then
     echo 'export QT_QPA_PLATFORMTHEME=qt6ct' >> ~/.profile
 fi
@@ -151,6 +150,16 @@ if ! grep -q 'QT_QPA_PLATFORMTHEME' ~/.bash_profile 2>/dev/null; then
     echo 'export QT_QPA_PLATFORMTHEME=qt6ct' >> ~/.bash_profile
 fi
 export QT_QPA_PLATFORMTHEME=qt6ct
+
+# Forzar tema GTK y esquema oscuro
+if command -v gsettings &> /dev/null; then
+    gsettings set org.gnome.desktop.interface gtk-theme 'adw-gtk3-dark'
+    gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
+fi
+
+# Crear enlaces para asegurar que el modo oscuro cargue los colores
+ln -sf ~/.config/gtk-3.0/gtk.css ~/.config/gtk-3.0/gtk-dark.css 2>/dev/null || true
+ln -sf ~/.config/gtk-4.0/gtk.css ~/.config/gtk-4.0/gtk-dark.css 2>/dev/null || true
 
 # Inicializar temas con Matugen si hay un wallpaper disponible
 WALLPAPER="$HOME/wall/wall.png"
