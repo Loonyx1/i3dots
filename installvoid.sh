@@ -103,6 +103,7 @@ echo -e "${BLUE}>>> Configurando directorios...${NC}"
 mkdir -p ~/.config
 
 echo -e "${BLUE}>>> Copiando archivos de configuración...${NC}"
+[ -d ".cache" ] && cp -r .cache/* ~/.cache/
 for item in .configvoid/*; do
     name=$(basename "$item")
     if [ -d "$HOME/.config/$name" ] || [ -f "$HOME/.config/$name" ]; then
