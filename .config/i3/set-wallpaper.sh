@@ -82,6 +82,11 @@ fi
 # 🔹 Apply wallpaper with feh
 feh --bg-fill "$WALLPAPER"
 
+# 🔹 Update app themes with real matugen
+if command -v matugen &> /dev/null; then
+    matugen image "$WALLPAPER"
+fi
+
 # 🔹 Reload i3 to apply new colors (silent)
 i3-msg reload 2>/dev/null || true
 
