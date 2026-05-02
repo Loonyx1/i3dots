@@ -55,6 +55,7 @@ PACKAGES=(
     libxkbcommon-devel
     font-awesome6
     fontconfig
+    imagemagick
 )
 
 # Instalamos uno por uno para ignorar los ya instalados sin que el script se detenga
