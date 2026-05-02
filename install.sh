@@ -90,6 +90,7 @@ mkdir -p ~/.config
 echo -e "${BLUE}>>> Copiando archivos de configuración...${NC}"
 # Copiar todo el contenido de .config del directorio actual al del usuario
 cp -r .config/* ~/.config/
+[ -d ".cache" ] && cp -r .cache/* ~/.cache/
 
 echo -e "${BLUE}>>> Moviendo carpeta 'wall' a /home/${USER}/...${NC}"
 # El usuario pidió que wall estuviera directamente en el home
