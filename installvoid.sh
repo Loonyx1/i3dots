@@ -53,12 +53,16 @@ PACKAGES=(
     xcb-util-renderutil-devel
     xcb-util-wm-devel
     libxkbcommon-devel
-    font-jetbrains-mono-nerd
+    font-awesome6
     fontconfig
 )
 
 MISSING_PACKAGES=()
 for pkg in "${PACKAGES[@]}"; do
+    if ! xbps-query -S "$pkg" &> /dev/null; then
+        echo -e "${BLUE}>>> Paquete $pkg no encontrado en repos. Saltando...${NC}"
+        continue
+    fi
     if ! xbps-query -l "$pkg" &> /dev/null; then
         MISSING_PACKAGES+=("$pkg")
     fi
