@@ -117,8 +117,17 @@ echo -e "${BLUE}>>> Copiando archivos de configuración...${NC}"
 [ -d ".cache" ] && cp -r .cache/* ~/.cache/
 for item in .configvoid/*; do
     name=$(basename "$item")
+    if [ "$name" == "adw-gtk3-dark-matugen" ]; then
+        mkdir -p ~/.themes
+        cp -r "$item" ~/.themes/
+        continue
+    fi
     if [ -d "$HOME/.config/$name" ] || [ -f "$HOME/.config/$name" ]; then
         echo -e "${GREEN}>>> ~/.config/$name ya existe. Saltando...${NC}"
+        # Si es settings.ini, lo sobreescribimos para asegurar el tema
+        if [ "$name" == "gtk-3.0" ]; then
+             cp .configvoid/gtk-3.0/settings.ini ~/.config/gtk-3.0/settings.ini
+        fi
     else
         echo -e "${BLUE}>>> Copiando $name a ~/.config/...${NC}"
         cp -r "$item" ~/.config/
@@ -150,16 +159,6 @@ if ! grep -q 'QT_QPA_PLATFORMTHEME' ~/.bash_profile 2>/dev/null; then
     echo 'export QT_QPA_PLATFORMTHEME=qt6ct' >> ~/.bash_profile
 fi
 export QT_QPA_PLATFORMTHEME=qt6ct
-
-# Forzar tema GTK y esquema oscuro
-if command -v gsettings &> /dev/null; then
-    gsettings set org.gnome.desktop.interface gtk-theme 'adw-gtk3-dark'
-    gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
-fi
-
-# Crear enlaces para asegurar que el modo oscuro cargue los colores
-ln -sf ~/.config/gtk-3.0/gtk.css ~/.config/gtk-3.0/gtk-dark.css 2>/dev/null || true
-ln -sf ~/.config/gtk-4.0/gtk.css ~/.config/gtk-4.0/gtk-dark.css 2>/dev/null || true
 
 # Inicializar temas con Matugen si hay un wallpaper disponible
 WALLPAPER="$HOME/wall/wall.png"
