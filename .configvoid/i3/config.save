@@ -9,10 +9,10 @@ set $mod Mod4
 set $alt Mod1
 ï¿½PNG
 
-½aYï¿½ï¿½ï¿½\5ï¿½sï¿½Éï¿½TTï¿½KOï¿½
+ï¿½aYï¿½ï¿½ï¿½\5ï¿½sï¿½Éï¿½TTï¿½KOï¿½
 
 # Fuente para los titulos de ventanas
-font pango:google sans 9
+font pango:JetBrainsMono Nerd Font 9
 
 # El entorno I3
 exec --no-startup-id dex --autostart --environment i3
@@ -238,4 +238,4 @@ exec_always --no-startup-id pipewire
 exec_always --no-startup-id picom -f
 
 exec_always --no-startup-id ~/.scripts/display.sh
-3Vï¿½ï¿½Nï¿½@ï¿½ER)ï¿½ï¿½,ï¿½tï¿½4ï¿½nï¿½M3ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ê¡¬ï¿½ï¿½ Kjï¿½\ï¿½Eï¿½ï¿½jï¿½}Qï¿½¿½!ï¿½x
+3Vï¿½ï¿½Nï¿½@ï¿½ER)ï¿½ï¿½,ï¿½tï¿½4ï¿½nï¿½M3ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ê¡¬ï¿½ï¿½ Kjï¿½\ï¿½Eï¿½ï¿½jï¿½}Qï¿½ï¿½ï¿½!ï¿½x
