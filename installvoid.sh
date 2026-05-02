@@ -1,0 +1,104 @@
+#!/bin/bash
+
+# =============================================================================
+# Script de Instalación para Void Linux
+# Configuración: i3wm, Polybar, Rofi, Kitty, Picom, Matugen
+# =============================================================================
+
+set -e
+
+# Colores para la salida
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+echo -e "${BLUE}>>> Actualizando sistema...${NC}"
+sudo xbps-install -Syu
+
+echo -e "${BLUE}>>> Instalando dependencias de Void Linux...${NC}"
+# Mapeo de paquetes para Void Linux
+sudo xbps-install -y \
+    i3 \
+    polybar \
+    rofi \
+    kitty \
+    picom \
+    qt6ct \
+    feh \
+    dex \
+    lxpolkit \
+    pipewire \
+    wireplumber \
+    setxkbmap \
+    brightnessctl \
+    playerctl \
+    git \
+    curl \
+    wget \
+    unzip \
+    base-devel \
+    cargo \
+    pkg-config \
+    openssl-devel \
+    libxcb-devel \
+    xcb-util-devel \
+    xcb-util-image-devel \
+    xcb-util-keysyms-devel \
+    xcb-util-renderutil-devel \
+    xcb-util-wm-devel \
+    libxkbcommon-devel \
+    font-jetbrains-mono-nerd \
+    fontconfig
+
+echo -e "${BLUE}>>> Instalando Nerd Fonts adicionales (Hack)...${NC}"
+mkdir -p ~/.local/share/fonts
+TEMP_FONTS=$(mktemp -d)
+
+# Descargar JetBrainsMono (por seguridad, aunque esté en xbps)
+wget -P "$TEMP_FONTS" https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/JetBrainsMono.zip
+unzip "$TEMP_FONTS/JetBrainsMono.zip" -d ~/.local/share/fonts/JetBrainsMonoNerd
+
+# Descargar Hack
+wget -P "$TEMP_FONTS" https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/Hack.zip
+unzip "$TEMP_FONTS/Hack.zip" -d ~/.local/share/fonts/HackNerd
+
+# Limpiar y actualizar cache
+rm -rf "$TEMP_FONTS"
+fc-cache -fv
+
+echo -e "${BLUE}>>> Instalando Matugen (vía Cargo)...${NC}"
+if ! command -v matugen &> /dev/null; then
+    cargo install matugen
+    if ! grep -q 'cargo/bin' ~/.bashrc; then
+        echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.bashrc
+    fi
+    export PATH="$HOME/.cargo/bin:$PATH"
+else
+    echo "Matugen ya está instalado."
+fi
+
+echo -e "${BLUE}>>> Configurando directorios...${NC}"
+mkdir -p ~/.config
+
+echo -e "${BLUE}>>> Copiando archivos de configuración...${NC}"
+cp -r .config/* ~/.config/
+
+echo -e "${BLUE}>>> Moviendo carpeta 'wall' a /home/${USER}/...${NC}"
+if [ -d "~/.config/wall" ]; then
+    mv ~/.config/wall ~/wall
+elif [ -d ".config/wall" ]; then
+    cp -r .config/wall ~/wall
+    rm -rf ~/.config/wall
+fi
+
+echo -e "${BLUE}>>> Ajustando permisos de ejecución...${NC}"
+find ~/.config -type f -name "*.sh" -exec chmod +x {} +
+chmod +x ~/.config/i3/mini-matugen-j 2>/dev/null || true
+[ -d ~/.config/rofi/bin ] && chmod +x ~/.config/rofi/bin/*
+
+echo -e "${GREEN}>>> ¡Instalación completada!${NC}"
+echo -e "${BLUE}>>> Notas importantes para Void Linux:${NC}"
+echo "1. Asegúrate de que los servicios dbus y elogind estén activos."
+echo "2. Usa 'exec i3' en tu ~/.xinitrc si no usas gestor de login."
+echo "3. Los wallpapers se encuentran en ~/wall"
+echo "4. Matugen se instaló en ~/.cargo/bin/matugen"
