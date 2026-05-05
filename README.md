@@ -25,11 +25,8 @@
 ![](/assets/Screenshot_2026-04-30_17-13-40.jpg)
 
 </details><br>
-
-### Dependencias: 
 ```
-sudo apt install i3 polybar rofi feh maim xclip xdotool nemo autotiling kitty
-cargo install matugen
+
 ```
 # Instalacion 
 
@@ -44,9 +41,9 @@ git clone https://github.com/Loonyx1/i3dotsbyloonyx.git
 ```
 cd i3dotsbyloonyx
 ```
-### Para install del dotfile en debian 13
+### Para install del dotfile en debian 13 y void
 ```
-./install.sh
+./dots install i3dots (name distro)
 ```
 
 # Teclas/Atajos
