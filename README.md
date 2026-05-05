@@ -25,7 +25,7 @@
 ![](/assets/Screenshot_2026-04-30_17-13-40.jpg)
 
 </details><br>
-```
+
 # Instalacion 
 
 ```
