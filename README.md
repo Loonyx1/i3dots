@@ -26,10 +26,6 @@
 
 </details><br>
 
-### Dependencias: 
-```
-sudo apt install i3 polybar rofi feh maim xclip xdotool nemo autotiling kitty
-cargo install matugen
 ```
 # Instalacion 
 
@@ -44,13 +40,9 @@ git clone https://github.com/Loonyx1/i3dotsbyloonyx.git
 ```
 cd i3dotsbyloonyx
 ```
-### Para install del dotfile en debian 13
+### Para install del dotfile en debian 13 and void
 ```
-./install.sh
-```
-### Para install del dotfile en voidlinux/nekovoid
-```
-./installvoid.sh
+./dots install i3dots (name distro)
 ```
 
 # Teclas/Atajos
@@ -64,6 +56,7 @@ cd i3dotsbyloonyx
 |<kbd>super</kbd> + <kbd>Tab</kbd>|Powermenu
 |<kbd>Super</kbd> + <kbd> E | nemo
 |<kbd>super</kbd> + <kbd>Shift</kbd> + <kbd>R</kbd>| Restart I3
+|<kbd>super</kbd> + <kbd>Shift</kbd> + <kbd>B</kbd>| Abrir menu de cambio de polybar
 |<kbd>Super</kbd> | Hold to drag floating windows to the desired position
 # Screenshots keys on clipboard
 
