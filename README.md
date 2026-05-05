@@ -32,11 +32,9 @@
 ```
 mkdir screenshots
 ```
-
 ```
 git clone https://github.com/Loonyx1/i3dotsbyloonyx.git
 ```
-
 ```
 cd i3dotsbyloonyx
 ```
@@ -44,7 +42,6 @@ cd i3dotsbyloonyx
 ```
 ./dots install i3dots (name distro)
 ```
-
 # Teclas/Atajos
 
 | Keys | Action |
