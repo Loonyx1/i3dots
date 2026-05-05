@@ -1,0 +1,151 @@
+#!/usr/bin/env bash
+
+# dots - Gestor de Paquetes de Dotfiles Autocontenidos
+export BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export CORE_DIR="$BASE_DIR/core"
+export PACKAGES_DIR="$BASE_DIR/packages"
+export BIN_DIR="$CORE_DIR/bin"
+export STATE_DIR="$CORE_DIR/state"
+
+# 1. Almacenes de Argumentos
+GENERAL_ARGS=()
+declare -A TARGETED_ARGS
+CURRENT_TARGET="GENERAL"
+COMMAND="apply"
+PACKAGE_NAME=""
+ACTION_NAME=""
+
+# 2. Parseo de Comandos y Argumentos
+if [[ "$1" == "export" || "$1" == "import" || "$1" == "apply" || "$1" == "install" ]]; then
+    COMMAND="$1"
+    shift
+fi
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -S) export MANUAL_ENV="$2"; PACKAGE_NAME="$2"; shift 2 ;;
+        -P:*) 
+            CURRENT_TARGET="${1#-P:}"
+            shift 
+            ;;
+        *) 
+            if [ "$CURRENT_TARGET" == "GENERAL" ]; then
+                if [ -z "$PACKAGE_NAME" ] && [[ ! "$1" =~ ^- ]]; then
+                    PACKAGE_NAME="$1"
+                elif [ -z "$ACTION_NAME" ] && [[ ! "$1" =~ ^- ]] && [ "$COMMAND" != "install" ]; then
+                    ACTION_NAME="$1"
+                else
+                    GENERAL_ARGS+=("$1")
+                fi
+            else
+                TARGETED_ARGS["$CURRENT_TARGET"]+="${TARGETED_ARGS["$CURRENT_TARGET"]:+ }$1"
+            fi
+            shift 
+            ;;
+    esac
+done
+
+# 3. Lógica de Comandos (export/import/install)
+case "$COMMAND" in
+    export)
+        [ -z "$PACKAGE_NAME" ] && { echo "Error: especifica paquete a exportar." >&2; exit 1; }
+        pkg_path="$PACKAGES_DIR/$PACKAGE_NAME"
+        [ ! -d "$pkg_path" ] && { echo "Error: paquete $PACKAGE_NAME no existe." >&2; exit 1; }
+        tar -czf "${PACKAGE_NAME}.tar.gz" -C "$PACKAGES_DIR" "$PACKAGE_NAME"
+        echo "Exportado: ${PACKAGE_NAME}.tar.gz"
+        exit 0
+        ;;
+    import)
+        [ -z "$1" ] && { echo "Error: especifica archivo .tar.gz" >&2; exit 1; }
+        tar -xzf "$1" -C "$PACKAGES_DIR"
+        echo "Importado correctamente."
+        exit 0
+        ;;
+    install)
+        [ -z "$PACKAGE_NAME" ] && { echo "Error: especifica paquete a instalar." >&2; exit 1; }
+        export PACKAGE_DIR="$PACKAGES_DIR/$PACKAGE_NAME"
+        if [ -x "$PACKAGE_DIR/install.sh" ]; then
+            "$PACKAGE_DIR/install.sh" "${GENERAL_ARGS[@]}"
+            
+            # Aplicar configuración básica sin correr toda la secuencia (evita Rofi)
+            echo "Aplicando configuración inicial..."
+            export CURRENT_ENV="$PACKAGE_NAME"
+            [ -f "$PACKAGE_DIR/config.env" ] && source "$PACKAGE_DIR/config.env"
+            "$BIN_DIR/apply_dots.sh"
+            exit 0
+        else
+            echo "Error: el paquete '$PACKAGE_NAME' no tiene script de instalación." >&2
+            exit 1
+        fi
+        ;;
+esac
+
+# 4. Aplicar Paquete (Apply)
+if [ -z "$PACKAGE_NAME" ]; then
+    if [ -n "$CURRENT_ENV" ]; then
+        PACKAGE_NAME="$CURRENT_ENV"
+    else
+        PACKAGE_NAME=$(echo "${XDG_CURRENT_DESKTOP:-$DESKTOP_SESSION}" | cut -d':' -f1 | tr '[:upper:]' '[:lower:]')
+    fi
+fi
+export CURRENT_ENV="$PACKAGE_NAME"
+export PACKAGE_DIR="$PACKAGES_DIR/$PACKAGE_NAME"
+
+ENV_CONFIG="$PACKAGE_DIR/config.env"
+if [ ! -f "$ENV_CONFIG" ]; then
+    echo "Error: El paquete '$PACKAGE_NAME' no tiene config.env" >&2
+    exit 1
+fi
+
+source "$ENV_CONFIG"
+
+# 5. Determinar Secuencia a Ejecutar
+if [ -n "$ACTION_NAME" ]; then
+    # Sanitizar el nombre de la acción para la variable (quitar .sh y puntos)
+    clean_action="${ACTION_NAME%.sh}"
+    var_action="DOT_SEQUENCE_${clean_action^^}"
+    var_action="${var_action//./_}"
+    
+    declare -n SELECTED_SEQUENCE="$var_action"
+    
+    if [[ -n "${SELECTED_SEQUENCE[*]}" ]]; then
+        # Si existe la secuencia, la usamos
+        FINAL_SEQUENCE=("${SELECTED_SEQUENCE[@]}")
+    else
+        # Si no existe secuencia, la accion es el script mismo
+        FINAL_SEQUENCE=("$ACTION_NAME")
+    fi
+else
+    # Si no hay acción, usar la secuencia por defecto (DOT_SEQUENCE)
+    if [[ -z "${DOT_SEQUENCE[*]}" ]]; then
+        echo "Aviso: DOT_SEQUENCE vacia para $PACKAGE_NAME"
+        exit 0
+    fi
+    FINAL_SEQUENCE=("${DOT_SEQUENCE[@]}")
+fi
+
+# 6. Ejecutar Secuencia Seleccionada
+for action in "${FINAL_SEQUENCE[@]}"; do
+    # Separar el nombre del script de sus argumentos internos
+    read -r -a action_parts <<< "$action"
+    script_name="${action_parts[0]}"
+    internal_args=("${action_parts[@]:1}")
+    
+    clean_name="${script_name%.sh}"
+    specific="${TARGETED_ARGS["$clean_name"]}"
+    
+    # Intentar ejecutar (con y sin .sh)
+    if [ -x "$PACKAGE_DIR/bin/$script_name" ]; then
+        "$PACKAGE_DIR/bin/$script_name" "${GENERAL_ARGS[@]}" "${internal_args[@]}" $specific
+    elif [ -x "$PACKAGE_DIR/bin/${script_name}.sh" ]; then
+        "$PACKAGE_DIR/bin/${script_name}.sh" "${GENERAL_ARGS[@]}" "${internal_args[@]}" $specific
+    elif [ -x "$BIN_DIR/$script_name" ]; then
+        "$BIN_DIR/$script_name" "${GENERAL_ARGS[@]}" "${internal_args[@]}" $specific
+    elif [ -x "$BIN_DIR/${script_name}.sh" ]; then
+        "$BIN_DIR/${script_name}.sh" "${GENERAL_ARGS[@]}" "${internal_args[@]}" $specific
+    elif command -v "$script_name" >/dev/null; then
+        "$script_name" "${GENERAL_ARGS[@]}" "${internal_args[@]}" $specific
+    else
+        echo "Error: Accion '$script_name' no encontrada." >&2
+    fi
+done
