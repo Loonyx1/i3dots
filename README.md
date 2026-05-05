@@ -48,10 +48,6 @@ cd i3dotsbyloonyx
 ```
 ./install.sh
 ```
-### Para install del dotfile en voidlinux/nekovoid
-```
-./installvoid.sh
-```
 
 # Teclas/Atajos
 
