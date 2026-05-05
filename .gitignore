@@ -1,0 +1,4 @@
+*.generated
+.current_variant
+core/state/*
+!core/state/.gitkeep
