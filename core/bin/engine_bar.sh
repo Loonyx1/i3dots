@@ -24,6 +24,7 @@ SEL_MODE=""
 DO_NEXT=0
 DO_PREV=0
 DO_SELECT=0
+DO_MANAGE=0
 LIST_ALL=0
 
 while [[ $# -gt 0 ]]; do
@@ -32,11 +33,12 @@ while [[ $# -gt 0 ]]; do
         -b|--bar)    SEL_TYPE="$2"; shift 2 ;;
         -p|--pos)    SEL_POS="$2"; shift 2 ;;
         -t|--trans)  SEL_TRANS="$2"; shift 2 ;;
-        -H|--height) SEL_HEIGHT="$2"; shift 2 ;;
+        -H|-h|--height) SEL_HEIGHT="$2"; shift 2 ;;
         -m|--mode)   SEL_MODE="$2"; shift 2 ;;
         --next)      DO_NEXT=1; shift ;;
         --prev)      DO_PREV=1; shift ;;
         --select)    DO_SELECT=1; shift ;;
+        --manage)    DO_MANAGE=1; shift ;;
         -L|--list)   LIST_ALL=1; shift ;;
         *) shift ;;
     esac
@@ -121,12 +123,65 @@ if [ "$DO_NEXT" -eq 1 ] || [ "$DO_PREV" -eq 1 ] || [ "$DO_SELECT" -eq 1 ]; then
             -b|--bar)    SEL_TYPE="$2"; shift 2 ;;
             -p|--pos)    SEL_POS="$2"; shift 2 ;;
             -t|--trans)  SEL_TRANS="$2"; shift 2 ;;
-            -H|--height) SEL_HEIGHT="$2"; shift 2 ;;
+            -H|-h|--height) SEL_HEIGHT="$2"; shift 2 ;;
             -m|--mode)   SEL_MODE="$2"; shift 2 ;;
             *) shift ;;
         esac
     done
     notify-send "Bar Style" "Aplicando: $NEW_NAME" -i display -t 1500
+fi
+
+# 3.5 Lógica de Gestión (Manage)
+if [ "$DO_MANAGE" -eq 1 ]; then
+    CUR_TYPE=$(cat "$TYPE_STATE_FILE" 2>/dev/null | tr -d '[:space:]' || echo "polybar_antigua")
+    CUR_H=$(cat "$HEIGHT_STATE_FILE" 2>/dev/null || echo "$BAR_HEIGHT")
+    CUR_M=$(cat "$MODE_STATE_FILE" 2>/dev/null || echo "solid")
+    CUR_S=$(cat "$STYLE_STATE_FILE" 2>/dev/null || echo "square")
+    CUR_P=$(cat "$POS_STATE_FILE" 2>/dev/null || echo "bottom")
+    CUR_T=$(cat "$TRANS_STATE_FILE" 2>/dev/null || echo "true")
+    
+    SEL_BIN="${WP_SEL_BIN:-rofi}"
+    if [[ "$SEL_BIN" == *"rofi"* ]] && [ -n "$BAR_SEL_THEME" ]; then
+        SEL_ARGS=("-dmenu" "-p" "Manage Bar: $CUR_TYPE" "-theme" "$BAR_SEL_THEME")
+    else
+        SEL_ARGS=(${WP_SEL_ARGS:--dmenu -p "Manage Bar: $CUR_TYPE"})
+    fi
+    
+    options="Height: $CUR_H\nStyle: $CUR_S\nPos: $CUR_P\nTrans: $CUR_T"
+    # Solo mostrar modo si NO es la barra antigua/principal
+    if [ "$CUR_TYPE" != "polybar_antigua" ]; then
+        options="Mode: $CUR_M\n$options"
+    fi
+    
+    choice=$(echo -e "$options" | "$SEL_BIN" "${SEL_ARGS[@]}")
+    [[ -z "$choice" ]] && exit 0
+    
+    case "$choice" in
+        Height:*)
+            NEW_H=$(echo -e "13pt\n15pt\n18pt\n20pt\ncustom" | "$SEL_BIN" "${SEL_ARGS[@]}" -p "Select Height")
+            if [ "$NEW_H" == "custom" ]; then
+                NEW_H=$(echo "" | "$SEL_BIN" "${SEL_ARGS[@]}" -p "Enter Height (eg: 22pt)")
+            fi
+            [[ -n "$NEW_H" ]] && exec "$0" -h "$NEW_H"
+            ;;
+        Mode:*)
+            NEW_M=$(echo -e "solid\nunderline" | "$SEL_BIN" "${SEL_ARGS[@]}" -p "Select Mode")
+            [[ -n "$NEW_M" ]] && exec "$0" -m "$NEW_M"
+            ;;
+        Style:*)
+            NEW_S=$(echo -e "round\nsquare" | "$SEL_BIN" "${SEL_ARGS[@]}" -p "Select Style")
+            [[ -n "$NEW_S" ]] && exec "$0" -s "$NEW_S"
+            ;;
+        Pos:*)
+            NEW_P=$(echo -e "top\nbottom" | "$SEL_BIN" "${SEL_ARGS[@]}" -p "Select Position")
+            [[ -n "$NEW_P" ]] && exec "$0" -p "$NEW_P"
+            ;;
+        Trans:*)
+            NEW_T=$(echo -e "true\nfalse" | "$SEL_BIN" "${SEL_ARGS[@]}" -p "Enable Transparency?")
+            [[ -n "$NEW_T" ]] && exec "$0" -t "$NEW_T"
+            ;;
+    esac
+    exit 0
 fi
 
 # 4. Listar (si se solicita)
@@ -145,7 +200,7 @@ if [ "$LIST_ALL" -eq 1 ]; then
 fi
 
 # 4. Selección Interactiva (si no se pasó nada)
-if [ -z "$SEL_STYLE" ] && [ -z "$SEL_TYPE" ] && [ -z "$SEL_POS" ] && [ -z "$SEL_TRANS" ] && [ -z "$SEL_HEIGHT" ]; then
+if [ -z "$SEL_STYLE" ] && [ -z "$SEL_TYPE" ] && [ -z "$SEL_POS" ] && [ -z "$SEL_TRANS" ] && [ -z "$SEL_HEIGHT" ] && [ -z "$SEL_MODE" ]; then
     SEL_BIN="${WP_SEL_BIN:-rofi}"
     if [[ "$SEL_BIN" == *"rofi"* ]]; then
         SEL_ARGS=(${WP_SEL_ARGS:--dmenu -p "Bar Config"})
@@ -194,8 +249,25 @@ fi
 [ -n "$SEL_TYPE" ] && echo "$SEL_TYPE" > "$TYPE_STATE_FILE"
 [ -n "$SEL_POS" ] && echo "$SEL_POS" > "$POS_STATE_FILE"
 [ -n "$SEL_TRANS" ] && echo "$SEL_TRANS" > "$TRANS_STATE_FILE"
-[ -n "$SEL_HEIGHT" ] && echo "$SEL_HEIGHT" > "$HEIGHT_STATE_FILE"
 [ -n "$SEL_MODE" ] && echo "$SEL_MODE" > "$MODE_STATE_FILE"
+
+# Lógica de Altura Aislada
+CUR_TYPE=$(cat "$TYPE_STATE_FILE" 2>/dev/null | tr -d '[:space:]' || echo "polybar_antigua")
+THEME_HEIGHT_FILE="$BAR_STATE_DIR/height_$CUR_TYPE"
+
+# Si se pasó una altura por comando, se guarda para este tema específicamente
+if [ -n "$SEL_HEIGHT" ]; then
+    echo "$SEL_HEIGHT" > "$THEME_HEIGHT_FILE"
+    echo "$SEL_HEIGHT" > "$HEIGHT_STATE_FILE"
+else
+    # Si no se pasó altura, intentamos recuperar la de este tema o usamos el default global
+    SAVED_HEIGHT=$(cat "$THEME_HEIGHT_FILE" 2>/dev/null)
+    if [ -n "$SAVED_HEIGHT" ]; then
+        echo "$SAVED_HEIGHT" > "$HEIGHT_STATE_FILE"
+    else
+        echo "$BAR_HEIGHT" > "$HEIGHT_STATE_FILE"
+    fi
+fi
 
 # 7. Aplicar cambios
 "$BIN_DIR/apply_dots.sh"
