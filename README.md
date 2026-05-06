@@ -39,7 +39,7 @@ git clone https://github.com/Loonyx1/i3dotsbyloonyx.git
 ```
 cd i3dotsbyloonyx
 ```
-### Para install del dotfile en debian 13 y void
+### Para install del dotfile en debian y void
 ```
 ./dots install i3dots (name distro)
 ```
