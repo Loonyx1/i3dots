@@ -1,4 +1,4 @@
-# i3 dots test
+# i3 dots
 
 # Imagenes
 
