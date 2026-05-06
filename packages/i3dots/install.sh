@@ -34,15 +34,24 @@ if [ -n "$PKG_LIST" ]; then
     eval "$PKG_MANAGER $PKG_INSTALL_CMD $PKG_LIST"
 fi
 
-# 3. Nerd Fonts (JetBrainsMono y Hack)
+# 3. Nerd Fonts (JetBrainsMono, FiraCode y Symbols Only)
 mkdir -p ~/.local/share/fonts
-if [ ! -d ~/.local/share/fonts/JetBrainsMonoNerd ]; then
-    TEMP_FONTS=$(mktemp -d)
-    wget -P "$TEMP_FONTS" https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/JetBrainsMono.zip
-    unzip "$TEMP_FONTS/JetBrainsMono.zip" -d ~/.local/share/fonts/JetBrainsMonoNerd
-    rm -rf "$TEMP_FONTS"
-    fc-cache -fv
-fi
+install_font() {
+    local name="$1"
+    local url="$2"
+    if [ ! -d ~/.local/share/fonts/"$name" ]; then
+        echo "Instalando fuente $name..."
+        local TEMP_F=$(mktemp -d)
+        wget -q --show-progress -P "$TEMP_F" "$url"
+        unzip -q "$TEMP_F"/*.zip -d ~/.local/share/fonts/"$name"
+        rm -rf "$TEMP_F"
+        fc-cache -fv
+    fi
+}
+
+install_font "JetBrainsMonoNerd" "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/JetBrainsMono.zip"
+install_font "FiraCodeNerd" "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/FiraCode.zip"
+install_font "SymbolsNerdFont" "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/NerdFontsSymbolsOnly.zip"
 
 # 3.5. Temas (adw-gtk3)
 mkdir -p ~/.themes
