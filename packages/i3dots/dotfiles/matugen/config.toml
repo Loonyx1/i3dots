@@ -44,7 +44,7 @@ output_path = "~/.config/qt6ct/colors/matugen.conf"
 [templates.i3_main]
 input_path = "~/.config/i3/colors.template"
 output_path = "~/.config/i3/colors.generated"
-post_hook = "DISPLAY=:0 i3-msg reload"
+# post_hook eliminado para evitar doble recarga y lag en HDD
 
 [templates.i3_bar]
 input_path = "~/.config/i3/bar_colors.template"
