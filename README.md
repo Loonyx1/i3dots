@@ -33,11 +33,11 @@ mkdir screenshots
 ```
 
 ```
-git clone https://github.com/Loonyx1/i3dotsbyloonyx.git
+git clone https://github.com/Loonyx1/i3dots.git
 ```
 
 ```
-cd i3dotsbyloonyx
+cd i3dots
 ```
 ### Para install del dotfile en debian y void
 ```
