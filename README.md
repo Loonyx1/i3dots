@@ -56,6 +56,7 @@ cd i3dots
 |<kbd>Super</kbd> + <kbd> E | nemo
 |<kbd>super</kbd> + <kbd>Shift</kbd> + <kbd>R</kbd>| Restart I3
 |<kbd>super</kbd> + <kbd>Shift</kbd> + <kbd>B</kbd>| Abrir el menu para cambiar la polybar
+|<kbd>super</kbd> + <kbd>Shift</kbd> + <kbd>M</kbd>| Abrir el menu para cambiar la polybar de tamaño
 |<kbd>Super</kbd> | Hold to drag floating windows to the desired position
 # Screenshots keys on clipboard
 
