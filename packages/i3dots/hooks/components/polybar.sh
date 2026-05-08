@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # hooks/components/polybar.sh - Versión Ultra-Optimizada (RAM + Symlinks + Icons)
+echo "[$(date +%T.%N)] [polybar.sh] Inicio" >> /tmp/i3dots.log
 
 # 1. Leer Estado
 STYLE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/style" 2>/dev/null || echo "square")
@@ -139,4 +140,5 @@ include-file = \$HOME/.config/polybar/current_theme/config.ini
 EOF
 
 # 6. Lanzar
+echo "[$(date +%T.%N)] [polybar.sh] Ejecutando launch.sh" >> /tmp/i3dots.log
 bash "$CONF_DIR/launch.sh" &
