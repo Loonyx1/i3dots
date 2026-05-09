@@ -42,6 +42,9 @@ if [ -d "$THEME_SRC" ]; then
         [ ! -f "$THEME_SRC/$MOD_FILE" ] && MOD_FILE="modules_underline.ini"
         ln -sf "$THEME_SRC/$MOD_FILE" "$CONF_DIR/current_theme/modules.ini"
     fi
+else
+    echo "[$(date +%T.%N)] [polybar.sh] ERROR: Directorio de tema no encontrado: $THEME_SRC" >> /tmp/i3dots.log
+    notify-send "Polybar Error" "No se encontró el tema: $TYPE" -u critical &
 fi
 
 # 3. Preparar Variables para RAM (/dev/shm)
