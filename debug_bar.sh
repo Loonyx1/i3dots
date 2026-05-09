@@ -17,7 +17,7 @@ log() {
 
 # 1. Detectar Entorno
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PACKAGE_DIR="$SCRIPT_DIR/packages/i3dots"
+export PACKAGE_DIR="$SCRIPT_DIR/packages/i3dots"
 
 if [ -f "$PACKAGE_DIR/.current_variant" ]; then
     ENV_NAME=$(cat "$PACKAGE_DIR/.current_variant")
