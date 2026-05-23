@@ -1,22 +1,20 @@
 #!/usr/bin/env bash
 
-# Terminate already running bar instances
-# If all your bars have ipc enabled, you can use 
-polybar-msg cmd quit
-# Otherwise you can use the nuclear option:
-# killall -q polybar
+# Cargar utilidades compartidas y apagar instancias previas
+source "$HOME/.config/polybar/scripts/detect.sh"
 
-# Detectar sensor de temperatura (hwmon)
-for i in /sys/class/hwmon/hwmon*/name; do
-    if grep -qE "coretemp|fam15h_power|k10temp" "$i" >/dev/null 2>&1; then
-        export HWMON_PATH="$(dirname $i)/temp1_input"
-        break
-    fi
-done
-[ -z "$HWMON_PATH" ] && export HWMON_PATH=$(ls -1 /sys/class/hwmon/hwmon*/temp1_input 2>/dev/null | head -n 1)
+# 2. Construir listas de modulos (Evita "islas" vacias si no hay hardware)
+export POLY_LEFT="space left launcher right space left cpu-usage space-alt cpu-memory right space left i3-workspaces right"
+[ -n "$BACKLIGHT_CARD" ] && POLY_LEFT="$POLY_LEFT space left backlight right"
 
-# Launch bar1 and bar2
-echo "---" | tee -a /tmp/polybar1.log /tmp/polybar2.log
-polybar bottom 2>&1 | tee -a /tmp/polybar1.log & disown
+export POLY_CENTER="left date right"
 
-echo "Bars launched..."
+export POLY_RIGHT="left cpu-temperature right"
+[ -n "$HAS_AUDIO" ] && POLY_RIGHT="$POLY_RIGHT space space left volume right"
+[ -n "$HAS_BATTERY" ] && POLY_RIGHT="$POLY_RIGHT space left battery right"
+export POLY_RIGHT="$POLY_RIGHT space left tray right space"
+
+# 3. Iniciar las nuevas instancias de forma silenciosa
+polybar -q "$BAR_NAME" &
+sleep 0.1
+

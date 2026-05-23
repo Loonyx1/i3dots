@@ -128,7 +128,7 @@ if [ "$DO_NEXT" -eq 1 ] || [ "$DO_PREV" -eq 1 ] || [ "$DO_SELECT" -eq 1 ]; then
             *) shift ;;
         esac
     done
-    notify-send "Bar Style" "Aplicando: $NEW_NAME" -i display -t 1500 &
+    notify-send "Bar Style" "Aplicando: $NEW_NAME" -i display -t 1500
 fi
 
 # 3.5 Lógica de Gestión (Manage)
@@ -270,6 +270,4 @@ else
 fi
 
 # 7. Aplicar cambios
-echo "[$(date +%T.%N)] [engine_bar] Iniciando apply_dots.sh" >> /tmp/i3dots.log
 "$BIN_DIR/apply_dots.sh"
-echo "[$(date +%T.%N)] [engine_bar] apply_dots.sh terminado" >> /tmp/i3dots.log
