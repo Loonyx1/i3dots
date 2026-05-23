@@ -1,5 +1,53 @@
 #!/usr/bin/env bash
-# i3dotsbyloonyx/install.sh
+# i3dots/install.sh
+
+# 0. Definición de colores y helpers visuales
+NC="\e[0m"
+BOLD="\e[1m"
+RED="\e[31m"
+GREEN="\e[32m"
+YELLOW="\e[33m"
+BLUE="\e[34m"
+CYAN="\e[36m"
+GRAY="\e[90m"
+
+LOG_FILE="/tmp/dots_install.log"
+echo -e "${GRAY}--- Inicio de instalación $(date) ---${NC}" > "$LOG_FILE"
+
+print_step() {
+    echo -e "${BLUE}•${NC} ${BOLD}$1${NC}"
+}
+
+print_success() {
+    echo -e "${GREEN}•${NC} ${GREEN}${BOLD}$1${NC}"
+}
+
+print_sub() {
+    echo -e "  ${GRAY}•${NC} $1"
+}
+
+print_sub_ok() {
+    echo -e "  ${GREEN}•${NC} $1"
+}
+
+print_sub_warn() {
+    echo -e "  ${YELLOW}•${NC} ${YELLOW}$1${NC}"
+}
+
+print_sub_err() {
+    echo -e "  ${RED}•${NC} ${RED}$1${NC}" >&2
+}
+
+# Mostrar Banner
+echo -e "${CYAN}${BOLD}"
+cat << "EOF"
+ _ _____    _       _   
+(_|___ / __| | / _ \|  _/ __|
+| |___) | (_| | (_) | |_ \__ \
+|_|____/ \__,_|\___/ \__|___/
+          by loonyx
+EOF
+echo -e "${NC}"
 
 # 1. Persistencia de variante
 PACKAGE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -7,138 +55,170 @@ if [[ -n "$1" ]]; then
     echo "$1" > "$PACKAGE_DIR/.current_variant"
 fi
 
-# Cargar variante para tener las variables de paquetes
 VARIANT_NAME=$(cat "$PACKAGE_DIR/.current_variant" 2>/dev/null || echo "debian")
-source "$PACKAGE_DIR/envs/${VARIANT_NAME}.env"
+if [ -f "$PACKAGE_DIR/envs/${VARIANT_NAME}.env" ]; then
+    source "$PACKAGE_DIR/envs/${VARIANT_NAME}.env"
+else
+    print_sub_err "Variante '${VARIANT_NAME}' no soportada."
+    exit 1
+fi
 
-echo "Instalando i3dotsbyloonyx (Variante: $VARIANT_NAME)..."
+print_step "Iniciando instalación para variante: ${VARIANT_NAME}"
 
-# 0. Detección de Hardware (Batería, Adaptador, Red, Backlight)
-echo "Detectando hardware..."
+# 2. Detección de Hardware
+print_sub "Detectando componentes de hardware..."
 SYS_BAT=$(ls -1 /sys/class/power_supply/ | grep -E '^BAT' | head -n 1 || echo "BAT0")
 SYS_ADAPTER=$(ls -1 /sys/class/power_supply/ | grep -E '^AC|^AD' | head -n 1 || echo "ACAD")
 SYS_INTERFACE=$(ip link | awk '/state UP/ {print $2}' | tr -d ':' | head -n 1 || echo "wlan0")
 SYS_BACKLIGHT=$(ls -1 /sys/class/backlight/ | head -n 1 || echo "intel_backlight")
 
-# Actualizar hardware.ini con el hardware detectado
 HARDWARE_INI="$PACKAGE_DIR/dotfiles/polybar_base/hardware.ini"
 if [ -f "$HARDWARE_INI" ]; then
     sed -i "s/sys_battery = .*/sys_battery = $SYS_BAT/" "$HARDWARE_INI"
     sed -i "s/sys_adapter = .*/sys_adapter = $SYS_ADAPTER/" "$HARDWARE_INI"
     sed -i "s/sys_network_interface = .*/sys_network_interface = $SYS_INTERFACE/" "$HARDWARE_INI"
     sed -i "s/sys_graphics_card = .*/sys_graphics_card = $SYS_BACKLIGHT/" "$HARDWARE_INI"
+    print_sub_ok "Hardware configurado en hardware.ini ($SYS_BAT, $SYS_ADAPTER, $SYS_INTERFACE, $SYS_BACKLIGHT)"
+else
+    print_sub_warn "No se encontró hardware.ini para actualizar"
 fi
 
-# 2. Instalar dependencias
+# 3. Instalar dependencias
 if [ -n "$PKG_LIST" ]; then
-    eval "$PKG_MANAGER $PKG_INSTALL_CMD $PKG_LIST"
+    print_step "Instalando paquetes y dependencias del sistema..."
+    print_sub "Ejecutando gestor de paquetes (puede requerir sudo)..."
+    if eval "$PKG_MANAGER $PKG_INSTALL_CMD $PKG_LIST" &>> "$LOG_FILE"; then
+        print_sub_ok "Paquetes de sistema instalados correctamente."
+    else
+        print_sub_err "Fallo en gestor de paquetes. Detalles en $LOG_FILE"
+        exit 1
+    fi
 fi
 
-# 3. Nerd Fonts (JetBrainsMono, FiraCode y Symbols Only)
+# 4. Nerd Fonts
+print_step "Instalando tipografías (Nerd Fonts)..."
 mkdir -p ~/.local/share/fonts
+
 install_font() {
     local name="$1"
     local url="$2"
     if [ ! -d ~/.local/share/fonts/"$name" ]; then
-        echo "Instalando fuente $name..."
+        print_sub "Instalando tipografía $name..."
         local TEMP_F=$(mktemp -d)
-        wget -q --show-progress -P "$TEMP_F" "$url"
-        unzip -q "$TEMP_F"/*.zip -d ~/.local/share/fonts/"$name"
-        rm -rf "$TEMP_F"
-        fc-cache -fv
+        if wget -q --show-progress -P "$TEMP_F" "$url" &>> "$LOG_FILE" && \
+           unzip -q "$TEMP_F"/*.zip -d ~/.local/share/fonts/"$name" &>> "$LOG_FILE"; then
+            rm -rf "$TEMP_F"
+            print_sub_ok "Fuente $name lista."
+        else
+            rm -rf "$TEMP_F"
+            print_sub_err "Fallo al descargar/extraer $name."
+            return 1
+        fi
+    else
+        print_sub_ok "Fuente $name ya instalada."
     fi
 }
 
 install_font "JetBrainsMonoNerd" "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/JetBrainsMono.zip"
 install_font "FiraCodeNerd" "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/FiraCode.zip"
 install_font "SymbolsNerdFont" "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/NerdFontsSymbolsOnly.zip"
+fc-cache -fv &>> "$LOG_FILE"
 
-# 3.5. Temas (adw-gtk3)
+# 5. Temas (adw-gtk3)
+print_step "Instalando temas de escritorio..."
 mkdir -p ~/.themes
 if [ ! -d ~/.themes/adw-gtk3-dark ]; then
-    echo "Instalando adw-gtk3..."
-    wget https://github.com/lassekongo83/adw-gtk3/releases/download/v6.5/adw-gtk3v6.5.tar.xz -O /tmp/adw-gtk3.tar.xz
-    tar -xf /tmp/adw-gtk3.tar.xz -C ~/.themes
-    rm /tmp/adw-gtk3.tar.xz
+    print_sub "Descargando adw-gtk3-dark..."
+    if wget -q https://github.com/lassekongo83/adw-gtk3/releases/download/v6.5/adw-gtk3v6.5.tar.xz -O /tmp/adw-gtk3.tar.xz &>> "$LOG_FILE" && \
+       tar -xf /tmp/adw-gtk3.tar.xz -C ~/.themes &>> "$LOG_FILE"; then
+        rm -f /tmp/adw-gtk3.tar.xz
+        print_sub_ok "Tema adw-gtk3-dark instalado."
+    else
+        print_sub_err "Fallo al instalar tema adw-gtk3-dark."
+    fi
+else
+    print_sub_ok "Tema adw-gtk3-dark ya instalado."
 fi
 
-# 4. Matugen (Binario precompilado)
+# 6. Matugen
+print_step "Validando/Instalando Matugen..."
 if ! command -v matugen &> /dev/null; then
-    echo "Instalando Matugen (Binario)..."
+    print_sub "Buscando última versión de Matugen..."
     TEMP_MATUGEN=$(mktemp -d)
     URL=$(curl -s https://api.github.com/repos/InioX/matugen/releases/latest | grep "browser_download_url.*x86_64.tar.gz" | cut -d '"' -f 4)
     if [[ -n "$URL" ]]; then
-        wget -P "$TEMP_MATUGEN" "$URL"
-        tar -xzf "$TEMP_MATUGEN"/*.tar.gz -C "$TEMP_MATUGEN"
-        
-        # El binario puede tener el nombre completo o solo 'matugen'
-        # Buscamos el ejecutable que se extrajo
-        MATUGEN_BIN=$(find "$TEMP_MATUGEN" -type f -executable -name "matugen*" | head -n 1)
-        
-        if [[ -n "$MATUGEN_BIN" ]]; then
-            if [ -w /usr/local/bin ]; then
-                mv "$MATUGEN_BIN" /usr/local/bin/matugen
-                chmod +x /usr/local/bin/matugen
+        print_sub "Descargando binario de Matugen..."
+        if wget -q -P "$TEMP_MATUGEN" "$URL" &>> "$LOG_FILE" && \
+           tar -xzf "$TEMP_MATUGEN"/*.tar.gz -C "$TEMP_MATUGEN" &>> "$LOG_FILE"; then
+            MATUGEN_BIN=$(find "$TEMP_MATUGEN" -type f -executable -name "matugen*" | head -n 1)
+            if [[ -n "$MATUGEN_BIN" ]]; then
+                if [ -w /usr/local/bin ]; then
+                    mv "$MATUGEN_BIN" /usr/local/bin/matugen
+                    chmod +x /usr/local/bin/matugen
+                else
+                    mkdir -p "$HOME/.local/bin"
+                    mv "$MATUGEN_BIN" "$HOME/.local/bin/matugen"
+                    chmod +x "$HOME/.local/bin/matugen"
+                fi
+                print_sub_ok "Matugen instalado correctamente."
             else
-                mkdir -p "$HOME/.local/bin"
-                mv "$MATUGEN_BIN" "$HOME/.local/bin/matugen"
-                chmod +x "$HOME/.local/bin/matugen"
+                print_sub_warn "No se extrajo binario de Matugen. Intentando vía Cargo (lento)..."
+                cargo install matugen &>> "$LOG_FILE" && print_sub_ok "Matugen instalado vía Cargo." || print_sub_err "Fallo en instalación vía Cargo."
             fi
         else
-            echo "No se encontró el binario extraído, intentando vía Cargo..."
-            cargo install matugen
+            print_sub_err "Fallo al descargar/extraer Matugen."
         fi
     else
-        echo "No se pudo encontrar binario, instalando vía Cargo (lento)..."
-        cargo install matugen
+        print_sub_warn "No se localizó binario. Intentando vía Cargo (lento)..."
+        cargo install matugen &>> "$LOG_FILE" && print_sub_ok "Matugen instalado vía Cargo." || print_sub_err "Fallo en instalación vía Cargo."
     fi
     rm -rf "$TEMP_MATUGEN"
+else
+    print_sub_ok "Matugen ya instalado."
 fi
 
-# Asegurar que las rutas locales estén en el PATH para el resto del script
+# Ajustar rutas en entorno
 export PROJECT_ROOT="$(cd "$PACKAGE_DIR/../.." && pwd)"
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PROJECT_ROOT:$PATH"
 
-# Configurar variables de i3 con rutas absolutas
+# 7. Escribir configuraciones y variables locales
+print_step "Configurando persistencia de rutas en el sistema..."
 echo "set \$dots_cmd $PROJECT_ROOT/dots" > "$PACKAGE_DIR/dotfiles/i3/conf.d/vars.generated"
 
-# Añadir a .bashrc para persistencia futura
+# Bashrc
 if ! grep -q ".local/bin" "$HOME/.bashrc"; then
     echo 'export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"' >> "$HOME/.bashrc"
 fi
-
 if ! grep -q "MAHOGARA_DOTS" "$HOME/.bashrc"; then
-    echo "# Mahogara Dots" >> "$HOME/.bashrc"
+    echo -e "\n# Mahogara Dots" >> "$HOME/.bashrc"
     echo "export PATH=\"$PROJECT_ROOT:\$PATH\"" >> "$HOME/.bashrc"
     echo "export MAHOGARA_DOTS=\"$PROJECT_ROOT\"" >> "$HOME/.bashrc"
 fi
-
-# 5. Variables de entorno (QT)
 if ! grep -q "QT_QPA_PLATFORMTHEME" "$HOME/.bashrc"; then
     echo 'export QT_QPA_PLATFORMTHEME=qt6ct' >> "$HOME/.bashrc"
 fi
+print_sub_ok "Rutas y variables persistidas en ~/.bashrc"
 
-# 6. Crear Symlinks (Función Robusta)
+# 8. Crear enlaces simbólicos
+print_step "Enlazando archivos de configuración (symlinks)..."
 safe_link() {
     local src="$1"
     local dst="$2"
-    
-    # Si el destino existe y es un enlace simbólico, lo quitamos
     if [ -L "$dst" ]; then
         rm "$dst"
-    # Si el destino es un directorio real, lo respaldamos
     elif [ -d "$dst" ]; then
-        echo "Aviso: '$dst' es un directorio real. Haciendo backup a '${dst}.bak'..."
+        print_sub_warn "Directorio real '$dst' detectado. Guardando copia en '${dst}.bak'."
         mv "$dst" "${dst}.bak"
     fi
-    
     ln -s "$src" "$dst"
-    echo "Enlazado: $dst -> $src"
+    print_sub_ok "Enlazado: $(basename "$dst")"
 }
 
 mkdir -p ~/.config
 safe_link "$PACKAGE_DIR/dotfiles/i3" "$HOME/.config/i3"
-# Inicialización de Polybar (Base + Antigua por defecto)
+
+# Polybar Antigua por defecto (se modularizará al recargar)
+rm -rf "$HOME/.config/polybar"
 mkdir -p "$HOME/.config/polybar"
 cp -rf "$PACKAGE_DIR/dotfiles/polybar_base/." "$HOME/.config/polybar/"
 cp -rf "$PACKAGE_DIR/dotfiles/polybar_configs/polybar_antigua/." "$HOME/.config/polybar/"
@@ -151,27 +231,44 @@ safe_link "$PACKAGE_DIR/dotfiles/gtk-4.0" "$HOME/.config/gtk-4.0"
 safe_link "$PACKAGE_DIR/dotfiles/qt6ct" "$HOME/.config/qt6ct"
 safe_link "$PACKAGE_DIR/dotfiles/matugen" "$HOME/.config/matugen"
 
-# 7. Permisos de ejecución
-find "$PACKAGE_DIR/dotfiles/rofi/bin" -type f -name "*.sh" -o -not -name "*.*" -exec chmod +x {} +
-find "$PACKAGE_DIR/dotfiles/polybar_base/scripts" -type f -name "*.sh" -exec chmod +x {} +
-find "$PACKAGE_DIR/dotfiles/polybar_configs" -type f -name "*.sh" -exec chmod +x {} +
+# Permisos de ejecución
+print_sub "Asegurando permisos de ejecución en scripts..."
+find "$PACKAGE_DIR/dotfiles/rofi/bin" -type f -name "*.sh" -o -not -name "*.*" -exec chmod +x {} + &>> "$LOG_FILE"
+find "$PACKAGE_DIR/dotfiles/polybar_base/scripts" -type f -name "*.sh" -exec chmod +x {} + &>> "$LOG_FILE"
+find "$PACKAGE_DIR/dotfiles/polybar_configs" -type f -name "*.sh" -exec chmod +x {} + &>> "$LOG_FILE"
 
-# 8. Copiar Wallpaper inicial si no existe
-[ ! -d "$HOME/wall" ] && cp -r "$PACKAGE_DIR/dotfiles/wall" "$HOME/wall"
+# 9. Inicializar Wallpaper y Matugen
+print_step "Estableciendo wallpaper e inicializando paleta..."
+[ ! -d "$HOME/wall" ] && cp -r "$PACKAGE_DIR/dotfiles/wall" "$HOME/wall" &>> "$LOG_FILE"
+cp -f "$PACKAGE_DIR/dotfiles/wall/zd.png" "$HOME/wall/zd.png" &>> "$LOG_FILE"
 
-# 9. Matugen inicial (Colores por defecto)
+# Guardar estado del wallpaper
+mkdir -p "$STATE_DIR/i3"
+ln -sf "$HOME/wall/zd.png" "$STATE_DIR/i3/current"
+echo "$HOME/wall/zd.png" > "$STATE_DIR/i3/wall"
+echo "$HOME/wall/zd.png" > "$HOME/.config/matugen/wallpaper.txt"
+
 if command -v matugen &> /dev/null; then
-    matugen image "$HOME/wall/wall.png"
+    if matugen image "$HOME/wall/zd.png" --prefer saturation &>> "$LOG_FILE"; then
+        print_sub_ok "Paleta de colores Matugen generada (zd.png)."
+    else
+        print_sub_err "Fallo al ejecutar Matugen."
+    fi
+fi
+if command -v feh &> /dev/null; then
+    feh --bg-fill "$HOME/wall/zd.png" &>> "$LOG_FILE"
+    print_sub_ok "Wallpaper fijado en pantalla."
 fi
 
-# 10. Aplicar Tema GTK (gsettings)
+# 10. Aplicar gsettings (GTK)
 if command -v gsettings &> /dev/null; then
-    echo "Aplicando Tema GTK via gsettings..."
-    gsettings set org.gnome.desktop.interface gtk-theme "adw-gtk3-dark"
-    gsettings set org.gnome.desktop.interface color-scheme "prefer-dark"
-    # Opcionales si el usuario tiene los iconos/cursores (basado en settings.ini)
+    print_step "Aplicando configuraciones GTK..."
+    gsettings set org.gnome.desktop.interface gtk-theme "adw-gtk3-dark" &>> "$LOG_FILE"
+    gsettings set org.gnome.desktop.interface color-scheme "prefer-dark" &>> "$LOG_FILE"
     gsettings set org.gnome.desktop.interface icon-theme "Inverse-pink-dark" 2>/dev/null || true
     gsettings set org.gnome.desktop.interface cursor-theme "Layan-border-cursors" 2>/dev/null || true
+    print_sub_ok "Tema oscuro y cursores establecidos."
 fi
 
-echo "Instalación completada para $VARIANT_NAME."
+print_success "Instalación completada correctamente para variante: ${VARIANT_NAME}"
+
