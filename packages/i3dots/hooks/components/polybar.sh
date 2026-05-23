@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # hooks/components/polybar.sh - Versión Ultra-Optimizada (RAM + Symlinks + Icons)
-echo "[$(date +%T.%N)] [polybar.sh] Inicio" >> /tmp/i3dots.log
 
 # 1. Leer Estado
 STYLE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/style" 2>/dev/null || echo "square")
@@ -19,6 +18,7 @@ TYPE=$(echo "$TYPE" | tr -d '[:space:]'); MODE=$(echo "$MODE" | tr -d '[:space:]
 # 2. Setup de Directorio con Enlaces Simbólicos
 CONF_DIR="$HOME/.config/polybar"
 [ -f "$CONF_DIR/colors.ini" ] && cp "$CONF_DIR/colors.ini" "/tmp/poly_colors.ini"
+[ -f "$CONF_DIR/user_configs.ini.bak" ] && cp "$CONF_DIR/user_configs.ini.bak" "/tmp/poly_user_configs.ini"
 rm -rf "$CONF_DIR"
 mkdir -p "$CONF_DIR"
 
@@ -26,6 +26,10 @@ if [ -f "/tmp/poly_colors.ini" ]; then
     mv "/tmp/poly_colors.ini" "$CONF_DIR/colors.ini"
 else
     ln -sf "$PACKAGE_DIR/dotfiles/polybar_base/colors.ini" "$CONF_DIR/colors.ini"
+fi
+
+if [ -f "/tmp/poly_user_configs.ini" ]; then
+    mv "/tmp/poly_user_configs.ini" "$CONF_DIR/user_configs.ini.bak"
 fi
 
 ln -sf "$PACKAGE_DIR/dotfiles/polybar_base/hardware.ini" "$CONF_DIR/hardware.ini"
@@ -36,15 +40,8 @@ if [ -d "$THEME_SRC" ]; then
     ln -sfT "$THEME_SRC" "$CONF_DIR/current_theme"
     ln -sf "$CONF_DIR/current_theme/launch.sh" "$CONF_DIR/launch.sh"
     
-    # Manejo dinámico de módulos para polybar_underline
-    if [ "$TYPE" == "polybar_underline" ]; then
-        MOD_FILE="modules_${MODE}.ini"
-        [ ! -f "$THEME_SRC/$MOD_FILE" ] && MOD_FILE="modules_underline.ini"
-        ln -sf "$THEME_SRC/$MOD_FILE" "$CONF_DIR/current_theme/modules.ini"
-    fi
-else
-    echo "[$(date +%T.%N)] [polybar.sh] ERROR: Directorio de tema no encontrado: $THEME_SRC" >> /tmp/i3dots.log
-    notify-send "Polybar Error" "No se encontró el tema: $TYPE" -u critical &
+    # Ejecutar setup.sh específico del tema si existe (evita hardcodeo)
+    [ -f "$THEME_SRC/setup.sh" ] && source "$THEME_SRC/setup.sh"
 fi
 
 # 3. Preparar Variables para RAM (/dev/shm)
@@ -134,6 +131,8 @@ icon-light = 󰃠
 icon-bat = 󱊣
 EOF
 
+cp "$RAM_CONFIG" "$CONF_DIR/user_configs.ini.bak"
+
 # 5. Configuración de entrada única para Polybar
 cat > "$CONF_DIR/config.ini" <<EOF
 [global/wm]
@@ -143,5 +142,4 @@ include-file = \$HOME/.config/polybar/current_theme/config.ini
 EOF
 
 # 6. Lanzar
-echo "[$(date +%T.%N)] [polybar.sh] Ejecutando launch.sh" >> /tmp/i3dots.log
 bash "$CONF_DIR/launch.sh" &
