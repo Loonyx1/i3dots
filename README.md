@@ -33,7 +33,7 @@ mkdir screenshots
 ```
 
 ```
-git clone https://github.com/Loonyx1/i3dots.git
+git clone --depth 1 https://github.com/Loonyx1/i3dots.git
 ```
 
 ```
