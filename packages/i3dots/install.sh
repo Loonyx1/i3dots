@@ -183,6 +183,7 @@ export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PROJECT_ROOT:$PATH"
 
 # 7. Escribir configuraciones y variables locales
 print_step "Configurando persistencia de rutas en el sistema..."
+export STATE_DIR="${STATE_DIR:-$PROJECT_ROOT/core/state}"
 echo "set \$dots_cmd $PROJECT_ROOT/dots" > "$PACKAGE_DIR/dotfiles/i3/conf.d/vars.generated"
 
 # Bashrc
@@ -243,10 +244,9 @@ print_step "Estableciendo wallpaper e inicializando paleta..."
 cp -f "$PACKAGE_DIR/dotfiles/wall/zd.png" "$HOME/wall/zd.png" &>> "$LOG_FILE"
 
 # Guardar estado del wallpaper
-mkdir -p "$STATE_DIR/i3"
-ln -sf "$HOME/wall/zd.png" "$STATE_DIR/i3/current"
-echo "$HOME/wall/zd.png" > "$STATE_DIR/i3/wall"
-echo "$HOME/wall/zd.png" > "$HOME/.config/matugen/wallpaper.txt"
+mkdir -p "$HOME/.config/i3"
+ln -sf "$HOME/wall/zd.png" "$HOME/.config/i3/current"
+echo "$HOME/wall/zd.png" > "$HOME/.config/i3/wall"
 
 if command -v matugen &> /dev/null; then
     if matugen image "$HOME/wall/zd.png" --prefer saturation &>> "$LOG_FILE"; then
