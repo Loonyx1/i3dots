@@ -1,4 +1,26 @@
-*.generated
+# Ignorar variante actual y estados locales
 .current_variant
-core/state/*
-!core/state/.gitkeep
+*.generated
+*.log
+
+# Directorio de persistencia de estado (Wallpaper activo, etc)
+core/state/
+
+# Enlaces simbólicos y archivos generados por Motores de Colores (Matugen/Hellwal)
+packages/*/dotfiles/gtk-3.0/colors.css
+packages/*/dotfiles/gtk-4.0/colors.css
+packages/*/dotfiles/kitty/colors.conf
+packages/*/dotfiles/matugen/wallpaper.txt
+packages/*/dotfiles/qt6ct/colors/matugen.conf
+packages/*/dotfiles/rofi/themes/shared/colors.rasi
+packages/*/dotfiles/waybar/colors.css
+packages/*/dotfiles/polybar_base/colors.ini
+packages/*/dotfiles/polybar_base/user_configs.ini.bak
+packages/*/dotfiles/i3/conf.d/vars.generated
+
+# Archivos del sistema y editores
+.DS_Store
+Thumbs.db
+.ipynb_checkpoints/
+*~
+*.swp
