@@ -181,18 +181,28 @@ fi
 export PROJECT_ROOT="$(cd "$PACKAGE_DIR/../.." && pwd)"
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PROJECT_ROOT:$PATH"
 
-# 7. Escribir configuraciones y variables locales
+# 7. Crear enlace estándar XDG (portabilidad entre usuarios)
 print_step "Configurando persistencia de rutas en el sistema..."
-echo "set \$dots_cmd $PROJECT_ROOT/dots" > "$PACKAGE_DIR/dotfiles/i3/conf.d/vars.generated"
+DOTS_LINK="$HOME/.local/share/i3dots"
+mkdir -p "$HOME/.local/share"
+if [ "$(readlink -f "$DOTS_LINK" 2>/dev/null)" != "$PROJECT_ROOT" ]; then
+    ln -sfn "$PROJECT_ROOT" "$DOTS_LINK"
+    print_sub_ok "Enlace creado: ~/.local/share/i3dots -> $PROJECT_ROOT"
+else
+    print_sub_ok "Enlace ~/.local/share/i3dots ya apunta correctamente."
+fi
 
-# Bashrc
+# vars.generated usa ~ (i3 lo interpreta correctamente)
+echo "set \$dots_cmd ~/.local/share/i3dots/dots" > "$PACKAGE_DIR/dotfiles/i3/conf.d/vars.generated"
+
+# Bashrc (todas las rutas usan $HOME sin expandir)
 if ! grep -q ".local/bin" "$HOME/.bashrc"; then
     echo 'export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"' >> "$HOME/.bashrc"
 fi
 if ! grep -q "MAHOGARA_DOTS" "$HOME/.bashrc"; then
     echo -e "\n# Mahogara Dots" >> "$HOME/.bashrc"
-    echo "export PATH=\"$PROJECT_ROOT:\$PATH\"" >> "$HOME/.bashrc"
-    echo "export MAHOGARA_DOTS=\"$PROJECT_ROOT\"" >> "$HOME/.bashrc"
+    echo 'export MAHOGARA_DOTS="$HOME/.local/share/i3dots"' >> "$HOME/.bashrc"
+    echo 'export PATH="$MAHOGARA_DOTS:$PATH"' >> "$HOME/.bashrc"
 fi
 if ! grep -q "QT_QPA_PLATFORMTHEME" "$HOME/.bashrc"; then
     echo 'export QT_QPA_PLATFORMTHEME=qt6ct' >> "$HOME/.bashrc"
