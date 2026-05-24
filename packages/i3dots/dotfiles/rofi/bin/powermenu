@@ -32,19 +32,29 @@ fi
 # Variable passed to rofi
 options="$suspend\n$logout\n$reboot\n$shutdown"
 
+if command -v systemctl >/dev/null 2>&1; then
+    CMD_POWEROFF="systemctl poweroff"
+    CMD_REBOOT="systemctl reboot"
+    CMD_SUSPEND="systemctl suspend"
+else
+    CMD_POWEROFF="loginctl poweroff"
+    CMD_REBOOT="loginctl reboot"
+    CMD_SUSPEND="loginctl suspend"
+fi
+
 chosen="$(echo -e "$options" | $rofi_command -p "UP - $uptime" -dmenu -selected-row 0)"
 case $chosen in
     $shutdown)
-		systemctl poweroff
+		$CMD_POWEROFF
         ;;
     $reboot) 
-		systemctl reboot
+		$CMD_REBOOT
         ;;
     $suspend)
 		mpc -q pause
 		amixer set Master mute
 		sh $HOME/.local/bin/lock
-		systemctl suspend
+		$CMD_SUSPEND
         ;;
     $logout)
 		loginctl terminate-session "$(loginctl list-sessions | awk '/$(whoami)/{print $1}' | head -n 1)"

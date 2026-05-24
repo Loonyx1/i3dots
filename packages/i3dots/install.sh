@@ -41,8 +41,8 @@ print_sub_err() {
 # Mostrar Banner
 echo -e "${CYAN}${BOLD}"
 cat << "EOF"
- _ _____    _       _   
-(_|___ / __| | / _ \|  _/ __|
+ _ _____     _        _ _  
+(_|___ / _ _| | / _ \|  _/ __|
 | |___) | (_| | (_) | |_ \__ \
 |_|____/ \__,_|\___/ \__|___/
           by loonyx
@@ -206,9 +206,6 @@ if ! grep -q "MAHOGARA_DOTS" "$HOME/.bashrc"; then
 fi
 if ! grep -q "QT_QPA_PLATFORMTHEME" "$HOME/.bashrc"; then
     echo 'export QT_QPA_PLATFORMTHEME=qt6ct' >> "$HOME/.bashrc"
-fi
-if [ -n "$EXTRA_BASHRC" ] && ! grep -q "alias systemctl=" "$HOME/.bashrc"; then
-    echo "$EXTRA_BASHRC" >> "$HOME/.bashrc"
 fi
 print_sub_ok "Rutas y variables persistidas en ~/.bashrc"
 
