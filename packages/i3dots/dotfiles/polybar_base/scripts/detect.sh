@@ -11,7 +11,7 @@ if [ ! -f "/dev/shm/user_configs.ini" ]; then
 fi
 
 # 1. Matar instancias existentes de forma robusta
-polybar-msg cmd quit 2>/dev/null
+polybar-msg cmd quit >/dev/null 2>&1
 pkill polybar 2>/dev/null
 while pgrep -u $UID -x polybar >/dev/null; do sleep 0.1; done
 

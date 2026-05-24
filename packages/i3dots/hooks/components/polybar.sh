@@ -25,20 +25,20 @@ mkdir -p "$CONF_DIR"
 if [ -f "/tmp/poly_colors.ini" ]; then
     mv "/tmp/poly_colors.ini" "$CONF_DIR/colors.ini"
 else
-    ln -sf "$PACKAGE_DIR/dotfiles/polybar_base/colors.ini" "$CONF_DIR/colors.ini"
+    ln -srf "$PACKAGE_DIR/dotfiles/polybar_base/colors.ini" "$CONF_DIR/colors.ini"
 fi
 
 if [ -f "/tmp/poly_user_configs.ini" ]; then
     mv "/tmp/poly_user_configs.ini" "$CONF_DIR/user_configs.ini.bak"
 fi
 
-ln -sf "$PACKAGE_DIR/dotfiles/polybar_base/hardware.ini" "$CONF_DIR/hardware.ini"
-ln -sf "$PACKAGE_DIR/dotfiles/polybar_base/scripts" "$CONF_DIR/scripts"
+ln -srf "$PACKAGE_DIR/dotfiles/polybar_base/hardware.ini" "$CONF_DIR/hardware.ini"
+ln -srf "$PACKAGE_DIR/dotfiles/polybar_base/scripts" "$CONF_DIR/scripts"
 
 THEME_SRC="$PACKAGE_DIR/dotfiles/polybar_configs/$TYPE"
 if [ -d "$THEME_SRC" ]; then
-    ln -sfT "$THEME_SRC" "$CONF_DIR/current_theme"
-    ln -sf "$CONF_DIR/current_theme/launch.sh" "$CONF_DIR/launch.sh"
+    ln -srfT "$THEME_SRC" "$CONF_DIR/current_theme"
+    ln -srf "$CONF_DIR/current_theme/launch.sh" "$CONF_DIR/launch.sh"
     
     # Ejecutar setup.sh específico del tema si existe (evita hardcodeo)
     [ -f "$THEME_SRC/setup.sh" ] && source "$THEME_SRC/setup.sh"

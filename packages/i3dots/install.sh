@@ -186,7 +186,7 @@ print_step "Configurando persistencia de rutas en el sistema..."
 DOTS_LINK="$HOME/.local/share/i3dots"
 mkdir -p "$HOME/.local/share"
 if [ "$(readlink -f "$DOTS_LINK" 2>/dev/null)" != "$PROJECT_ROOT" ]; then
-    ln -sfn "$PROJECT_ROOT" "$DOTS_LINK"
+    ln -srfn "$PROJECT_ROOT" "$DOTS_LINK"
     print_sub_ok "Enlace creado: ~/.local/share/i3dots -> $PROJECT_ROOT"
 else
     print_sub_ok "Enlace ~/.local/share/i3dots ya apunta correctamente."
@@ -220,7 +220,7 @@ safe_link() {
         print_sub_warn "Directorio real '$dst' detectado. Guardando copia en '${dst}.bak'."
         mv "$dst" "${dst}.bak"
     fi
-    ln -s "$src" "$dst"
+    ln -sr "$src" "$dst"
     print_sub_ok "Enlazado: $(basename "$dst")"
 }
 
@@ -254,7 +254,7 @@ cp -f "$PACKAGE_DIR/dotfiles/wall/zd.png" "$HOME/wall/zd.png" &>> "$LOG_FILE"
 
 # Guardar estado del wallpaper
 mkdir -p "$STATE_DIR/i3"
-ln -sf "$HOME/wall/zd.png" "$STATE_DIR/i3/current"
+ln -srf "$HOME/wall/zd.png" "$STATE_DIR/i3/current"
 echo "$HOME/wall/zd.png" > "$STATE_DIR/i3/wall"
 echo "$HOME/wall/zd.png" > "$HOME/.config/matugen/wallpaper.txt"
 
