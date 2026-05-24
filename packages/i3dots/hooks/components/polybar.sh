@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 # hooks/components/polybar.sh - Versión Ultra-Optimizada (RAM + Symlinks + Icons)
 
+# 0. Protocolo de Consulta para el Core
+if [ "$1" == "--query" ]; then
+    echo "themes_dir=$PACKAGE_DIR/dotfiles/polybar_configs"
+    echo "default_theme=polybar_antigua"
+    echo "height_options=13pt\n15pt\n18pt\n20pt"
+    echo "height_unit=pt"
+    echo "has_modes=true"
+    exit 0
+fi
+
 # 1. Leer Estado
 STYLE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/style" 2>/dev/null || echo "square")
 POS=$(cat "$STATE_DIR/$CURRENT_ENV/bar/position" 2>/dev/null || echo "$BAR_POSITION")

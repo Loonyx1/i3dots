@@ -14,6 +14,47 @@ TRANS_STATE_FILE="$BAR_STATE_DIR/transparency"
 HEIGHT_STATE_FILE="$BAR_STATE_DIR/height"
 MODE_STATE_FILE="$BAR_STATE_DIR/mode"
 
+# 1.5 Auto-detectar Hook de Barra y Consultar Metadatos
+BAR_HOOK=""
+for comp in $MANAGED_COMPONENTS; do
+    if [[ "$comp" == *bar* ]]; then
+        if [ -f "$HOOK_DIR/components/${comp}.sh" ]; then
+            BAR_HOOK="$HOOK_DIR/components/${comp}.sh"
+            break
+        fi
+    fi
+done
+
+if [ -z "$BAR_HOOK" ]; then
+    for file in "$HOOK_DIR/components/"*bar*.sh; do
+        if [ -f "$file" ]; then
+            BAR_HOOK="$file"
+            break
+        fi
+    done
+fi
+
+# Inicializar metadatos (fallbacks seguros)
+BAR_THEMES_DIR=""
+BAR_DEFAULT_TYPE="standard"
+BAR_HEIGHT_OPTIONS="20px\n24px\n28px\n32px"
+BAR_HEIGHT_UNIT="px"
+BAR_HAS_MODES="false"
+
+# Si existe el hook, consultar capacidades
+if [ -n "$BAR_HOOK" ] && [ -f "$BAR_HOOK" ]; then
+    while IFS='=' read -r key val; do
+        [[ -z "$key" || "$key" =~ ^# ]] && continue
+        case "$key" in
+            themes_dir)      BAR_THEMES_DIR="$val" ;;
+            default_theme)   BAR_DEFAULT_TYPE="$val" ;;
+            height_options)  BAR_HEIGHT_OPTIONS="$val" ;;
+            height_unit)     BAR_HEIGHT_UNIT="$val" ;;
+            has_modes)       BAR_HAS_MODES="$val" ;;
+        esac
+    done < <(bash "$BAR_HOOK" --query 2>/dev/null)
+fi
+
 # 2. Parseo de Argumentos
 SEL_STYLE=""
 SEL_TYPE=""
@@ -90,7 +131,7 @@ if [ "$DO_NEXT" -eq 1 ] || [ "$DO_PREV" -eq 1 ] || [ "$DO_SELECT" -eq 1 ]; then
     else
         # Lógica de Ciclo (Next/Prev)
         CURRENT_INDEX=-1
-        CUR_TYPE=$(cat "$TYPE_STATE_FILE" 2>/dev/null | tr -d '[:space:]' || echo "polybar_antigua")
+        CUR_TYPE=$(cat "$TYPE_STATE_FILE" 2>/dev/null | tr -d '[:space:]' || echo "$BAR_DEFAULT_TYPE")
         CUR_MODE=$(cat "$MODE_STATE_FILE" 2>/dev/null | tr -d '[:space:]' || echo "solid")
 
         for i in "${!PRESET_ARRAY[@]}"; do
@@ -133,7 +174,7 @@ fi
 
 # 3.5 Lógica de Gestión (Manage)
 if [ "$DO_MANAGE" -eq 1 ]; then
-    CUR_TYPE=$(cat "$TYPE_STATE_FILE" 2>/dev/null | tr -d '[:space:]' || echo "polybar_antigua")
+    CUR_TYPE=$(cat "$TYPE_STATE_FILE" 2>/dev/null | tr -d '[:space:]' || echo "$BAR_DEFAULT_TYPE")
     CUR_H=$(cat "$HEIGHT_STATE_FILE" 2>/dev/null || echo "$BAR_HEIGHT")
     CUR_M=$(cat "$MODE_STATE_FILE" 2>/dev/null || echo "solid")
     CUR_S=$(cat "$STYLE_STATE_FILE" 2>/dev/null || echo "square")
@@ -148,8 +189,7 @@ if [ "$DO_MANAGE" -eq 1 ]; then
     fi
     
     options="Height: $CUR_H\nStyle: $CUR_S\nPos: $CUR_P\nTrans: $CUR_T"
-    # Solo mostrar modo si NO es la barra antigua/principal
-    if [ "$CUR_TYPE" != "polybar_antigua" ]; then
+    if [ "$BAR_HAS_MODES" == "true" ]; then
         options="Mode: $CUR_M\n$options"
     fi
     
@@ -158,9 +198,9 @@ if [ "$DO_MANAGE" -eq 1 ]; then
     
     case "$choice" in
         Height:*)
-            NEW_H=$(echo -e "13pt\n15pt\n18pt\n20pt\ncustom" | "$SEL_BIN" "${SEL_ARGS[@]}" -p "Select Height")
+            NEW_H=$(echo -e "$BAR_HEIGHT_OPTIONS\ncustom" | "$SEL_BIN" "${SEL_ARGS[@]}" -p "Select Height")
             if [ "$NEW_H" == "custom" ]; then
-                NEW_H=$(echo "" | "$SEL_BIN" "${SEL_ARGS[@]}" -p "Enter Height (eg: 22pt)")
+                NEW_H=$(echo "" | "$SEL_BIN" "${SEL_ARGS[@]}" -p "Enter Height (eg: 24$BAR_HEIGHT_UNIT)")
             fi
             [[ -n "$NEW_H" ]] && exec "$0" -h "$NEW_H"
             ;;
@@ -192,9 +232,9 @@ if [ "$LIST_ALL" -eq 1 ]; then
     echo "Altura: (ej: 15pt, 20px)"
     echo "Modos: solid, underline"
     echo "Temas de Barra:"
-    echo "  - polybar_antigua"
-    if [ -d "$PACKAGE_DIR/dotfiles/polybar_configs" ]; then
-        ls -1 "$PACKAGE_DIR/dotfiles/polybar_configs" | sed 's/^/  - /'
+    echo "  - $BAR_DEFAULT_TYPE"
+    if [ -n "$BAR_THEMES_DIR" ] && [ -d "$BAR_THEMES_DIR" ]; then
+        ls -1 "$BAR_THEMES_DIR" | sed 's/^/  - /'
     fi
     exit 0
 fi
@@ -211,9 +251,12 @@ if [ -z "$SEL_STYLE" ] && [ -z "$SEL_TYPE" ] && [ -z "$SEL_POS" ] && [ -z "$SEL_
     fi
     
     # Generar opciones dinámicas
-    options="Style: round\nStyle: square\nPos: top\nPos: bottom\nTrans: true\nTrans: false\nMode: solid\nMode: underline\nHeight: custom"
-    if [ -d "$PACKAGE_DIR/dotfiles/polybar_configs" ]; then
-        for theme in $(ls -1 "$PACKAGE_DIR/dotfiles/polybar_configs"); do
+    options="Style: round\nStyle: square\nPos: top\nPos: bottom\nTrans: true\nTrans: false\nHeight: custom"
+    if [ "$BAR_HAS_MODES" == "true" ]; then
+        options="Mode: solid\nMode: underline\n$options"
+    fi
+    if [ -n "$BAR_THEMES_DIR" ] && [ -d "$BAR_THEMES_DIR" ]; then
+        for theme in $(ls -1 "$BAR_THEMES_DIR"); do
             options+="\nTheme: $theme"
         done
     fi
@@ -235,11 +278,7 @@ if [ -z "$SEL_STYLE" ] && [ -z "$SEL_TYPE" ] && [ -z "$SEL_POS" ] && [ -z "$SEL_
         SEL_TYPE="${choice#Theme: }"
     elif [[ "$choice" == "Height: custom" ]]; then
         # Pedir altura personalizada
-        if [[ "$SEL_BIN" == *"rofi"* ]]; then
-            SEL_HEIGHT=$(echo "" | rofi -dmenu -p "Enter Height (eg: 15pt)")
-        else
-            SEL_HEIGHT=$(echo "" | "$SEL_BIN" -dmenu -p "Enter Height")
-        fi
+        SEL_HEIGHT=$(echo "" | "$SEL_BIN" -dmenu -p "Enter Height (eg: 24$BAR_HEIGHT_UNIT)")
         [[ -z "$SEL_HEIGHT" ]] && exit 0
     fi
 fi
@@ -252,7 +291,7 @@ fi
 [ -n "$SEL_MODE" ] && echo "$SEL_MODE" > "$MODE_STATE_FILE"
 
 # Lógica de Altura Aislada
-CUR_TYPE=$(cat "$TYPE_STATE_FILE" 2>/dev/null | tr -d '[:space:]' || echo "polybar_antigua")
+CUR_TYPE=$(cat "$TYPE_STATE_FILE" 2>/dev/null | tr -d '[:space:]' || echo "$BAR_DEFAULT_TYPE")
 THEME_HEIGHT_FILE="$BAR_STATE_DIR/height_$CUR_TYPE"
 
 # Si se pasó una altura por comando, se guarda para este tema específicamente
