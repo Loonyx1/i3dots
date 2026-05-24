@@ -67,5 +67,5 @@ fi
 if [[ -n "$FINAL_PATH" ]]; then
     mkdir -p "$(dirname "$CURRENT_WALLPAPER_LINK")"
     ln -srf "$FINAL_PATH" "$CURRENT_WALLPAPER_LINK"
-    echo "$FINAL_PATH" > "$LAST_WALLPAPER_PATH_FILE"
+    echo "${FINAL_PATH/#$HOME/\~}" > "$LAST_WALLPAPER_PATH_FILE"
 fi

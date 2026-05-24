@@ -2,7 +2,8 @@
 # launch.sh - Lanzador de aplicaciones (Type-3 Style-3)
 
 # 1. Obtener la ruta del wallpaper actual
-IMAGE_PATH=$(cat "$HOME/.config/matugen/wallpaper.txt" 2>/dev/null || echo "$HOME/wall/wall.png")
+IMAGE_PATH="$HOME/.local/share/i3dots/core/state/i3/current"
+[ ! -f "$IMAGE_PATH" ] && IMAGE_PATH="$HOME/wall/wall.png"
 
 # 2. Definir el tema
 THEME="$HOME/.config/rofi/themes/style-3.rasi"

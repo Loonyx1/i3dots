@@ -207,6 +207,9 @@ fi
 if ! grep -q "QT_QPA_PLATFORMTHEME" "$HOME/.bashrc"; then
     echo 'export QT_QPA_PLATFORMTHEME=qt6ct' >> "$HOME/.bashrc"
 fi
+if [ -n "$EXTRA_BASHRC" ] && ! grep -q "alias systemctl=" "$HOME/.bashrc"; then
+    echo "$EXTRA_BASHRC" >> "$HOME/.bashrc"
+fi
 print_sub_ok "Rutas y variables persistidas en ~/.bashrc"
 
 # 8. Crear enlaces simbólicos
@@ -255,8 +258,8 @@ cp -f "$PACKAGE_DIR/dotfiles/wall/zd.png" "$HOME/wall/zd.png" &>> "$LOG_FILE"
 # Guardar estado del wallpaper
 mkdir -p "$STATE_DIR/i3"
 ln -srf "$HOME/wall/zd.png" "$STATE_DIR/i3/current"
-echo "$HOME/wall/zd.png" > "$STATE_DIR/i3/wall"
-echo "$HOME/wall/zd.png" > "$HOME/.config/matugen/wallpaper.txt"
+echo "~/wall/zd.png" > "$STATE_DIR/i3/wall"
+echo "~/wall/zd.png" > "$HOME/.config/matugen/wallpaper.txt"
 
 if command -v matugen &> /dev/null; then
     if matugen image "$HOME/wall/zd.png" --prefer saturation &>> "$LOG_FILE"; then
