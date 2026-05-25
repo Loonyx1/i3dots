@@ -45,7 +45,7 @@ inputbar {
     padding:                     15px;
     background-color:            @background-alt;
     text-color:                  @foreground;
-    children:                    [ "prompt" ];
+    children:                    [ "prompt", "entry" ];
 }
 
 prompt {
@@ -53,6 +53,16 @@ prompt {
     background-color:            transparent;
     text-color:                  inherit;
     font:                        "JetBrainsMono Nerd Font Bold 12";
+}
+
+entry {
+    enabled:                     true;
+    background-color:            transparent;
+    text-color:                  inherit;
+    cursor:                      text;
+    placeholder:                 "Escribir...";
+    placeholder-color:           @selected;
+    font:                        "JetBrainsMono Nerd Font 12";
 }
 
 listview {
