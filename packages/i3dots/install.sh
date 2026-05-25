@@ -181,6 +181,11 @@ fi
 export PROJECT_ROOT="$(cd "$PACKAGE_DIR/../.." && pwd)"
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PROJECT_ROOT:$PATH"
 
+# Nombre de variable dinámica según repositorio
+REPO_NAME="$(basename "$PROJECT_ROOT")"
+ENV_VAR="$(echo "${REPO_NAME}" | tr 'a-z' 'A-Z' | tr '-' '_')"
+COMMENT_NAME="$(echo "${REPO_NAME}" | tr '-' ' ' | awk '{for(i=1;i<=NF;i++)sub(/./,toupper(substr($i,1,1)),$i)}1')"
+
 # 7. Escribir configuraciones y variables locales
 print_step "Configurando persistencia de rutas en el sistema..."
 export STATE_DIR="${STATE_DIR:-$PROJECT_ROOT/core/state}"
@@ -190,10 +195,10 @@ echo "set \$dots_cmd $PROJECT_ROOT/dots" > "$PACKAGE_DIR/dotfiles/i3/conf.d/vars
 if ! grep -q ".local/bin" "$HOME/.bashrc"; then
     echo 'export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"' >> "$HOME/.bashrc"
 fi
-if ! grep -q "MAHOGARA_DOTS" "$HOME/.bashrc"; then
-    echo -e "\n# Mahogara Dots" >> "$HOME/.bashrc"
+if ! grep -q "$ENV_VAR" "$HOME/.bashrc"; then
+    echo -e "\n# $COMMENT_NAME" >> "$HOME/.bashrc"
     echo "export PATH=\"$PROJECT_ROOT:\$PATH\"" >> "$HOME/.bashrc"
-    echo "export MAHOGARA_DOTS=\"$PROJECT_ROOT\"" >> "$HOME/.bashrc"
+    echo "export $ENV_VAR=\"$PROJECT_ROOT\"" >> "$HOME/.bashrc"
 fi
 if ! grep -q "QT_QPA_PLATFORMTHEME" "$HOME/.bashrc"; then
     echo 'export QT_QPA_PLATFORMTHEME=qt6ct' >> "$HOME/.bashrc"
