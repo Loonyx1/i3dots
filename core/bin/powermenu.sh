@@ -25,5 +25,11 @@ case "$CHOSEN" in
     "$L_SHUTDOWN") eval "${POWERMENU_CMD_SHUTDOWN:-systemctl poweroff}" ;;
     "$L_REBOOT")   eval "${POWERMENU_CMD_REBOOT:-systemctl reboot}" ;;
     "$L_SUSPEND")  eval "${POWERMENU_CMD_SUSPEND:-systemctl suspend}" ;;
-    "$L_LOGOUT")   eval "${POWERMENU_CMD_LOGOUT:-loginctl terminate-user $USER}" ;;
+    "$L_LOGOUT")
+        if [ -n "$POWERMENU_CMD_LOGOUT" ]; then
+            eval "$POWERMENU_CMD_LOGOUT"
+        else
+            loginctl terminate-session "${XDG_SESSION_ID:-}"
+        fi
+        ;;
 esac

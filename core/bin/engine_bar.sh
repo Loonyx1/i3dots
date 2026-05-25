@@ -55,6 +55,34 @@ if [ -n "$BAR_HOOK" ] && [ -f "$BAR_HOOK" ]; then
     done < <(bash "$BAR_HOOK" --query 2>/dev/null)
 fi
 
+# 1.6 Configurar Selector de forma Genérica y Agnóstica
+BAR_SEL_BIN="${BAR_SEL_BIN:-${WP_SEL_BIN:-rofi}}"
+
+if [ -z "$BAR_SEL_PROMPT_FLAG" ]; then
+    if [[ "$BAR_SEL_BIN" == *"wofi"* || "$BAR_SEL_BIN" == *"tofi"* ]]; then
+        BAR_SEL_PROMPT_FLAG="--prompt"
+    else
+        BAR_SEL_PROMPT_FLAG="-p"
+    fi
+fi
+
+if [ -z "$BAR_SEL_ARGS" ]; then
+    if [[ "$BAR_SEL_BIN" == *"wofi"* || "$BAR_SEL_BIN" == *"tofi"* ]]; then
+        BAR_SEL_ARGS="--dmenu"
+    elif [[ "$BAR_SEL_BIN" == *"dmenu"* ]]; then
+        BAR_SEL_ARGS=""
+    else
+        BAR_SEL_ARGS="-dmenu"
+    fi
+fi
+
+read -ra BAR_ARGS_ARR <<< "$BAR_SEL_ARGS"
+
+if [[ "$BAR_SEL_BIN" == *"rofi"* ]] && [ -n "$BAR_SEL_THEME" ] && [[ "$BAR_SEL_ARGS" != *"-theme"* ]]; then
+    BAR_ARGS_ARR+=("-theme" "$BAR_SEL_THEME")
+fi
+
+
 # 2. Parseo de Argumentos
 SEL_STYLE=""
 SEL_TYPE=""
@@ -105,19 +133,7 @@ if [ "$DO_NEXT" -eq 1 ] || [ "$DO_PREV" -eq 1 ] || [ "$DO_SELECT" -eq 1 ]; then
             rofi_options+="$name\n"
         done
         
-        SEL_BIN="${WP_SEL_BIN:-rofi}"
-        if [[ "$SEL_BIN" == *"rofi"* ]]; then
-            # Usar el tema específico si está definido, sino caer en dmenu genérico
-            if [ -n "$BAR_SEL_THEME" ]; then
-                SEL_ARGS=("-dmenu" "-p" "Select Bar Preset" "-theme" "$BAR_SEL_THEME")
-            else
-                SEL_ARGS=(${WP_SEL_ARGS:--dmenu -p "Select Bar Preset"})
-            fi
-        else
-            SEL_ARGS=("-dmenu" "-p" "Select Bar Preset")
-        fi
-        
-        choice=$(echo -e "$rofi_options" | "$SEL_BIN" "${SEL_ARGS[@]}")
+        choice=$(echo -e "$rofi_options" | "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Select Bar Preset")
         [[ -z "$choice" ]] && exit 0
         
         # Encontrar el preset que coincide con la elección
@@ -181,43 +197,36 @@ if [ "$DO_MANAGE" -eq 1 ]; then
     CUR_P=$(cat "$POS_STATE_FILE" 2>/dev/null || echo "bottom")
     CUR_T=$(cat "$TRANS_STATE_FILE" 2>/dev/null || echo "true")
     
-    SEL_BIN="${WP_SEL_BIN:-rofi}"
-    if [[ "$SEL_BIN" == *"rofi"* ]] && [ -n "$BAR_SEL_THEME" ]; then
-        SEL_ARGS=("-dmenu" "-p" "Manage Bar: $CUR_TYPE" "-theme" "$BAR_SEL_THEME")
-    else
-        SEL_ARGS=(${WP_SEL_ARGS:--dmenu -p "Manage Bar: $CUR_TYPE"})
-    fi
-    
     options="Height: $CUR_H\nStyle: $CUR_S\nPos: $CUR_P\nTrans: $CUR_T"
     if [ "$BAR_HAS_MODES" == "true" ]; then
         options="Mode: $CUR_M\n$options"
     fi
     
-    choice=$(echo -e "$options" | "$SEL_BIN" "${SEL_ARGS[@]}")
+    choice=$(echo -e "$options" | "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Manage Bar: $CUR_TYPE")
     [[ -z "$choice" ]] && exit 0
     
     case "$choice" in
         Height:*)
-            NEW_H=$(echo -e "$BAR_HEIGHT_OPTIONS\ncustom" | "$SEL_BIN" "${SEL_ARGS[@]}" -p "Select Height")
+            NEW_H=$(echo -e "$BAR_HEIGHT_OPTIONS\ncustom" | "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Select Height")
             if [ "$NEW_H" == "custom" ]; then
-                NEW_H=$(echo "" | "$SEL_BIN" "${SEL_ARGS[@]}" -p "Enter Height (eg: 24$BAR_HEIGHT_UNIT)")
+                NEW_H=$(echo "" | "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Enter Height (eg: 24$BAR_HEIGHT_UNIT)")
             fi
             [[ -n "$NEW_H" ]] && exec "$0" -h "$NEW_H"
             ;;
         Mode:*)
-            NEW_M=$(echo -e "solid\nunderline" | "$SEL_BIN" "${SEL_ARGS[@]}" -p "Select Mode")
+            NEW_M=$(echo -e "solid\nunderline" | "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Select Mode")
             [[ -n "$NEW_M" ]] && exec "$0" -m "$NEW_M"
             ;;
         Style:*)
-            NEW_S=$(echo -e "round\nsquare" | "$SEL_BIN" "${SEL_ARGS[@]}" -p "Select Style")
+            NEW_S=$(echo -e "round\nsquare" | "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Select Style")
             [[ -n "$NEW_S" ]] && exec "$0" -s "$NEW_S"
             ;;
         Pos:*)
-            NEW_P=$(echo -e "top\nbottom" | "$SEL_BIN" "${SEL_ARGS[@]}" -p "Select Position")
+            NEW_P=$(echo -e "top\nbottom" | "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Select Position")
             [[ -n "$NEW_P" ]] && exec "$0" -p "$NEW_P"
             ;;
         Trans:*)
-            NEW_T=$(echo -e "true\nfalse" | "$SEL_BIN" "${SEL_ARGS[@]}" -p "Enable Transparency?")
+            NEW_T=$(echo -e "true\nfalse" | "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Enable Transparency?")
             [[ -n "$NEW_T" ]] && exec "$0" -t "$NEW_T"
             ;;
     esac
@@ -241,15 +250,6 @@ fi
 
 # 4. Selección Interactiva (si no se pasó nada)
 if [ -z "$SEL_STYLE" ] && [ -z "$SEL_TYPE" ] && [ -z "$SEL_POS" ] && [ -z "$SEL_TRANS" ] && [ -z "$SEL_HEIGHT" ] && [ -z "$SEL_MODE" ]; then
-    SEL_BIN="${WP_SEL_BIN:-rofi}"
-    if [[ "$SEL_BIN" == *"rofi"* ]]; then
-        SEL_ARGS=(${WP_SEL_ARGS:--dmenu -p "Bar Config"})
-    elif [[ "$SEL_BIN" == *"wofi"* ]]; then
-        SEL_ARGS=("--dmenu" "--prompt" "Bar Config")
-    else
-        SEL_ARGS=("-dmenu")
-    fi
-    
     # Generar opciones dinámicas
     options="Style: round\nStyle: square\nPos: top\nPos: bottom\nTrans: true\nTrans: false\nHeight: custom"
     if [ "$BAR_HAS_MODES" == "true" ]; then
@@ -262,7 +262,7 @@ if [ -z "$SEL_STYLE" ] && [ -z "$SEL_TYPE" ] && [ -z "$SEL_POS" ] && [ -z "$SEL_
     fi
     
     # Menú Principal de Configuración de Barra
-    choice=$(echo -e "$options" | "$SEL_BIN" "${SEL_ARGS[@]}")
+    choice=$(echo -e "$options" | "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Bar Config")
     
     [[ -z "$choice" ]] && exit 0
 
@@ -278,35 +278,94 @@ if [ -z "$SEL_STYLE" ] && [ -z "$SEL_TYPE" ] && [ -z "$SEL_POS" ] && [ -z "$SEL_
         SEL_TYPE="${choice#Theme: }"
     elif [[ "$choice" == "Height: custom" ]]; then
         # Pedir altura personalizada
-        SEL_HEIGHT=$(echo "" | "$SEL_BIN" -dmenu -p "Enter Height (eg: 24$BAR_HEIGHT_UNIT)")
+        SEL_HEIGHT=$(echo "" | "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Enter Height (eg: 24$BAR_HEIGHT_UNIT)")
         [[ -z "$SEL_HEIGHT" ]] && exit 0
     fi
 fi
 
-# 5. Validar y Guardar
-[ -n "$SEL_STYLE" ] && echo "$SEL_STYLE" > "$STYLE_STATE_FILE"
+# 5. Validar y Guardar con Aislamiento por Tema
 [ -n "$SEL_TYPE" ] && echo "$SEL_TYPE" > "$TYPE_STATE_FILE"
-[ -n "$SEL_POS" ] && echo "$SEL_POS" > "$POS_STATE_FILE"
-[ -n "$SEL_TRANS" ] && echo "$SEL_TRANS" > "$TRANS_STATE_FILE"
-[ -n "$SEL_MODE" ] && echo "$SEL_MODE" > "$MODE_STATE_FILE"
-
-# Lógica de Altura Aislada
 CUR_TYPE=$(cat "$TYPE_STATE_FILE" 2>/dev/null | tr -d '[:space:]' || echo "$BAR_DEFAULT_TYPE")
-THEME_HEIGHT_FILE="$BAR_STATE_DIR/height_$CUR_TYPE"
 
-# Si se pasó una altura por comando, se guarda para este tema específicamente
+# Archivos de estado individuales para el tema activo
+THEME_HEIGHT_FILE="$BAR_STATE_DIR/height_$CUR_TYPE"
+THEME_STYLE_FILE="$BAR_STATE_DIR/style_$CUR_TYPE"
+THEME_POS_FILE="$BAR_STATE_DIR/position_$CUR_TYPE"
+THEME_TRANS_FILE="$BAR_STATE_DIR/transparency_$CUR_TYPE"
+THEME_MODE_FILE="$BAR_STATE_DIR/mode_$CUR_TYPE"
+
+# Lógica de Altura Aislada y Sincronizada
 if [ -n "$SEL_HEIGHT" ]; then
     echo "$SEL_HEIGHT" > "$THEME_HEIGHT_FILE"
     echo "$SEL_HEIGHT" > "$HEIGHT_STATE_FILE"
 else
-    # Si no se pasó altura, intentamos recuperar la de este tema o usamos el default global
     SAVED_HEIGHT=$(cat "$THEME_HEIGHT_FILE" 2>/dev/null)
     if [ -n "$SAVED_HEIGHT" ]; then
         echo "$SAVED_HEIGHT" > "$HEIGHT_STATE_FILE"
     else
-        echo "$BAR_HEIGHT" > "$HEIGHT_STATE_FILE"
+        echo "${BAR_HEIGHT:-15pt}" > "$THEME_HEIGHT_FILE"
+        echo "${BAR_HEIGHT:-15pt}" > "$HEIGHT_STATE_FILE"
+    fi
+fi
+
+# Lógica de Estilo Aislado y Sincronizado
+if [ -n "$SEL_STYLE" ]; then
+    echo "$SEL_STYLE" > "$THEME_STYLE_FILE"
+    echo "$SEL_STYLE" > "$STYLE_STATE_FILE"
+else
+    SAVED_STYLE=$(cat "$THEME_STYLE_FILE" 2>/dev/null)
+    if [ -n "$SAVED_STYLE" ]; then
+        echo "$SAVED_STYLE" > "$STYLE_STATE_FILE"
+    else
+        DEFAULT_STYLE="${BAR_STYLE:-square}"
+        [[ "$CUR_TYPE" == "polybar_antigua" ]] && DEFAULT_STYLE="round"
+        echo "$DEFAULT_STYLE" > "$THEME_STYLE_FILE"
+        echo "$DEFAULT_STYLE" > "$STYLE_STATE_FILE"
+    fi
+fi
+
+# Lógica de Posición Aislada y Sincronizada
+if [ -n "$SEL_POS" ]; then
+    echo "$SEL_POS" > "$THEME_POS_FILE"
+    echo "$SEL_POS" > "$POS_STATE_FILE"
+else
+    SAVED_POS=$(cat "$THEME_POS_FILE" 2>/dev/null)
+    if [ -n "$SAVED_POS" ]; then
+        echo "$SAVED_POS" > "$POS_STATE_FILE"
+    else
+        echo "${BAR_POSITION:-bottom}" > "$THEME_POS_FILE"
+        echo "${BAR_POSITION:-bottom}" > "$POS_STATE_FILE"
+    fi
+fi
+
+# Lógica de Transparencia Aislada y Sincronizada
+if [ -n "$SEL_TRANS" ]; then
+    echo "$SEL_TRANS" > "$THEME_TRANS_FILE"
+    echo "$SEL_TRANS" > "$TRANS_STATE_FILE"
+else
+    SAVED_TRANS=$(cat "$THEME_TRANS_FILE" 2>/dev/null)
+    if [ -n "$SAVED_TRANS" ]; then
+        echo "$SAVED_TRANS" > "$TRANS_STATE_FILE"
+    else
+        echo "${BAR_TRANSPARENCY:-true}" > "$THEME_TRANS_FILE"
+        echo "${BAR_TRANSPARENCY:-true}" > "$TRANS_STATE_FILE"
+    fi
+fi
+
+# Lógica de Modo Aislado y Sincronizado
+if [ -n "$SEL_MODE" ]; then
+    echo "$SEL_MODE" > "$THEME_MODE_FILE"
+    echo "$SEL_MODE" > "$MODE_STATE_FILE"
+else
+    SAVED_MODE=$(cat "$THEME_MODE_FILE" 2>/dev/null)
+    if [ -n "$SAVED_MODE" ]; then
+        echo "$SAVED_MODE" > "$MODE_STATE_FILE"
+    else
+        echo "${BAR_MODE:-solid}" > "$THEME_MODE_FILE"
+        echo "${BAR_MODE:-solid}" > "$MODE_STATE_FILE"
     fi
 fi
 
 # 7. Aplicar cambios
 "$BIN_DIR/apply_dots.sh"
+

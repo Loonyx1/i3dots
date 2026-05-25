@@ -41,10 +41,10 @@ print_sub_err() {
 # Mostrar Banner
 echo -e "${CYAN}${BOLD}"
 cat << "EOF"
- _ _____    _       _   
-(_|___ / __| | / _ \|  _/ __|
-| |___) | (_| | (_) | |_ \__ \
-|_|____/ \__,_|\___/ \__|___/
+▗▄▄▄▖▄▄▄▄ ▗▄▄▄   ▗▄▖▗▄▄▄▖▗▄▄▖
+  █     █ ▐▌  █ ▐▌ ▐▌ █ ▐▌
+  █  ▀▀▀█ ▐▌  █ ▐▌ ▐▌ █  ▝▀▚▖
+▗▄█▄▖▄▄▄█ ▐▙▄▄▀ ▝▚▄▞▘ █ ▗▄▄▞▘
           by loonyx
 EOF
 echo -e "${NC}"
@@ -84,7 +84,7 @@ else
 fi
 
 # 3. Instalar dependencias
-if [ -n "$PKG_LIST" ]; then
+if [ -n "$PKG_LIST" ] && [ -z "$SKIP_SYSTEM_PKGS" ]; then
     print_step "Instalando paquetes y dependencias del sistema..."
     print_sub "Ejecutando gestor de paquetes (puede requerir sudo)..."
     if eval "$PKG_MANAGER $PKG_INSTALL_CMD $PKG_LIST" &>> "$LOG_FILE"; then
@@ -210,6 +210,9 @@ safe_link() {
     elif [ -d "$dst" ]; then
         print_sub_warn "Directorio real '$dst' detectado. Guardando copia en '${dst}.bak'."
         mv "$dst" "${dst}.bak"
+    elif [ -f "$dst" ]; then
+        print_sub_warn "Archivo real '$dst' detectado. Guardando copia en '${dst}.bak'."
+        mv "$dst" "${dst}.bak"
     fi
     ln -s "$src" "$dst"
     print_sub_ok "Enlazado: $(basename "$dst")"
@@ -217,12 +220,6 @@ safe_link() {
 
 mkdir -p ~/.config
 safe_link "$PACKAGE_DIR/dotfiles/i3" "$HOME/.config/i3"
-
-# Polybar Antigua por defecto (se modularizará al recargar)
-rm -rf "$HOME/.config/polybar"
-mkdir -p "$HOME/.config/polybar"
-cp -rf "$PACKAGE_DIR/dotfiles/polybar_base/." "$HOME/.config/polybar/"
-cp -rf "$PACKAGE_DIR/dotfiles/polybar_configs/polybar_antigua/." "$HOME/.config/polybar/"
 
 safe_link "$PACKAGE_DIR/dotfiles/rofi" "$HOME/.config/rofi"
 safe_link "$PACKAGE_DIR/dotfiles/kitty" "$HOME/.config/kitty"
@@ -271,4 +268,3 @@ if command -v gsettings &> /dev/null; then
 fi
 
 print_success "Instalación completada correctamente para variante: ${VARIANT_NAME}"
-

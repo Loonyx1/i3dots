@@ -48,7 +48,7 @@ ln -sf "$PACKAGE_DIR/dotfiles/polybar_base/scripts" "$CONF_DIR/scripts"
 THEME_SRC="$PACKAGE_DIR/dotfiles/polybar_configs/$TYPE"
 if [ -d "$THEME_SRC" ]; then
     ln -sfT "$THEME_SRC" "$CONF_DIR/current_theme"
-    ln -sf "$CONF_DIR/current_theme/launch.sh" "$CONF_DIR/launch.sh"
+    ln -sf "current_theme/launch.sh" "$CONF_DIR/launch.sh"
     
     # Ejecutar setup.sh específico del tema si existe (evita hardcodeo)
     [ -f "$THEME_SRC/setup.sh" ] && source "$THEME_SRC/setup.sh"
@@ -62,17 +62,16 @@ fi
 H_NUM=$(echo "$HEIGHT" | grep -oE '[0-9]+' | head -n 1)
 [[ -z "$H_NUM" ]] && H_NUM=15
 
-if [ "$H_NUM" -le 13 ]; then
-    F_TEXT=8; F_ICON=14; F_ROFI=16; F_OFFSET=2; R_OFFSET=2; F_EXTRA=12
-elif [ "$H_NUM" -le 15 ]; then
-    F_TEXT=10; F_ICON=16; F_ROFI=18; F_OFFSET=3; R_OFFSET=2; F_EXTRA=14
-elif [ "$H_NUM" -le 18 ]; then
-    F_TEXT=10; F_ICON=18; F_ROFI=20; F_OFFSET=4; R_OFFSET=3; F_EXTRA=16
-else
-    F_TEXT=12; F_ICON=20; F_ROFI=24; F_OFFSET=5; R_OFFSET=3; F_EXTRA=18
-fi
-
-F_SYM=$((F_ICON - 3))
+# Cálculo dinámico de fuentes según altura de la barra (para soporte HDPI/Custom completo)
+F_TEXT=$(( H_NUM * 3 / 5 + 1 ))
+F_ICON=$(( H_NUM + 1 ))
+F_OFFSET=$(( (H_NUM - 6) / 3 ))
+R_OFFSET=2
+F_ROFI=$(( H_NUM * 6 / 5 ))
+F_EXTRA=$(( H_NUM - 1 ))
+F_SYM=$(( H_NUM * 4 / 5 + 1 ))
+F_CURV=$(( H_NUM * 14 / 10 + 1 ))
+F_CURV_OFFSET=$(( F_OFFSET + 1 ))
 
 if [ "$TRANS" == "false" ]; then
     BG_COLOR="\${colors.background-solid}"
@@ -112,7 +111,7 @@ bottom = $IS_BOTTOM
 pseudo-transparency = $P_TRANS
 background = $BG_COLOR
 font-0 = "JetBrainsMono Nerd Font Mono:style=Bold:size=$F_TEXT;$F_OFFSET"
-font-1 = "JetBrainsMono Nerd Font Mono:size=$F_ICON;$F_OFFSET"
+font-1 = "Symbols Nerd Font:size=$F_CURV;$F_CURV_OFFSET"
 font-2 = "JetBrainsMono Nerd Font Mono:size=$F_TEXT:antialias=false;$F_OFFSET"
 font-rofi = "JetBrainsMono Nerd Font Mono:size=$F_ROFI;$R_OFFSET"
 font-extra = "JetBrainsMono Nerd Font Mono:size=$F_EXTRA;$F_OFFSET"
@@ -129,6 +128,7 @@ prefix-fg = $MOD_PRE_FG
 rofi-bg = $MOD_ROFI_BG
 rofi-fg = $MOD_ROFI_FG
 launcher-icon = $LAUNCH_ICON
+dots-cmd = ${BASE_DIR:-$PROJECT_ROOT}/dots
 
 ; Icon Library
 icon-cpu = 
