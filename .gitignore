@@ -26,3 +26,7 @@ Thumbs.db
 .ipynb_checkpoints/
 *~
 *.swp
+
+# Archivos locales de desarrollo / backups
+packages/*/dotfiles/kitty/dank-*.conf
+packages/*/dotfiles/kitty/kitty.conf.backup.*
