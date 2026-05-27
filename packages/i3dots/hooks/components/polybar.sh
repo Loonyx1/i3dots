@@ -3,11 +3,23 @@
 
 # 0. Protocolo de Consulta para el Core
 if [ "$1" == "--query" ]; then
+    CUR_TYPE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/type" 2>/dev/null | tr -d '[:space:]' || echo "polybar_antigua")
+    THEME_SRC="$PACKAGE_DIR/dotfiles/polybar_configs/$CUR_TYPE"
+    
+    SUPPORTED="style:Style:round,square|position:Position:top,bottom|transparency:Transparency:true,false"
+    if [ -f "$THEME_SRC/options.conf" ]; then
+        CUSTOM_OPTS=$(grep -v '^#' "$THEME_SRC/options.conf" | grep -v '^$' | paste -sd '|' -)
+        if [ -n "$CUSTOM_OPTS" ]; then
+            SUPPORTED="$SUPPORTED|$CUSTOM_OPTS"
+        fi
+    fi
+
     echo "themes_dir=$PACKAGE_DIR/dotfiles/polybar_configs"
     echo "default_theme=polybar_antigua"
     echo "height_options=13pt\n15pt\n18pt\n20pt"
     echo "height_unit=pt"
     echo "has_modes=true"
+    echo "supported_options=$SUPPORTED"
     exit 0
 fi
 
@@ -16,13 +28,17 @@ STYLE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/style" 2>/dev/null || echo "square")
 POS=$(cat "$STATE_DIR/$CURRENT_ENV/bar/position" 2>/dev/null || echo "$BAR_POSITION")
 TRANS=$(cat "$STATE_DIR/$CURRENT_ENV/bar/transparency" 2>/dev/null || echo "$BAR_TRANSPARENCY")
 HEIGHT=$(cat "$STATE_DIR/$CURRENT_ENV/bar/height" 2>/dev/null || echo "$BAR_HEIGHT")
-TYPE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/type" 2>/dev/null || echo "polybar_antigua")
-MODE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/mode" 2>/dev/null || echo "solid")
+TYPE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/type" 2>/dev/null | tr -d '[:space:]' || echo "$BAR_DEFAULT_TYPE")
+MODE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/mode" 2>/dev/null | tr -d '[:space:]' || echo "solid")
+ROFI_STYLE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/rofi_style" 2>/dev/null || echo "solid")
+SOLID_LINE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/solid_line" 2>/dev/null || echo "true")
 
 # Limpiar espacios
 STYLE=$(echo "$STYLE" | tr -d '[:space:]'); POS=$(echo "$POS" | tr -d '[:space:]')
 TRANS=$(echo "$TRANS" | tr -d '[:space:]'); HEIGHT=$(echo "$HEIGHT" | tr -d '[:space:]')
 TYPE=$(echo "$TYPE" | tr -d '[:space:]'); MODE=$(echo "$MODE" | tr -d '[:space:]')
+ROFI_STYLE=$(echo "$ROFI_STYLE" | tr -d '[:space:]')
+SOLID_LINE=$(echo "$SOLID_LINE" | tr -d '[:space:]')
 [[ -z "$HEIGHT" ]] && HEIGHT="15pt"
 
 # 2. Setup de Directorio con Enlaces Simbólicos
@@ -66,12 +82,50 @@ H_NUM=$(echo "$HEIGHT" | grep -oE '[0-9]+' | head -n 1)
 F_TEXT=$(( H_NUM * 3 / 5 + 1 ))
 F_ICON=$(( H_NUM + 1 ))
 F_OFFSET=$(( (H_NUM - 6) / 3 ))
-R_OFFSET=2
-F_ROFI=$(( H_NUM * 6 / 5 ))
 F_EXTRA=$(( H_NUM - 1 ))
 F_SYM=$(( H_NUM * 4 / 5 + 1 ))
 F_CURV=$(( H_NUM * 14 / 10 + 1 ))
 F_CURV_OFFSET=$(( F_OFFSET + 1 ))
+
+# Valores por defecto para Rofi (font-rofi)
+F_ROFI_SIZE=$(( H_NUM * 4 / 5 + 1 ))
+R_ROFI_OFFSET=$F_OFFSET
+F_ROFI_NAME="Symbols Nerd Font Mono"
+
+if [ "$MODE" == "underline" ] || [ "$SOLID_LINE" == "true" ]; then
+    LINE_SIZE=$(( H_NUM / 6 ))
+    [[ $LINE_SIZE -lt 2 ]] && LINE_SIZE=2
+else
+    LINE_SIZE=0
+fi
+
+
+
+if [ "$MODE" == "underline" ]; then
+    F_SYM=$(( H_NUM * 11 / 20 + 1 ))
+    F_ICON=$(( H_NUM * 3 / 4 ))
+    F_LARGE_SIZE=$(( F_SYM + 2 ))
+    
+    F_OFFSET_TEXT=$(( (H_NUM - LINE_SIZE - F_TEXT) / 2 ))
+    [[ $F_OFFSET_TEXT -lt 0 ]] && F_OFFSET_TEXT=0
+    
+    F_OFFSET_SYM=$(( (H_NUM - 15) / 5 ))
+    [[ $F_OFFSET_SYM -lt 0 ]] && F_OFFSET_SYM=0
+    
+    F_OFFSET_LARGE=$(( (H_NUM - 15) / 5 ))
+    [[ $F_OFFSET_LARGE -lt 0 ]] && F_OFFSET_LARGE=0
+    
+    F_CURV_OFFSET=$F_OFFSET_TEXT
+    [[ $F_CURV_OFFSET -lt 1 ]] && F_CURV_OFFSET=1
+else
+    F_SYM=$(( H_NUM * 13 / 20 + 1 ))
+    F_OFFSET_SYM=$(( (H_NUM - F_SYM) / 2 ))
+    [[ $F_OFFSET_SYM -lt 0 ]] && F_OFFSET_SYM=0
+    F_LARGE_SIZE=$(( F_ICON + 4 ))
+    F_OFFSET_TEXT=$(( (H_NUM - LINE_SIZE - F_TEXT) / 2 ))
+    [[ $F_OFFSET_TEXT -lt 0 ]] && F_OFFSET_TEXT=0
+    F_OFFSET_LARGE=$(( F_OFFSET_TEXT + 2 ))
+fi
 
 if [ "$TRANS" == "false" ]; then
     BG_COLOR="\${colors.background-solid}"
@@ -82,24 +136,41 @@ else
 fi
 
 if [ "$MODE" == "underline" ]; then
-    MOD_FOC_BG="\${colors.background-solid}"
+    MOD_FOC_BG="$BG_COLOR"
     MOD_FOC_FG="\${colors.primary}"
     MOD_FOC_UND="\${colors.primary}"
-    MOD_PRE_BG="\${colors.background-solid}"
+    MOD_PRE_BG="$BG_COLOR"
     MOD_PRE_FG="\${colors.primary}"
-    MOD_ROFI_BG="\${colors.primary}"
-    MOD_ROFI_FG="\${colors.background-solid}"
+    
+    if [ "$ROFI_STYLE" == "underline" ]; then
+        MOD_ROFI_BG="$BG_COLOR"
+        MOD_ROFI_FG="\${colors.primary}"
+        MOD_ROFI_UND="\${colors.primary}"
+        MOD_ROFI_FONT=5
+        LAUNCH_ICON=$'\u00a0'"${OS_ICON:-󰣆}"$'\u00a0'
+    else
+        MOD_ROFI_BG="\${colors.primary}"
+        MOD_ROFI_FG="\${colors.background-solid}"
+        MOD_ROFI_UND=""
+        MOD_ROFI_FONT=4
+        LAUNCH_ICON=$'\u00a0\u00a0'"${OS_ICON:-󰣆}"$'\u00a0\u00a0'
+        # Rofi solid en barra underline: usar métricas del estilo solid normal
+        F_ROFI_SIZE=$(( H_NUM * 4 / 5 + 1 ))
+        R_ROFI_OFFSET=$(( (H_NUM - 6) / 3 ))
+    fi
 else
     MOD_FOC_BG="\${colors.primary}"
     MOD_FOC_FG="\${colors.background-solid}"
-    MOD_FOC_UND="\${colors.primary}"
+    MOD_FOC_UND=""
     MOD_PRE_BG="\${colors.primary}"
     MOD_PRE_FG="\${colors.background-solid}"
+    
     MOD_ROFI_BG="\${colors.primary}"
     MOD_ROFI_FG="\${colors.background-solid}"
+    MOD_ROFI_UND=""
+    MOD_ROFI_FONT=5
+    LAUNCH_ICON=$'\u00a0\u00a0'"${OS_ICON:-󰣆}"$'\u00a0\u00a0'
 fi
-
-LAUNCH_ICON="${OS_ICON:-󰣆}"
 
 # 4. Escribir en RAM
 RAM_CONFIG="/dev/shm/user_configs.ini"
@@ -110,14 +181,15 @@ radius = $RADIUS
 bottom = $IS_BOTTOM
 pseudo-transparency = $P_TRANS
 background = $BG_COLOR
-font-0 = "JetBrainsMono Nerd Font Mono:style=Bold:size=$F_TEXT;$F_OFFSET"
+line-size = ${LINE_SIZE}pt
+font-0 = "JetBrainsMono Nerd Font Mono:style=Bold:size=$F_TEXT;$F_OFFSET_TEXT"
 font-1 = "Symbols Nerd Font:size=$F_CURV;$F_CURV_OFFSET"
-font-2 = "JetBrainsMono Nerd Font Mono:size=$F_TEXT:antialias=false;$F_OFFSET"
-font-rofi = "JetBrainsMono Nerd Font Mono:size=$F_ROFI;$R_OFFSET"
-font-extra = "JetBrainsMono Nerd Font Mono:size=$F_EXTRA;$F_OFFSET"
-font-firacode = "FiraCode Nerd Font:size=$F_ICON;$F_OFFSET"
-font-symbols = "Symbols Nerd Font Mono:size=$F_SYM;$F_OFFSET"
-font-large = "JetBrainsMono Nerd Font Mono:size=$((F_ICON + 4));$((F_OFFSET + 3))"
+font-2 = "JetBrainsMono Nerd Font Mono:size=$F_TEXT:antialias=false;$F_OFFSET_TEXT"
+font-rofi = "$F_ROFI_NAME:size=$F_ROFI_SIZE;$R_ROFI_OFFSET"
+font-extra = "JetBrainsMono Nerd Font Mono:size=$F_EXTRA;$F_OFFSET_TEXT"
+font-firacode = "FiraCode Nerd Font:size=$F_ICON;$F_OFFSET_TEXT"
+font-symbols = "Symbols Nerd Font Mono:size=$F_SYM;$F_OFFSET_SYM"
+font-large = "JetBrainsMono Nerd Font Mono:size=$F_LARGE_SIZE;$F_OFFSET_LARGE"
 module-padding = 1
 label-padding = 1
 focused-bg = $MOD_FOC_BG
@@ -127,6 +199,8 @@ prefix-bg = $MOD_PRE_BG
 prefix-fg = $MOD_PRE_FG
 rofi-bg = $MOD_ROFI_BG
 rofi-fg = $MOD_ROFI_FG
+rofi-underline = $MOD_ROFI_UND
+rofi-font = $MOD_ROFI_FONT
 launcher-icon = $LAUNCH_ICON
 dots-cmd = ${BASE_DIR:-$PROJECT_ROOT}/dots
 

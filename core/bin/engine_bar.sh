@@ -13,6 +13,7 @@ POS_STATE_FILE="$BAR_STATE_DIR/position"
 TRANS_STATE_FILE="$BAR_STATE_DIR/transparency"
 HEIGHT_STATE_FILE="$BAR_STATE_DIR/height"
 MODE_STATE_FILE="$BAR_STATE_DIR/mode"
+ROFI_STYLE_STATE_FILE="$BAR_STATE_DIR/rofi_style"
 
 # 1.5 Auto-detectar Hook de Barra y Consultar Metadatos
 BAR_HOOK=""
@@ -40,6 +41,7 @@ BAR_DEFAULT_TYPE="standard"
 BAR_HEIGHT_OPTIONS="20px\n24px\n28px\n32px"
 BAR_HEIGHT_UNIT="px"
 BAR_HAS_MODES="false"
+BAR_SUPPORTED_OPTIONS=""
 
 # Si existe el hook, consultar capacidades
 if [ -n "$BAR_HOOK" ] && [ -f "$BAR_HOOK" ]; then
@@ -51,9 +53,26 @@ if [ -n "$BAR_HOOK" ] && [ -f "$BAR_HOOK" ]; then
             height_options)  BAR_HEIGHT_OPTIONS="$val" ;;
             height_unit)     BAR_HEIGHT_UNIT="$val" ;;
             has_modes)       BAR_HAS_MODES="$val" ;;
+            supported_options) BAR_SUPPORTED_OPTIONS="$val" ;;
         esac
     done < <(bash "$BAR_HOOK" --query 2>/dev/null)
 fi
+
+# 1.5.5 Helper Genérico para Mapeo de Flags Cortos a Keys Dinámicos
+find_key_by_short_flag() {
+    local flag="$1"
+    if [ -n "$BAR_SUPPORTED_OPTIONS" ]; then
+        IFS='|' read -ra OPT_ARRAY <<< "$BAR_SUPPORTED_OPTIONS"
+        for opt in "${OPT_ARRAY[@]}"; do
+            IFS=':' read -r opt_key opt_label opt_vals <<< "$opt"
+            if [[ "$opt_key" == "$flag"* ]]; then
+                echo "$opt_key"
+                return 0
+            fi
+        done
+    fi
+    echo "$flag"
+}
 
 # 1.6 Configurar Selector de forma Genérica y Agnóstica
 BAR_SEL_BIN="${BAR_SEL_BIN:-${WP_SEL_BIN:-rofi}}"
@@ -84,12 +103,9 @@ fi
 
 
 # 2. Parseo de Argumentos
-SEL_STYLE=""
+declare -A CLI_PARAMS
 SEL_TYPE=""
-SEL_POS=""
-SEL_TRANS=""
 SEL_HEIGHT=""
-SEL_MODE=""
 DO_NEXT=0
 DO_PREV=0
 DO_SELECT=0
@@ -98,17 +114,20 @@ LIST_ALL=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        -s|--style)  SEL_STYLE="$2"; shift 2 ;;
         -b|--bar)    SEL_TYPE="$2"; shift 2 ;;
-        -p|--pos)    SEL_POS="$2"; shift 2 ;;
-        -t|--trans)  SEL_TRANS="$2"; shift 2 ;;
         -H|-h|--height) SEL_HEIGHT="$2"; shift 2 ;;
-        -m|--mode)   SEL_MODE="$2"; shift 2 ;;
         --next)      DO_NEXT=1; shift ;;
         --prev)      DO_PREV=1; shift ;;
         --select)    DO_SELECT=1; shift ;;
         --manage)    DO_MANAGE=1; shift ;;
         -L|--list)   LIST_ALL=1; shift ;;
+        -*)          
+            flag="${1#--}"
+            flag="${flag#-}"
+            key=$(find_key_by_short_flag "$flag")
+            CLI_PARAMS["$key"]="$2"
+            shift 2
+            ;;
         *) shift ;;
     esac
 done
@@ -173,15 +192,19 @@ if [ "$DO_NEXT" -eq 1 ] || [ "$DO_PREV" -eq 1 ] || [ "$DO_SELECT" -eq 1 ]; then
     NEW_NAME=$(echo "$SELECTED_PRESET" | cut -d':' -f1 | xargs)
 
     set -- $NEW_PRESET_CMD
-    SEL_STYLE=""; SEL_TYPE=""; SEL_POS=""; SEL_TRANS=""; SEL_HEIGHT=""; SEL_MODE=""
+    SEL_TYPE=""
+    SEL_HEIGHT=""
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            -s|--style)  SEL_STYLE="$2"; shift 2 ;;
             -b|--bar)    SEL_TYPE="$2"; shift 2 ;;
-            -p|--pos)    SEL_POS="$2"; shift 2 ;;
-            -t|--trans)  SEL_TRANS="$2"; shift 2 ;;
             -H|-h|--height) SEL_HEIGHT="$2"; shift 2 ;;
-            -m|--mode)   SEL_MODE="$2"; shift 2 ;;
+            -*)
+                flag="${1#--}"
+                flag="${flag#-}"
+                key=$(find_key_by_short_flag "$flag")
+                CLI_PARAMS["$key"]="$2"
+                shift 2
+                ;;
             *) shift ;;
         esac
     done
@@ -192,15 +215,31 @@ fi
 if [ "$DO_MANAGE" -eq 1 ]; then
     CUR_TYPE=$(cat "$TYPE_STATE_FILE" 2>/dev/null | tr -d '[:space:]' || echo "$BAR_DEFAULT_TYPE")
     CUR_H=$(cat "$HEIGHT_STATE_FILE" 2>/dev/null || echo "$BAR_HEIGHT")
-    CUR_M=$(cat "$MODE_STATE_FILE" 2>/dev/null || echo "solid")
-    CUR_S=$(cat "$STYLE_STATE_FILE" 2>/dev/null || echo "square")
-    CUR_P=$(cat "$POS_STATE_FILE" 2>/dev/null || echo "bottom")
-    CUR_T=$(cat "$TRANS_STATE_FILE" 2>/dev/null || echo "true")
     
-    options="Height: $CUR_H\nStyle: $CUR_S\nPos: $CUR_P\nTrans: $CUR_T"
-    if [ "$BAR_HAS_MODES" == "true" ]; then
-        options="Mode: $CUR_M\n$options"
+    options="Height: $CUR_H"
+    
+    # Parsear opciones dinámicas
+    declare -A OPT_LABELS
+    declare -A OPT_VALUES
+    
+    if [ -n "$BAR_SUPPORTED_OPTIONS" ]; then
+        IFS='|' read -ra OPT_ARRAY <<< "$BAR_SUPPORTED_OPTIONS"
+        for opt in "${OPT_ARRAY[@]}"; do
+            IFS=':' read -r opt_key opt_label opt_vals <<< "$opt"
+            OPT_LABELS["$opt_key"]="$opt_label"
+            OPT_VALUES["$opt_key"]="$opt_vals"
+            
+            cur_val=$(cat "$BAR_STATE_DIR/$opt_key" 2>/dev/null | tr -d '[:space:]')
+            if [ -z "$cur_val" ]; then
+                cur_val=$(echo "$opt_vals" | cut -d',' -f1)
+                echo "$cur_val" > "$BAR_STATE_DIR/$opt_key"
+            fi
+            
+            options="$options\n$opt_label: $cur_val"
+        done
     fi
+    
+
     
     choice=$(echo -e "$options" | "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Manage Bar: $CUR_TYPE")
     [[ -z "$choice" ]] && exit 0
@@ -213,21 +252,18 @@ if [ "$DO_MANAGE" -eq 1 ]; then
             fi
             [[ -n "$NEW_H" ]] && exec "$0" -h "$NEW_H"
             ;;
-        Mode:*)
-            NEW_M=$(echo -e "solid\nunderline" | "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Select Mode")
-            [[ -n "$NEW_M" ]] && exec "$0" -m "$NEW_M"
-            ;;
-        Style:*)
-            NEW_S=$(echo -e "round\nsquare" | "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Select Style")
-            [[ -n "$NEW_S" ]] && exec "$0" -s "$NEW_S"
-            ;;
-        Pos:*)
-            NEW_P=$(echo -e "top\nbottom" | "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Select Position")
-            [[ -n "$NEW_P" ]] && exec "$0" -p "$NEW_P"
-            ;;
-        Trans:*)
-            NEW_T=$(echo -e "true\nfalse" | "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Enable Transparency?")
-            [[ -n "$NEW_T" ]] && exec "$0" -t "$NEW_T"
+
+        *)
+            choice_label=$(echo "$choice" | cut -d':' -f1 | xargs)
+            for opt_key in "${!OPT_LABELS[@]}"; do
+                if [ "${OPT_LABELS[$opt_key]}" == "$choice_label" ]; then
+                    val_options=$(echo "${OPT_VALUES[$opt_key]}" | tr ',' '\n')
+                    NEW_VAL=$(echo -e "$val_options" | "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Select $choice_label")
+                    if [ -n "$NEW_VAL" ]; then
+                        exec "$0" --"$opt_key" "$NEW_VAL"
+                    fi
+                fi
+            done
             ;;
     esac
     exit 0
@@ -235,9 +271,6 @@ fi
 
 # 4. Listar (si se solicita)
 if [ "$LIST_ALL" -eq 1 ]; then
-    echo "Estilos disponibles: round, square"
-    echo "Posiciones: top, bottom"
-    echo "Transparencia: true, false"
     echo "Altura: (ej: 15pt, 20px)"
     echo "Modos: solid, underline"
     echo "Temas de Barra:"
@@ -249,37 +282,56 @@ if [ "$LIST_ALL" -eq 1 ]; then
 fi
 
 # 4. Selección Interactiva (si no se pasó nada)
-if [ -z "$SEL_STYLE" ] && [ -z "$SEL_TYPE" ] && [ -z "$SEL_POS" ] && [ -z "$SEL_TRANS" ] && [ -z "$SEL_HEIGHT" ] && [ -z "$SEL_MODE" ]; then
-    # Generar opciones dinámicas
-    options="Style: round\nStyle: square\nPos: top\nPos: bottom\nTrans: true\nTrans: false\nHeight: custom"
-    if [ "$BAR_HAS_MODES" == "true" ]; then
-        options="Mode: solid\nMode: underline\n$options"
+ANY_CLI_PARAM=0
+for key in "${!CLI_PARAMS[@]}"; do
+    ANY_CLI_PARAM=1
+    break
+done
+
+if [ -z "$SEL_TYPE" ] && [ -z "$SEL_HEIGHT" ] && [ "$ANY_CLI_PARAM" -eq 0 ]; then
+    options="Height: custom"
+    
+    declare -A OPT_LABELS
+    declare -A OPT_VALUES
+    if [ -n "$BAR_SUPPORTED_OPTIONS" ]; then
+        IFS='|' read -ra OPT_ARRAY <<< "$BAR_SUPPORTED_OPTIONS"
+        for opt in "${OPT_ARRAY[@]}"; do
+            IFS=':' read -r opt_key opt_label opt_vals <<< "$opt"
+            OPT_LABELS["$opt_key"]="$opt_label"
+            OPT_VALUES["$opt_key"]="$opt_vals"
+            
+            IFS=',' read -ra VALS_ARR <<< "$opt_vals"
+            for val in "${VALS_ARR[@]}"; do
+                options="$options\n$opt_label: $val"
+            done
+        done
     fi
+    
+
+    
     if [ -n "$BAR_THEMES_DIR" ] && [ -d "$BAR_THEMES_DIR" ]; then
         for theme in $(ls -1 "$BAR_THEMES_DIR"); do
             options+="\nTheme: $theme"
         done
     fi
     
-    # Menú Principal de Configuración de Barra
     choice=$(echo -e "$options" | "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Bar Config")
-    
     [[ -z "$choice" ]] && exit 0
 
-    if [[ "$choice" == Style:* ]]; then
-        SEL_STYLE="${choice#Style: }"
-    elif [[ "$choice" == Pos:* ]]; then
-        SEL_POS="${choice#Pos: }"
-    elif [[ "$choice" == Trans:* ]]; then
-        SEL_TRANS="${choice#Trans: }"
-    elif [[ "$choice" == Mode:* ]]; then
-        SEL_MODE="${choice#Mode: }"
-    elif [[ "$choice" == Theme:* ]]; then
+    if [[ "$choice" == Theme:* ]]; then
         SEL_TYPE="${choice#Theme: }"
     elif [[ "$choice" == "Height: custom" ]]; then
-        # Pedir altura personalizada
         SEL_HEIGHT=$(echo "" | "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Enter Height (eg: 24$BAR_HEIGHT_UNIT)")
         [[ -z "$SEL_HEIGHT" ]] && exit 0
+
+    else
+        choice_label=$(echo "$choice" | cut -d':' -f1 | xargs)
+        choice_val=$(echo "$choice" | cut -d':' -f2 | xargs)
+        for opt_key in "${!OPT_LABELS[@]}"; do
+            if [ "${OPT_LABELS[$opt_key]}" == "$choice_label" ]; then
+                CLI_PARAMS["$opt_key"]="$choice_val"
+            fi
+        done
     fi
 fi
 
@@ -287,14 +339,7 @@ fi
 [ -n "$SEL_TYPE" ] && echo "$SEL_TYPE" > "$TYPE_STATE_FILE"
 CUR_TYPE=$(cat "$TYPE_STATE_FILE" 2>/dev/null | tr -d '[:space:]' || echo "$BAR_DEFAULT_TYPE")
 
-# Archivos de estado individuales para el tema activo
 THEME_HEIGHT_FILE="$BAR_STATE_DIR/height_$CUR_TYPE"
-THEME_STYLE_FILE="$BAR_STATE_DIR/style_$CUR_TYPE"
-THEME_POS_FILE="$BAR_STATE_DIR/position_$CUR_TYPE"
-THEME_TRANS_FILE="$BAR_STATE_DIR/transparency_$CUR_TYPE"
-THEME_MODE_FILE="$BAR_STATE_DIR/mode_$CUR_TYPE"
-
-# Lógica de Altura Aislada y Sincronizada
 if [ -n "$SEL_HEIGHT" ]; then
     echo "$SEL_HEIGHT" > "$THEME_HEIGHT_FILE"
     echo "$SEL_HEIGHT" > "$HEIGHT_STATE_FILE"
@@ -308,63 +353,38 @@ else
     fi
 fi
 
-# Lógica de Estilo Aislado y Sincronizado
-if [ -n "$SEL_STYLE" ]; then
-    echo "$SEL_STYLE" > "$THEME_STYLE_FILE"
-    echo "$SEL_STYLE" > "$STYLE_STATE_FILE"
-else
-    SAVED_STYLE=$(cat "$THEME_STYLE_FILE" 2>/dev/null)
-    if [ -n "$SAVED_STYLE" ]; then
-        echo "$SAVED_STYLE" > "$STYLE_STATE_FILE"
-    else
-        DEFAULT_STYLE="${BAR_STYLE:-square}"
-        [[ "$CUR_TYPE" == "polybar_antigua" ]] && DEFAULT_STYLE="round"
-        echo "$DEFAULT_STYLE" > "$THEME_STYLE_FILE"
-        echo "$DEFAULT_STYLE" > "$STYLE_STATE_FILE"
-    fi
+# Guardar y sincronizar todas las opciones dinámicas declaradas
+if [ -n "$BAR_SUPPORTED_OPTIONS" ]; then
+    IFS='|' read -ra OPT_ARRAY <<< "$BAR_SUPPORTED_OPTIONS"
+    for opt in "${OPT_ARRAY[@]}"; do
+        IFS=':' read -r opt_key opt_label opt_vals <<< "$opt"
+        
+        STATE_FILE="$BAR_STATE_DIR/$opt_key"
+        THEME_STATE_FILE="$BAR_STATE_DIR/${opt_key}_$CUR_TYPE"
+        
+        if [ -n "${CLI_PARAMS[$opt_key]}" ]; then
+            val="${CLI_PARAMS[$opt_key]}"
+            echo "$val" > "$THEME_STATE_FILE"
+            echo "$val" > "$STATE_FILE"
+        else
+            saved_theme_val=$(cat "$THEME_STATE_FILE" 2>/dev/null | tr -d '[:space:]')
+            if [ -n "$saved_theme_val" ]; then
+                echo "$saved_theme_val" > "$STATE_FILE"
+            else
+                saved_gen_val=$(cat "$STATE_FILE" 2>/dev/null | tr -d '[:space:]')
+                if [ -n "$saved_gen_val" ]; then
+                    echo "$saved_gen_val" > "$THEME_STATE_FILE"
+                else
+                    fallback_val=$(echo "$opt_vals" | cut -d',' -f1)
+                    echo "$fallback_val" > "$THEME_STATE_FILE"
+                    echo "$fallback_val" > "$STATE_FILE"
+                fi
+            fi
+        fi
+    done
 fi
 
-# Lógica de Posición Aislada y Sincronizada
-if [ -n "$SEL_POS" ]; then
-    echo "$SEL_POS" > "$THEME_POS_FILE"
-    echo "$SEL_POS" > "$POS_STATE_FILE"
-else
-    SAVED_POS=$(cat "$THEME_POS_FILE" 2>/dev/null)
-    if [ -n "$SAVED_POS" ]; then
-        echo "$SAVED_POS" > "$POS_STATE_FILE"
-    else
-        echo "${BAR_POSITION:-bottom}" > "$THEME_POS_FILE"
-        echo "${BAR_POSITION:-bottom}" > "$POS_STATE_FILE"
-    fi
-fi
 
-# Lógica de Transparencia Aislada y Sincronizada
-if [ -n "$SEL_TRANS" ]; then
-    echo "$SEL_TRANS" > "$THEME_TRANS_FILE"
-    echo "$SEL_TRANS" > "$TRANS_STATE_FILE"
-else
-    SAVED_TRANS=$(cat "$THEME_TRANS_FILE" 2>/dev/null)
-    if [ -n "$SAVED_TRANS" ]; then
-        echo "$SAVED_TRANS" > "$TRANS_STATE_FILE"
-    else
-        echo "${BAR_TRANSPARENCY:-true}" > "$THEME_TRANS_FILE"
-        echo "${BAR_TRANSPARENCY:-true}" > "$TRANS_STATE_FILE"
-    fi
-fi
-
-# Lógica de Modo Aislado y Sincronizado
-if [ -n "$SEL_MODE" ]; then
-    echo "$SEL_MODE" > "$THEME_MODE_FILE"
-    echo "$SEL_MODE" > "$MODE_STATE_FILE"
-else
-    SAVED_MODE=$(cat "$THEME_MODE_FILE" 2>/dev/null)
-    if [ -n "$SAVED_MODE" ]; then
-        echo "$SAVED_MODE" > "$MODE_STATE_FILE"
-    else
-        echo "${BAR_MODE:-solid}" > "$THEME_MODE_FILE"
-        echo "${BAR_MODE:-solid}" > "$MODE_STATE_FILE"
-    fi
-fi
 
 # 7. Aplicar cambios
 "$BIN_DIR/apply_dots.sh"
