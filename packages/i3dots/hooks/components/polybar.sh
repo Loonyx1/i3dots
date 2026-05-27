@@ -3,7 +3,8 @@
 
 # 0. Protocolo de Consulta para el Core
 if [ "$1" == "--query" ]; then
-    CUR_TYPE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/type" 2>/dev/null | tr -d '[:space:]' || echo "polybar_antigua")
+    CUR_TYPE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/type" 2>/dev/null || echo "polybar_antigua")
+    CUR_TYPE=$(echo "$CUR_TYPE" | tr -d '[:space:]')
     THEME_SRC="$PACKAGE_DIR/dotfiles/polybar_configs/$CUR_TYPE"
     
     SUPPORTED="style:Style:round,square|position:Position:top,bottom|transparency:Transparency:true,false"
@@ -28,8 +29,8 @@ STYLE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/style" 2>/dev/null || echo "square")
 POS=$(cat "$STATE_DIR/$CURRENT_ENV/bar/position" 2>/dev/null || echo "$BAR_POSITION")
 TRANS=$(cat "$STATE_DIR/$CURRENT_ENV/bar/transparency" 2>/dev/null || echo "$BAR_TRANSPARENCY")
 HEIGHT=$(cat "$STATE_DIR/$CURRENT_ENV/bar/height" 2>/dev/null || echo "$BAR_HEIGHT")
-TYPE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/type" 2>/dev/null | tr -d '[:space:]' || echo "${BAR_DEFAULT_TYPE:-polybar_antigua}")
-MODE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/mode" 2>/dev/null | tr -d '[:space:]' || echo "solid")
+TYPE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/type" 2>/dev/null || echo "${BAR_DEFAULT_TYPE:-polybar_antigua}")
+MODE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/mode" 2>/dev/null || echo "solid")
 ROFI_STYLE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/rofi_style" 2>/dev/null || echo "solid")
 SOLID_LINE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/solid_line" 2>/dev/null || echo "true")
 

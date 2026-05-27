@@ -3,4 +3,4 @@
 
 MOD_FILE="modules_${MODE}.ini"
 [ ! -f "$THEME_SRC/$MOD_FILE" ] && MOD_FILE="modules_underline.ini"
-ln -sf "$MOD_FILE" "$CONF_DIR/current_theme/modules.ini"
+ln -sf "current_theme/$MOD_FILE" "$CONF_DIR/modules.ini"

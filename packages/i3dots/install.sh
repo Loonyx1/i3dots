@@ -102,7 +102,11 @@ mkdir -p ~/.local/share/fonts
 install_font() {
     local name="$1"
     local url="$2"
-    if [ ! -d ~/.local/share/fonts/"$name" ]; then
+    if [ -d "$HOME/.local/share/fonts/$name" ] || [ -d "/usr/share/fonts/$name" ] || [ -d "/usr/share/fonts/TTF/$name" ] || [ -d "/usr/share/fonts/truetype/$name" ]; then
+        print_sub_ok "Fuente $name ya instalada."
+    elif [ -n "$SKIP_FONTS_DOWNLOAD" ]; then
+        print_sub_ok "Fuente $name (omitida por configuración)."
+    else
         print_sub "Instalando tipografía $name..."
         local TEMP_F=$(mktemp -d)
         if wget -q --show-progress -P "$TEMP_F" "$url" &>> "$LOG_FILE" && \
@@ -114,8 +118,6 @@ install_font() {
             print_sub_err "Fallo al descargar/extraer $name."
             return 1
         fi
-    else
-        print_sub_ok "Fuente $name ya instalada."
     fi
 }
 
@@ -127,7 +129,11 @@ fc-cache -fv &>> "$LOG_FILE"
 # 5. Temas (adw-gtk3)
 print_step "Instalando temas de escritorio..."
 mkdir -p ~/.themes
-if [ ! -d ~/.themes/adw-gtk3-dark ]; then
+if [ -d "$HOME/.themes/adw-gtk3-dark" ] || [ -d "/usr/share/themes/adw-gtk3-dark" ]; then
+    print_sub_ok "Tema adw-gtk3-dark ya instalado."
+elif [ -n "$SKIP_THEMES_DOWNLOAD" ]; then
+    print_sub_ok "Tema adw-gtk3-dark (omitido por configuración)."
+else
     print_sub "Descargando adw-gtk3-dark..."
     if wget -q https://github.com/lassekongo83/adw-gtk3/releases/download/v6.5/adw-gtk3v6.5.tar.xz -O /tmp/adw-gtk3.tar.xz &>> "$LOG_FILE" && \
        tar -xf /tmp/adw-gtk3.tar.xz -C ~/.themes &>> "$LOG_FILE"; then
@@ -136,13 +142,15 @@ if [ ! -d ~/.themes/adw-gtk3-dark ]; then
     else
         print_sub_err "Fallo al instalar tema adw-gtk3-dark."
     fi
-else
-    print_sub_ok "Tema adw-gtk3-dark ya instalado."
 fi
 
 # 6. Matugen
 print_step "Validando/Instalando Matugen..."
-if ! command -v matugen &> /dev/null; then
+if command -v matugen &> /dev/null; then
+    print_sub_ok "Matugen ya instalado."
+elif [ -n "$SKIP_MATUGEN_DOWNLOAD" ]; then
+    print_sub_ok "Matugen (omitido por configuración)."
+else
     print_sub "Buscando última versión de Matugen..."
     TEMP_MATUGEN=$(mktemp -d)
     URL=$(curl -s https://api.github.com/repos/InioX/matugen/releases/latest | grep "browser_download_url.*x86_64.tar.gz" | cut -d '"' -f 4)
@@ -173,8 +181,6 @@ if ! command -v matugen &> /dev/null; then
         cargo install matugen &>> "$LOG_FILE" && print_sub_ok "Matugen instalado vía Cargo." || print_sub_err "Fallo en instalación vía Cargo."
     fi
     rm -rf "$TEMP_MATUGEN"
-else
-    print_sub_ok "Matugen ya instalado."
 fi
 
 # Ajustar rutas en entorno

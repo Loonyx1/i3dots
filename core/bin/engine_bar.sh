@@ -75,6 +75,22 @@ find_key_by_short_flag() {
     echo "$flag"
 }
 
+get_default_option_val() {
+    local target_key="$1"
+    local fallback="$2"
+    if [ -n "$BAR_SUPPORTED_OPTIONS" ]; then
+        IFS='|' read -ra OPT_ARRAY <<< "$BAR_SUPPORTED_OPTIONS"
+        for opt in "${OPT_ARRAY[@]}"; do
+            IFS=':' read -r opt_key opt_label opt_vals <<< "$opt"
+            if [ "$opt_key" == "$target_key" ]; then
+                echo "$opt_vals" | cut -d',' -f1
+                return 0
+            fi
+        done
+    fi
+    echo "$fallback"
+}
+
 # 1.6 Configurar Selector de forma Genérica y Agnóstica
 BAR_SEL_BIN="${BAR_SEL_BIN:-${WP_SEL_BIN:-rofi}}"
 
@@ -167,8 +183,11 @@ if [ "$DO_NEXT" -eq 1 ] || [ "$DO_PREV" -eq 1 ] || [ "$DO_SELECT" -eq 1 ]; then
     else
         # Lógica de Ciclo (Next/Prev)
         CURRENT_INDEX=-1
-        CUR_TYPE=$(cat "$TYPE_STATE_FILE" 2>/dev/null | tr -d '[:space:]' || echo "$BAR_DEFAULT_TYPE")
-        CUR_MODE=$(cat "$MODE_STATE_FILE" 2>/dev/null | tr -d '[:space:]' || echo "solid")
+        CUR_TYPE=$(cat "$TYPE_STATE_FILE" 2>/dev/null || echo "$BAR_DEFAULT_TYPE")
+        CUR_TYPE=$(echo "$CUR_TYPE" | tr -d '[:space:]')
+        DEFAULT_MODE=$(get_default_option_val "mode" "solid")
+        CUR_MODE=$(cat "$MODE_STATE_FILE" 2>/dev/null || echo "$DEFAULT_MODE")
+        CUR_MODE=$(echo "$CUR_MODE" | tr -d '[:space:]')
 
         for i in "${!PRESET_ARRAY[@]}"; do
             preset_cmd=$(echo "${PRESET_ARRAY[$i]}" | cut -d':' -f2)
@@ -214,7 +233,8 @@ fi
 
 # 3.5 Lógica de Gestión (Manage)
 if [ "$DO_MANAGE" -eq 1 ]; then
-    CUR_TYPE=$(cat "$TYPE_STATE_FILE" 2>/dev/null | tr -d '[:space:]' || echo "$BAR_DEFAULT_TYPE")
+    CUR_TYPE=$(cat "$TYPE_STATE_FILE" 2>/dev/null || echo "$BAR_DEFAULT_TYPE")
+    CUR_TYPE=$(echo "$CUR_TYPE" | tr -d '[:space:]')
     CUR_H=$(cat "$HEIGHT_STATE_FILE" 2>/dev/null || echo "$BAR_HEIGHT")
     
     options="Height: $CUR_H"
@@ -338,7 +358,8 @@ fi
 
 # 5. Validar y Guardar con Aislamiento por Tema
 [ -n "$SEL_TYPE" ] && echo "$SEL_TYPE" > "$TYPE_STATE_FILE"
-CUR_TYPE=$(cat "$TYPE_STATE_FILE" 2>/dev/null | tr -d '[:space:]' || echo "$BAR_DEFAULT_TYPE")
+CUR_TYPE=$(cat "$TYPE_STATE_FILE" 2>/dev/null || echo "$BAR_DEFAULT_TYPE")
+CUR_TYPE=$(echo "$CUR_TYPE" | tr -d '[:space:]')
 
 THEME_HEIGHT_FILE="$BAR_STATE_DIR/height_$CUR_TYPE"
 if [ -n "$SEL_HEIGHT" ]; then
