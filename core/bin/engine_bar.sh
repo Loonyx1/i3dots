@@ -56,6 +56,7 @@ if [ -n "$BAR_HOOK" ] && [ -f "$BAR_HOOK" ]; then
             supported_options) BAR_SUPPORTED_OPTIONS="$val" ;;
         esac
     done < <(bash "$BAR_HOOK" --query 2>/dev/null)
+    export BAR_DEFAULT_TYPE
 fi
 
 # 1.5.5 Helper Genérico para Mapeo de Flags Cortos a Keys Dinámicos
