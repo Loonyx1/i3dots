@@ -226,4 +226,6 @@ include-file = \$HOME/.config/polybar/current_theme/config.ini
 EOF
 
 # 6. Lanzar
-bash "$CONF_DIR/launch.sh" &
+if [ -x "$CONF_DIR/launch.sh" ] && [ -n "$DISPLAY" ]; then
+    bash "$CONF_DIR/launch.sh" &
+fi
