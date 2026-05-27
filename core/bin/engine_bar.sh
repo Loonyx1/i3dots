@@ -37,7 +37,7 @@ fi
 
 # Inicializar metadatos (fallbacks seguros)
 BAR_THEMES_DIR=""
-BAR_DEFAULT_TYPE="standard"
+BAR_DEFAULT_TYPE="${BAR_DEFAULT_TYPE:-standard}"
 BAR_HEIGHT_OPTIONS="20px\n24px\n28px\n32px"
 BAR_HEIGHT_UNIT="px"
 BAR_HAS_MODES="false"
