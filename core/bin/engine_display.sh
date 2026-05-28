@@ -50,6 +50,7 @@ fi
 GLYPH_MONITOR="${DISP_GLYPH_MONITOR:-}"
 GLYPH_RESOLUTION="${DISP_GLYPH_RESOLUTION:-}"
 GLYPH_RATE="${DISP_GLYPH_RATE:-}"
+GLYPH_SCALE="${DISP_GLYPH_SCALE:-}"
 GLYPH_CONFIRM="${DISP_GLYPH_CONFIRM:-}"
 
 PROM_MAIN="${DISP_PROM_MAIN:-Configuración de Pantalla}"
@@ -57,15 +58,17 @@ PROM_TIMEOUT="${DISP_PROM_TIMEOUT:-Tiempo de Confirmación}"
 PROM_MONITOR="${DISP_PROM_MONITOR:-Pantalla}"
 PROM_RESOLUTION="${DISP_PROM_RESOLUTION:-Resolución}"
 PROM_RATE="${DISP_PROM_RATE:-Frecuencia}"
+PROM_SCALE="${DISP_PROM_SCALE:-Escala}"
 PROM_CONFIRM="${DISP_PROM_CONFIRM:-¿Mantener resolución?}"
 PROM_MSG="${DISP_PROM_MSG:-Se revertirá automáticamente tras %s segundos de inactividad.}"
 
 PROM_MENU_OUTPUT="${DISP_PROM_MENU_OUTPUT:-1. Pantalla}"
 PROM_MENU_RES="${DISP_PROM_MENU_RES:-2. Resolución}"
 PROM_MENU_RATE="${DISP_PROM_MENU_RATE:-3. Frecuencia}"
-PROM_MENU_TIME="${DISP_PROM_MENU_TIME:-4. Tiempo Confirmación}"
-PROM_MENU_APPLY="${DISP_PROM_MENU_APPLY:-5. [ Aplicar y Probar ]}"
-PROM_MENU_CANCEL="${DISP_PROM_MENU_CANCEL:-6. [ Cancelar y Salir ]}"
+PROM_MENU_SCALE="${DISP_PROM_MENU_SCALE:-4. Escala}"
+PROM_MENU_TIME="${DISP_PROM_MENU_TIME:-5. Tiempo Confirmación}"
+PROM_MENU_APPLY="${DISP_PROM_MENU_APPLY:-6. [ Aplicar y Probar ]}"
+PROM_MENU_CANCEL="${DISP_PROM_MENU_CANCEL:-7. [ Cancelar y Salir ]}"
 
 PROM_VAL_NONE="${DISP_PROM_VAL_NONE:-No seleccionada}"
 PROM_VAL_AUTO="${DISP_PROM_VAL_AUTO:-Auto}"
@@ -74,6 +77,7 @@ VAL_CONFIRM="${DISP_VAL_CONFIRM:-Confirmar}"
 VAL_REVERT="${DISP_VAL_REVERT:-Revertir}"
 
 PROM_TIMES="${DISP_PROM_TIMES:-5s\n10s\n15s\n30s\n60s}"
+PROM_SCALES="${DISP_PROM_SCALES:-0.5\n0.75\n1.0\n1.25\n1.5\n1.75\n2.0\n2.5\n3.0\npersonalizada}"
 UNIT_RATE="${DISP_UNIT_RATE:- Hz}"
 
 # 2. Funciones de Flujo
@@ -93,14 +97,20 @@ init_display() {
         
         resolution=$(cat "$res_file")
         rate_file="$DISPLAY_STATE_DIR/${output}.rate"
+        scale_file="$DISPLAY_STATE_DIR/${output}.scale"
         
         rate=""
         if [ -f "$rate_file" ]; then
             rate=$(cat "$rate_file")
         fi
         
-        echo "Inicializando $output -> $resolution ${rate:+@ $rate}"
-        bash "$DISPLAY_HOOK" --apply "$output" "$resolution" "$rate"
+        scale=""
+        if [ -f "$scale_file" ]; then
+            scale=$(cat "$scale_file")
+        fi
+        
+        echo "Inicializando $output -> $resolution ${rate:+@ $rate} ${scale:+[x$scale]}"
+        bash "$DISPLAY_HOOK" --apply "$output" "$resolution" "$rate" "$scale"
         applied=1
     done
     
@@ -117,6 +127,9 @@ select_display_interactive() {
             exit 1
         fi
         
+        local default_scale=$(bash "$DISPLAY_HOOK" --get-current-scale "$default_output")
+        default_scale="${default_scale:-1.0}"
+        
         local saved_timeout="15"
         if [ -f "$DISPLAY_STATE_DIR/timeout" ]; then
             saved_timeout=$(cat "$DISPLAY_STATE_DIR/timeout" | tr -d '[:space:]')
@@ -128,6 +141,7 @@ select_display_interactive() {
         echo "SEL_OUTPUT=\"$default_output\"" > "$tmp_sel_file"
         echo "SEL_RES=\"$default_res\"" >> "$tmp_sel_file"
         echo "SEL_RATE=\"$default_rate\"" >> "$tmp_sel_file"
+        echo "SEL_SCALE=\"$default_scale\"" >> "$tmp_sel_file"
         echo "SEL_TIMEOUT=\"$saved_timeout\"" >> "$tmp_sel_file"
     fi
     
@@ -145,11 +159,13 @@ select_display_interactive() {
         fi
     fi
     SEL_TIMEOUT="${SEL_TIMEOUT:-$saved_timeout}"
+    SEL_SCALE="${SEL_SCALE:-1.0}"
     
     local menu_options=""
     menu_options+="${PROM_MENU_OUTPUT}: $SEL_OUTPUT\n"
     menu_options+="${PROM_MENU_RES}: ${SEL_RES:-$PROM_VAL_NONE}\n"
     menu_options+="${PROM_MENU_RATE}: ${SEL_RATE:-$PROM_VAL_AUTO}\n"
+    menu_options+="${PROM_MENU_SCALE}: ${SEL_SCALE}\n"
     menu_options+="${PROM_MENU_TIME}: ${SEL_TIMEOUT}s\n"
     menu_options+="${PROM_MENU_APPLY}\n"
     menu_options+="${PROM_MENU_CANCEL}"
@@ -174,10 +190,13 @@ select_display_interactive() {
                 new_out=$(echo "$new_out" | tr -d '[:space:]')
                 
                 read -r new_res new_rate <<< $(bash "$DISPLAY_HOOK" --get-current-all "$new_out")
+                local new_scale=$(bash "$DISPLAY_HOOK" --get-current-scale "$new_out")
+                new_scale="${new_scale:-1.0}"
                 
                 echo "SEL_OUTPUT=\"$new_out\"" > "$tmp_sel_file"
                 echo "SEL_RES=\"$new_res\"" >> "$tmp_sel_file"
                 echo "SEL_RATE=\"$new_rate\"" >> "$tmp_sel_file"
+                echo "SEL_SCALE=\"$new_scale\"" >> "$tmp_sel_file"
                 echo "SEL_TIMEOUT=\"$SEL_TIMEOUT\"" >> "$tmp_sel_file"
             fi
             exec "$script_path"
@@ -204,6 +223,7 @@ select_display_interactive() {
                 echo "SEL_OUTPUT=\"$SEL_OUTPUT\"" > "$tmp_sel_file"
                 echo "SEL_RES=\"$new_res\"" >> "$tmp_sel_file"
                 echo "SEL_RATE=\"$new_rate\"" >> "$tmp_sel_file"
+                echo "SEL_SCALE=\"$SEL_SCALE\"" >> "$tmp_sel_file"
                 echo "SEL_TIMEOUT=\"$SEL_TIMEOUT\"" >> "$tmp_sel_file"
             fi
             exec "$script_path"
@@ -232,6 +252,32 @@ select_display_interactive() {
                 echo "SEL_OUTPUT=\"$SEL_OUTPUT\"" > "$tmp_sel_file"
                 echo "SEL_RES=\"$SEL_RES\"" >> "$tmp_sel_file"
                 echo "SEL_RATE=\"$new_rate\"" >> "$tmp_sel_file"
+                echo "SEL_SCALE=\"$SEL_SCALE\"" >> "$tmp_sel_file"
+                echo "SEL_TIMEOUT=\"$SEL_TIMEOUT\"" >> "$tmp_sel_file"
+            fi
+            exec "$script_path"
+            ;;
+            
+        *"$PROM_MENU_SCALE"*)
+            local new_scale=$(echo -e "$PROM_SCALES" | "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "${GLYPH_SCALE}${PROM_SCALE}")
+            if [ -n "$new_scale" ]; then
+                new_scale=$(echo "$new_scale" | tr -d '[:space:]')
+                
+                if [ "$new_scale" = "personalizada" ] || [ "$new_scale" = "custom" ]; then
+                    local custom_scale=$(echo "" | "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "Escala (ej: 1.3)")
+                    custom_scale=$(echo "$custom_scale" | tr -d '[:space:]')
+                    custom_scale="${custom_scale//,/.}"
+                    if [[ "$custom_scale" =~ ^[0-9]+(\.[0-9]+)?$ ]] && [ $(awk -v cs="$custom_scale" 'BEGIN { print (cs > 0) }') -eq 1 ]; then
+                        new_scale="$custom_scale"
+                    else
+                        exec "$script_path"
+                    fi
+                fi
+                
+                echo "SEL_OUTPUT=\"$SEL_OUTPUT\"" > "$tmp_sel_file"
+                echo "SEL_RES=\"$SEL_RES\"" >> "$tmp_sel_file"
+                echo "SEL_RATE=\"$SEL_RATE\"" >> "$tmp_sel_file"
+                echo "SEL_SCALE=\"$new_scale\"" >> "$tmp_sel_file"
                 echo "SEL_TIMEOUT=\"$SEL_TIMEOUT\"" >> "$tmp_sel_file"
             fi
             exec "$script_path"
@@ -249,6 +295,7 @@ select_display_interactive() {
                 echo "SEL_OUTPUT=\"$SEL_OUTPUT\"" > "$tmp_sel_file"
                 echo "SEL_RES=\"$SEL_RES\"" >> "$tmp_sel_file"
                 echo "SEL_RATE=\"$SEL_RATE\"" >> "$tmp_sel_file"
+                echo "SEL_SCALE=\"$SEL_SCALE\"" >> "$tmp_sel_file"
                 echo "SEL_TIMEOUT=\"$new_time\"" >> "$tmp_sel_file"
             fi
             exec "$script_path"
@@ -262,9 +309,11 @@ select_display_interactive() {
             
             local old_res=$(bash "$DISPLAY_HOOK" --get-current "$SEL_OUTPUT" | tr -d '[:space:]')
             local old_rate=$(bash "$DISPLAY_HOOK" --get-current-rate "$SEL_OUTPUT" | tr -d '[:space:]')
+            local old_scale=$(bash "$DISPLAY_HOOK" --get-current-scale "$SEL_OUTPUT" | tr -d '[:space:]')
+            old_scale="${old_scale:-1.0}"
             
-            echo "Aplicando previsualización: $SEL_OUTPUT -> $SEL_RES ${SEL_RATE:+@ $SEL_RATE}"
-            bash "$DISPLAY_HOOK" --apply "$SEL_OUTPUT" "$SEL_RES" "$SEL_RATE"
+            echo "Aplicando previsualización: $SEL_OUTPUT -> $SEL_RES ${SEL_RATE:+@ $SEL_RATE} ${SEL_SCALE:+[x$SEL_SCALE]}"
+            bash "$DISPLAY_HOOK" --apply "$SEL_OUTPUT" "$SEL_RES" "$SEL_RATE" "$SEL_SCALE"
             bash "$DISPLAY_HOOK" --post-apply
             
             sleep 0.5
@@ -311,10 +360,15 @@ select_display_interactive() {
                 else
                     rm -f "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.rate"
                 fi
+                if [ -n "$SEL_SCALE" ]; then
+                    echo "$SEL_SCALE" > "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.scale"
+                else
+                    rm -f "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.scale"
+                fi
                 echo "Resolución guardada permanentemente."
             else
-                echo "Acción cancelada o expirada. Revirtiendo a $old_res ${old_rate:+@ $old_rate}..."
-                bash "$DISPLAY_HOOK" --apply "$SEL_OUTPUT" "$old_res" "$old_rate"
+                echo "Acción cancelada o expirada. Revirtiendo a $old_res ${old_rate:+@ $old_rate} ${old_scale:+[x$old_scale]}..."
+                bash "$DISPLAY_HOOK" --apply "$SEL_OUTPUT" "$old_res" "$old_rate" "$old_scale"
                 bash "$DISPLAY_HOOK" --post-apply
             fi
             
