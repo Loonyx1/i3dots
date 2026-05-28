@@ -46,14 +46,25 @@ POS=$(cat "$STATE_DIR/$CURRENT_ENV/bar/position" 2>/dev/null || echo "$BAR_POSIT
 TRANS=$(cat "$STATE_DIR/$CURRENT_ENV/bar/transparency" 2>/dev/null || echo "$BAR_TRANSPARENCY")
 HEIGHT=$(cat "$STATE_DIR/$CURRENT_ENV/bar/height" 2>/dev/null || echo "$BAR_HEIGHT")
 TYPE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/type" 2>/dev/null || echo "${BAR_DEFAULT_TYPE:-polybar_antigua}")
-MODE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/mode" 2>/dev/null || echo "solid")
-ROFI_STYLE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/rofi_style" 2>/dev/null || echo "solid")
-SOLID_LINE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/solid_line" 2>/dev/null || echo "true")
+
+TYPE=$(echo "$TYPE" | tr -d '[:space:]')
+THEME_SRC="$PACKAGE_DIR/dotfiles/polybar_configs/$TYPE"
+
+# Forzar valores por defecto para opciones no soportadas por el tema
+if [ -f "$THEME_SRC/options.conf" ]; then
+    MODE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/mode" 2>/dev/null || echo "solid")
+    ROFI_STYLE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/rofi_style" 2>/dev/null || echo "solid")
+    SOLID_LINE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/solid_line" 2>/dev/null || echo "true")
+else
+    MODE="solid"
+    ROFI_STYLE="solid"
+    SOLID_LINE="false"
+fi
 
 # Limpiar espacios
 STYLE=$(echo "$STYLE" | tr -d '[:space:]'); POS=$(echo "$POS" | tr -d '[:space:]')
 TRANS=$(echo "$TRANS" | tr -d '[:space:]'); HEIGHT=$(echo "$HEIGHT" | tr -d '[:space:]')
-TYPE=$(echo "$TYPE" | tr -d '[:space:]'); MODE=$(echo "$MODE" | tr -d '[:space:]')
+MODE=$(echo "$MODE" | tr -d '[:space:]')
 ROFI_STYLE=$(echo "$ROFI_STYLE" | tr -d '[:space:]')
 SOLID_LINE=$(echo "$SOLID_LINE" | tr -d '[:space:]')
 [[ -z "$HEIGHT" ]] && HEIGHT="15pt"
