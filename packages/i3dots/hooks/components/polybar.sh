@@ -7,7 +7,24 @@ if [ "$1" == "--query" ]; then
     CUR_TYPE=$(echo "$CUR_TYPE" | tr -d '[:space:]')
     THEME_SRC="$PACKAGE_DIR/dotfiles/polybar_configs/$CUR_TYPE"
     
-    SUPPORTED="style:Style:round,square|position:Position:top,bottom|transparency:Transparency:true,false"
+    # Resolver defaults según entorno
+    DEF_HEIGHT="${BAR_HEIGHT:-15pt}"
+    DEF_STYLE="${BAR_STYLE:-square}"
+    DEF_POS="${BAR_POSITION:-bottom}"
+    DEF_TRANS="${BAR_TRANSPARENCY:-true}"
+    
+    # Formatear opciones con el default al inicio para fallback seguro del motor
+    HEIGHT_OPTS="$DEF_HEIGHT"
+    for h in 13pt 15pt 18pt 20pt; do
+        [[ "$h" != "$DEF_HEIGHT" ]] && HEIGHT_OPTS="$HEIGHT_OPTS,$h"
+    done
+    HEIGHT_OPTS="$HEIGHT_OPTS,custom"
+    
+    [[ "$DEF_STYLE" == "round" ]] && STYLE_OPTS="round,square" || STYLE_OPTS="square,round"
+    [[ "$DEF_POS" == "top" ]] && POS_OPTS="top,bottom" || POS_OPTS="bottom,top"
+    [[ "$DEF_TRANS" == "false" ]] && TRANS_OPTS="false,true" || TRANS_OPTS="true,false"
+    
+    SUPPORTED="height:Height:$HEIGHT_OPTS|style:Style:$STYLE_OPTS|position:Position:$POS_OPTS|transparency:Transparency:$TRANS_OPTS"
     if [ -f "$THEME_SRC/options.conf" ]; then
         CUSTOM_OPTS=$(grep -v '^#' "$THEME_SRC/options.conf" | grep -v '^$' | paste -sd '|' -)
         if [ -n "$CUSTOM_OPTS" ]; then
@@ -17,9 +34,7 @@ if [ "$1" == "--query" ]; then
 
     echo "themes_dir=$PACKAGE_DIR/dotfiles/polybar_configs"
     echo "default_theme=polybar_antigua"
-    echo "height_options=13pt\n15pt\n18pt\n20pt"
-    echo "height_unit=pt"
-    echo "has_modes=true"
+    echo "primary_key=type"
     echo "supported_options=$SUPPORTED"
     exit 0
 fi
