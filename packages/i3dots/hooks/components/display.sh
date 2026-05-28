@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+# hooks/components/display.sh - Backend de pantalla para X11 usando xrandr
+
+action="$1"
+shift
+
+case "$action" in
+    --query-outputs)
+        xrandr | grep " connected" | cut -d' ' -f1
+        ;;
+    --query-modes)
+        output="$1"
+        xrandr | awk -v out="$output" '
+            $0 ~ "^"out" connected" { flag=1; next }
+            $0 ~ "^[A-Za-z]" && $0 !~ "^"out { flag=0 }
+            flag && $1 ~ /^[0-9]+x[0-9]+/ { print $1 }
+        ' | sort -V -r | uniq
+        ;;
+    --query-rates)
+        output="$1"
+        resolution="$2"
+        xrandr | awk -v out="$output" -v res="$resolution" '
+            $0 ~ "^"out" connected" { flag=1; next }
+            $0 ~ "^[A-Za-z]" && $0 !~ "^"out { flag=0 }
+            flag && $1 == res {
+                for(i=2; i<=NF; i++) {
+                    rate=$i
+                    gsub(/[*+]/, "", rate)
+                    print rate
+                }
+            }
+        ' | sort -n -r | uniq
+        ;;
+    --get-current)
+        output="$1"
+        xrandr | grep -A12 "^$output connected" | awk '
+            /\*/ {
+                print $1
+            }
+        ' | head -n1
+        ;;
+    --get-current-rate)
+        output="$1"
+        xrandr | grep -A12 "^$output connected" | awk '
+            /\*/ {
+                for(i=2; i<=NF; i++) {
+                    if($i ~ /\*/) {
+                        rate=$i
+                        gsub(/[*+]/, "", rate)
+                        print rate
+                    }
+                }
+            }
+        ' | head -n1
+        ;;
+    --get-current-all)
+        output="$1"
+        xrandr | grep -A12 "^$output connected" | awk '
+            /\*/ {
+                res=$1
+                for(i=2; i<=NF; i++) {
+                    if($i ~ /\*/) {
+                        rate=$i
+                        gsub(/[*+]/, "", rate)
+                        print res, rate
+                        exit
+                    }
+                }
+            }
+        ' | head -n1
+        ;;
+    --query-default)
+        xrandr | awk '
+            /^[^ ]+ connected/ {
+                out=$1
+            }
+            out && /\*/ {
+                res=$1
+                for(i=2; i<=NF; i++) {
+                    if($i ~ /\*/) {
+                        rate=$i
+                        gsub(/[*+]/, "", rate)
+                        print out, res, rate
+                        exit
+                    }
+                }
+            }
+        '
+        ;;
+    --apply)
+        output="$1"
+        resolution="$2"
+        rate="$3"
+        if [ -n "$rate" ]; then
+            xrandr --output "$output" --mode "$resolution" --rate "$rate"
+        else
+            xrandr --output "$output" --mode "$resolution"
+        fi
+        ;;
+    --post-apply)
+        # Ajustar wallpaper
+        if command -v feh >/dev/null && [ -f "$HOME/.config/i3/wall" ]; then
+            feh --bg-fill "$(cat "$HOME/.config/i3/wall")" &
+        fi
+        
+        # Relanzar Polybar de forma directa
+        if [ -x "$HOME/.config/polybar/launch.sh" ]; then
+            bash "$HOME/.config/polybar/launch.sh" >/dev/null 2>&1 &
+        fi
+        ;;
+    *)
+        # Si se invoca sin argumentos tipo --flag, se comporta como disparador de inicialización
+        # Esto permite que dots apply_dots.sh corra el init si es necesario
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        bash "$SCRIPT_DIR/../../../core/bin/engine_display.sh" --init
+        ;;
+esac
