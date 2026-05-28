@@ -35,6 +35,7 @@ if [ "$1" == "--query" ]; then
     echo "themes_dir=$PACKAGE_DIR/dotfiles/polybar_configs"
     echo "default_theme=polybar_antigua"
     echo "primary_key=type"
+    echo "variant_keys=mode"
     echo "supported_options=$SUPPORTED"
     exit 0
 fi
@@ -125,10 +126,9 @@ if [ "$MODE" == "underline" ]; then
     F_OFFSET_TEXT=$(( (H_NUM - LINE_SIZE - F_TEXT) / 2 ))
     [[ $F_OFFSET_TEXT -lt 0 ]] && F_OFFSET_TEXT=0
     
-    F_OFFSET_SYM=$(( (H_NUM - 15) / 5 ))
-    [[ $F_OFFSET_SYM -lt 0 ]] && F_OFFSET_SYM=0
+    F_OFFSET_SYM=$(( (H_NUM - LINE_SIZE - F_SYM) / 2 - LINE_SIZE ))
     
-    F_OFFSET_LARGE=$(( (H_NUM - 15) / 5 ))
+    F_OFFSET_LARGE=$(( (H_NUM - LINE_SIZE - F_LARGE_SIZE) / 2 ))
     [[ $F_OFFSET_LARGE -lt 0 ]] && F_OFFSET_LARGE=0
     
     F_CURV_OFFSET=$F_OFFSET_TEXT
