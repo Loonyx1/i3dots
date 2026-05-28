@@ -84,7 +84,9 @@ UNIT_RATE="${DISP_UNIT_RATE:- Hz}"
 init_display() {
     if [ ! -d "$DISPLAY_STATE_DIR" ]; then
         echo "Aviso: No hay estados de pantalla guardados."
-        bash "$DISPLAY_HOOK" --post-apply
+        if [ "${DISP_INIT_POST_APPLY:-true}" = "true" ]; then
+            bash "$DISPLAY_HOOK" --post-apply
+        fi
         exit 0
     fi
     
@@ -114,7 +116,9 @@ init_display() {
         applied=1
     done
     
-    bash "$DISPLAY_HOOK" --post-apply
+    if [ "${DISP_INIT_POST_APPLY:-true}" = "true" ]; then
+        bash "$DISPLAY_HOOK" --post-apply
+    fi
 }
 
 select_display_interactive() {
@@ -365,6 +369,7 @@ select_display_interactive() {
                 else
                     rm -f "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.scale"
                 fi
+                bash "$DISPLAY_HOOK" --save
                 echo "Resolución guardada permanentemente."
             else
                 echo "Acción cancelada o expirada. Revirtiendo a $old_res ${old_rate:+@ $old_rate} ${old_scale:+[x$old_scale]}..."
