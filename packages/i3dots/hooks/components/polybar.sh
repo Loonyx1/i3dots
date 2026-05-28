@@ -171,8 +171,9 @@ if [ "$MODE" == "underline" ]; then
         MOD_ROFI_FONT=4
         LAUNCH_ICON=$'\u00a0\u00a0'"${OS_ICON:-󰣆}"$'\u00a0\u00a0'
         # Rofi solid en barra underline: usar métricas del estilo solid normal
-        F_ROFI_SIZE=$(( H_NUM * 4 / 5 + 1 ))
-        R_ROFI_OFFSET=$(( (H_NUM - 6) / 3 ))
+        F_ROFI_SIZE=$(( H_NUM * 13 / 20 + 1 ))
+        R_ROFI_OFFSET=$(( (H_NUM - F_ROFI_SIZE) / 2 ))
+        [[ $R_ROFI_OFFSET -lt 0 ]] && R_ROFI_OFFSET=0
     fi
 else
     MOD_FOC_BG="\${colors.primary}"
