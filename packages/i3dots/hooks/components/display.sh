@@ -130,6 +130,55 @@ case "$action" in
         
         xrandr --output "$output" "${args[@]}"
         ;;
+    --save)
+        if [ -z "$DISPLAY_STATE_DIR" ]; then
+            SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+            BASE_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+            STATE_DIR="${STATE_DIR:-$BASE_DIR/core/state}"
+            DISPLAY_STATE_DIR="$STATE_DIR/display"
+        fi
+        
+        I3_OUTPUT_CONF="$HOME/.config/i3/conf.d/output.conf"
+        mkdir -p "$(dirname "$I3_OUTPUT_CONF")"
+        
+        echo "# Configuración de Pantalla Generada Dinámicamente" > "$I3_OUTPUT_CONF"
+        echo "# NO EDITAR ESTE ARCHIVO DIRECTAMENTE" >> "$I3_OUTPUT_CONF"
+        
+        if [ -d "$DISPLAY_STATE_DIR" ]; then
+            for res_file in "$DISPLAY_STATE_DIR"/*.resolution; do
+                [ -f "$res_file" ] || continue
+                
+                filename=$(basename "$res_file")
+                output="${filename%.resolution}"
+                
+                resolution=$(cat "$res_file")
+                rate_file="$DISPLAY_STATE_DIR/${output}.rate"
+                scale_file="$DISPLAY_STATE_DIR/${output}.scale"
+                
+                cmd="xrandr --output $output"
+                if [ -n "$resolution" ]; then
+                    cmd="$cmd --mode $resolution"
+                fi
+                if [ -f "$rate_file" ]; then
+                    rate=$(cat "$rate_file")
+                    [ -n "$rate" ] && cmd="$cmd --rate $rate"
+                fi
+                if [ -f "$scale_file" ]; then
+                    scale=$(cat "$scale_file")
+                    if [ -n "$scale" ] && [ "$scale" != "1" ] && [ "$scale" != "1.0" ]; then
+                        xrandr_scale=$(awk -v z="$scale" 'BEGIN { printf "%.3f", 1/z }')
+                        cmd="$cmd --scale ${xrandr_scale}x${xrandr_scale}"
+                    else
+                        cmd="$cmd --transform none"
+                    fi
+                else
+                    cmd="$cmd --transform none"
+                fi
+                
+                echo "exec_always --no-startup-id $cmd" >> "$I3_OUTPUT_CONF"
+            done
+        fi
+        ;;
     --post-apply)
         # Ajustar wallpaper
         if command -v feh >/dev/null && [ -f "$HOME/.config/i3/wall" ]; then
