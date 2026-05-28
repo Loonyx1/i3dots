@@ -51,14 +51,28 @@ TYPE=$(echo "$TYPE" | tr -d '[:space:]')
 THEME_SRC="$PACKAGE_DIR/dotfiles/polybar_configs/$TYPE"
 
 # Forzar valores por defecto para opciones no soportadas por el tema
-if [ -f "$THEME_SRC/options.conf" ]; then
+if [ -f "$THEME_SRC/options.conf" ] && grep -q '^mode:' "$THEME_SRC/options.conf"; then
     MODE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/mode" 2>/dev/null || echo "solid")
-    ROFI_STYLE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/rofi_style" 2>/dev/null || echo "solid")
-    SOLID_LINE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/solid_line" 2>/dev/null || echo "true")
 else
     MODE="solid"
+fi
+
+if [ -f "$THEME_SRC/options.conf" ] && grep -q '^rofi_style:' "$THEME_SRC/options.conf"; then
+    ROFI_STYLE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/rofi_style" 2>/dev/null || echo "solid")
+else
     ROFI_STYLE="solid"
+fi
+
+if [ -f "$THEME_SRC/options.conf" ] && grep -q '^solid_line:' "$THEME_SRC/options.conf"; then
+    SOLID_LINE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/solid_line" 2>/dev/null || echo "true")
+else
     SOLID_LINE="false"
+fi
+
+if [ -f "$THEME_SRC/options.conf" ] && grep -q '^icon_padding:' "$THEME_SRC/options.conf"; then
+    ICON_PADDING=$(cat "$STATE_DIR/$CURRENT_ENV/bar/icon_padding" 2>/dev/null || echo "1")
+else
+    ICON_PADDING="1"
 fi
 
 # Limpiar espacios
@@ -67,7 +81,9 @@ TRANS=$(echo "$TRANS" | tr -d '[:space:]'); HEIGHT=$(echo "$HEIGHT" | tr -d '[:s
 MODE=$(echo "$MODE" | tr -d '[:space:]')
 ROFI_STYLE=$(echo "$ROFI_STYLE" | tr -d '[:space:]')
 SOLID_LINE=$(echo "$SOLID_LINE" | tr -d '[:space:]')
+ICON_PADDING=$(echo "$ICON_PADDING" | tr -d '[:space:]')
 [[ -z "$HEIGHT" ]] && HEIGHT="15pt"
+[[ -z "$ICON_PADDING" ]] && ICON_PADDING="1"
 
 # 2. Setup de Directorio con Enlaces Simbólicos
 CONF_DIR="$HOME/.config/polybar"
@@ -220,6 +236,7 @@ font-symbols = "Symbols Nerd Font Mono:size=$F_SYM;$F_OFFSET_SYM"
 font-large = "JetBrainsMono Nerd Font Mono:size=$F_LARGE_SIZE;$F_OFFSET_LARGE"
 module-padding = 1
 label-padding = 1
+icon-padding = $ICON_PADDING
 focused-bg = $MOD_FOC_BG
 focused-fg = $MOD_FOC_FG
 focused-underline = $MOD_FOC_UND
@@ -230,6 +247,7 @@ rofi-fg = $MOD_ROFI_FG
 rofi-underline = $MOD_ROFI_UND
 rofi-font = $MOD_ROFI_FONT
 launcher-icon = $LAUNCH_ICON
+launcher-icon-raw = ${OS_ICON:-󰣆}
 dots-cmd = ${BASE_DIR:-$PROJECT_ROOT}/dots
 
 ; Icon Library
