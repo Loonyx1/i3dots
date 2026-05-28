@@ -87,15 +87,48 @@ case "$action" in
             }
         '
         ;;
+    --get-current-scale)
+        output="$1"
+        xrandr --verbose | awk -v out="$output" '
+            $0 ~ "^"out" connected" { flag=1; next }
+            $0 ~ "^[A-Za-z]" && $0 !~ "^"out { flag=0 }
+            flag && /Transform:/ {
+                scale=$2
+                if (scale == "" || scale == "1.000000") {
+                    print "1.0"
+                    exit
+                }
+                ui_scale = 1 / scale
+                val = sprintf("%.2f", ui_scale)
+                sub(/0+$/, "", val)
+                sub(/\.$/, "", val)
+                print val
+                exit
+            }
+        '
+        ;;
     --apply)
         output="$1"
         resolution="$2"
         rate="$3"
-        if [ -n "$rate" ]; then
-            xrandr --output "$output" --mode "$resolution" --rate "$rate"
-        else
-            xrandr --output "$output" --mode "$resolution"
+        scale="$4"
+        
+        args=()
+        if [ -n "$resolution" ]; then
+            args+=(--mode "$resolution")
         fi
+        if [ -n "$rate" ]; then
+            args+=(--rate "$rate")
+        fi
+        if [ -n "$scale" ] && [ "$scale" != "1" ] && [ "$scale" != "1.0" ]; then
+            # Calculate inverse scale for xrandr viewport
+            xrandr_scale=$(awk -v z="$scale" 'BEGIN { printf "%.3f", 1/z }')
+            args+=(--scale "${xrandr_scale}x${xrandr_scale}")
+        else
+            args+=(--transform none)
+        fi
+        
+        xrandr --output "$output" "${args[@]}"
         ;;
     --post-apply)
         # Ajustar wallpaper
