@@ -317,6 +317,15 @@ hook_get_current_filter() {
     RET_FILTER="${RET_FILTER:-ninguno}"
 }
 
+hook_get_current_scale_method() {
+    local output="$1"
+    RET_SCALE_METHOD=""
+    if [ -f "$DISPLAY_STATE_DIR/${output}.scale_method" ]; then
+        RET_SCALE_METHOD=$(cat "$DISPLAY_STATE_DIR/${output}.scale_method" | tr -d '[:space:]')
+    fi
+    RET_SCALE_METHOD="${RET_SCALE_METHOD:-${DISP_SCALE_METHOD:-scale}}"
+}
+
 hook_apply() {
     local output="$1"
     local resolution="$2"
@@ -325,6 +334,7 @@ hook_apply() {
     local rotation="$5"
     local brightness="$6"
     local filter="$7"
+    local scale_method="$8"
     
     local args=()
     if [ -n "$resolution" ]; then
@@ -337,12 +347,20 @@ hook_apply() {
     if [ "$scale_filter" = "ninguno" ] || [ "$scale_filter" = "none" ]; then
         scale_filter=""
     fi
+    
+    # Determinar método de escala
+    local scale_method="${scale_method:-${DISP_SCALE_METHOD:-scale}}"
+    
     if [ -n "$scale" ] && [ "$scale" != "1" ] && [ "$scale" != "1.0" ]; then
         xrandr_scale=$(awk -v z="$scale" 'BEGIN { printf "%.3f", 1/z }')
         if [ -n "$scale_filter" ]; then
             args+=(--filter "$scale_filter")
         fi
-        args+=(--scale "${xrandr_scale}x${xrandr_scale}")
+        if [ "$scale_method" = "transform" ]; then
+            args+=(--transform "${xrandr_scale},0,0,0,${xrandr_scale},0,0,0,1")
+        else
+            args+=(--scale "${xrandr_scale}x${xrandr_scale}")
+        fi
     else
         args+=(--transform none)
     fi
@@ -377,6 +395,10 @@ hook_save() {
             local filename=$(basename "$res_file")
             local output="${filename%.resolution}"
             
+            local scale_method=""
+            [ -f "$DISPLAY_STATE_DIR/${output}.scale_method" ] && scale_method=$(cat "$DISPLAY_STATE_DIR/${output}.scale_method" | tr -d '[:space:]')
+            scale_method="${scale_method:-${DISP_SCALE_METHOD:-scale}}"
+            
             local resolution=$(cat "$res_file")
             local rate_file="$DISPLAY_STATE_DIR/${output}.rate"
             local scale_file="$DISPLAY_STATE_DIR/${output}.scale"
@@ -405,7 +427,11 @@ hook_save() {
                     if [ -n "$scale_filter" ]; then
                         cmd="$cmd --filter $scale_filter"
                     fi
-                    cmd="$cmd --scale ${xrandr_scale}x${xrandr_scale}"
+                    if [ "$scale_method" = "transform" ]; then
+                        cmd="$cmd --transform ${xrandr_scale},0,0,0,${xrandr_scale},0,0,0,1"
+                    else
+                        cmd="$cmd --scale ${xrandr_scale}x${xrandr_scale}"
+                    fi
                 else
                     cmd="$cmd --transform none"
                 fi
@@ -424,6 +450,10 @@ hook_save() {
             echo "exec_always --no-startup-id $cmd" >> "$I3_OUTPUT_CONF"
         done
     fi
+}
+
+hook_query() {
+    echo "supported_options=filter:Nitidez (Filtro):ninguno,nearest,bilinear|scale_method:Método Escala:scale,transform"
 }
 
 hook_post_apply() {
@@ -448,6 +478,9 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     action="$1"
     shift
     case "$action" in
+        --query)
+            hook_query
+            ;;
         --query-outputs)
             hook_query_outputs "$@"
             echo "$RET_LIST"
@@ -491,6 +524,10 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
         --get-current-filter)
             hook_get_current_filter "$@"
             echo "$RET_FILTER"
+            ;;
+        --get-current-scale_method)
+            hook_get_current_scale_method "$@"
+            echo "$RET_SCALE_METHOD"
             ;;
         --apply) hook_apply "$@" ;;
         --save) hook_save "$@" ;;

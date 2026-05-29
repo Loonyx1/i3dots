@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # engine_display.sh - Motor de gestión de resoluciones universal
-# Desacoplado de backends (xrandr/wlr-randr) y frontends (rofi/wofi/dmenu)
+# Desacoplado de backends de video y frontends de selección
 
 # 1. Resolver Directorios y Fallbacks
 if [ -z "$HOOK_DIR" ] || [ -z "$STATE_DIR" ]; then
@@ -34,6 +34,16 @@ if [ ! -f "$DISPLAY_HOOK" ]; then
     exit 1
 fi
 source "$DISPLAY_HOOK"
+
+DISPLAY_SUPPORTED_OPTIONS=""
+if [ -n "$DISPLAY_HOOK" ] && [ -f "$DISPLAY_HOOK" ]; then
+    while IFS='=' read -r key val; do
+        [[ -z "$key" || "$key" =~ ^# ]] && continue
+        case "$key" in
+            supported_options) DISPLAY_SUPPORTED_OPTIONS="$val" ;;
+        esac
+    done < <(bash "$DISPLAY_HOOK" --query 2>/dev/null)
+fi
 
 # Configuración de UI, Glifos y Prompts
 if [ -z "$DISP_SEL_BIN" ]; then
@@ -117,7 +127,6 @@ init_display() {
         scale_file="$DISPLAY_STATE_DIR/${output}.scale"
         rot_file="$DISPLAY_STATE_DIR/${output}.rotation"
         bri_file="$DISPLAY_STATE_DIR/${output}.brightness"
-        filter_file="$DISPLAY_STATE_DIR/${output}.filter"
         
         rate=""
         [ -f "$rate_file" ] && rate=$(cat "$rate_file")
@@ -131,11 +140,20 @@ init_display() {
         brightness=""
         [ -f "$bri_file" ] && brightness=$(cat "$bri_file")
         
-        filter=""
-        [ -f "$filter_file" ] && filter=$(cat "$filter_file")
+        local extra_args=()
+        if [ -n "$DISPLAY_SUPPORTED_OPTIONS" ]; then
+            IFS='|' read -ra OPT_ARRAY <<< "$DISPLAY_SUPPORTED_OPTIONS"
+            for opt in "${OPT_ARRAY[@]}"; do
+                [ -z "$opt" ] && continue
+                IFS=':' read -r opt_key opt_label opt_vals <<< "$opt"
+                local opt_val=""
+                [ -f "$DISPLAY_STATE_DIR/${output}.${opt_key}" ] && opt_val=$(cat "$DISPLAY_STATE_DIR/${output}.${opt_key}" | tr -d '[:space:]')
+                extra_args+=("${opt_val:-$(echo "$opt_vals" | cut -d',' -f1)}")
+            done
+        fi
         
-        echo "Inicializando $output -> $resolution ${rate:+@ $rate} ${scale:+[x$scale]} ${rotation:+[$rotation]} ${brightness:+[brightness $brightness]} ${filter:+[filter $filter]}"
-        hook_apply "$output" "$resolution" "$rate" "$scale" "$rotation" "$brightness" "$filter"
+        echo "Inicializando $output -> $resolution ${rate:+@ $rate} ${scale:+[x$scale]} ${rotation:+[$rotation]} ${brightness:+[brightness $brightness]} ${extra_args[*]:+[dynamic ${extra_args[*]}]}"
+        hook_apply "$output" "$resolution" "$rate" "$scale" "$rotation" "$brightness" "${extra_args[@]}"
         applied=1
     done
     
@@ -145,7 +163,7 @@ init_display() {
 }
 
 select_display_interactive() {
-    # Cargar caché al inicio en el mismo proceso (evita ejecuciones redundantes de xrandr)
+    # Cargar caché al inicio en el mismo proceso (evita consultas redundantes de hardware)
     hook_load_cache
     
     hook_query_default
@@ -170,9 +188,22 @@ select_display_interactive() {
     local SEL_BRIGHTNESS="$RET_BRIGHTNESS"
     SEL_BRIGHTNESS="${SEL_BRIGHTNESS:-1.0}"
     
-    hook_get_current_filter "$SEL_OUTPUT"
-    local SEL_FILTER="$RET_FILTER"
-    SEL_FILTER="${SEL_FILTER:-}"
+    # Inicializar opciones dinámicas en un array asociativo
+    declare -A DYNAMIC_VALS
+    if [ -n "$DISPLAY_SUPPORTED_OPTIONS" ]; then
+        IFS='|' read -ra OPT_ARRAY <<< "$DISPLAY_SUPPORTED_OPTIONS"
+        for opt in "${OPT_ARRAY[@]}"; do
+            [ -z "$opt" ] && continue
+            IFS=':' read -r opt_key opt_label opt_vals <<< "$opt"
+            local val=""
+            if [ -f "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.${opt_key}" ]; then
+                val=$(cat "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.${opt_key}" | tr -d '[:space:]')
+            else
+                val=$(bash "$DISPLAY_HOOK" --get-current-${opt_key} "$SEL_OUTPUT" 2>/dev/null)
+            fi
+            DYNAMIC_VALS["$opt_key"]="${val:-$(echo "$opt_vals" | cut -d',' -f1)}"
+        done
+    fi
     
     local SEL_TIMEOUT="15"
     if [ -f "$DISPLAY_STATE_DIR/timeout" ]; then
@@ -193,10 +224,24 @@ select_display_interactive() {
         menu_options+="${PROM_MENU_SCALE}: ${SEL_SCALE}"$'\n'
         menu_options+="${PROM_MENU_ROTATION}: ${SEL_ROTATION}"$'\n'
         menu_options+="${PROM_MENU_BRIGHTNESS}: ${SEL_BRIGHTNESS}"$'\n'
-        menu_options+="${PROM_MENU_FILTER}: ${SEL_FILTER}"$'\n'
-        menu_options+="${PROM_MENU_TIME}: ${SEL_TIMEOUT}s"$'\n'
-        menu_options+="${PROM_MENU_APPLY}"$'\n'
-        menu_options+="${PROM_MENU_CANCEL}"
+        
+        local menu_idx=7
+        if [ -n "$DISPLAY_SUPPORTED_OPTIONS" ]; then
+            for opt in "${OPT_ARRAY[@]}"; do
+                [ -z "$opt" ] && continue
+                IFS=':' read -r opt_key opt_label opt_vals <<< "$opt"
+                menu_options+="${menu_idx}. ${opt_label}: ${DYNAMIC_VALS[$opt_key]}"$'\n'
+                menu_idx=$((menu_idx+1))
+            done
+        fi
+        
+        local idx_time=$menu_idx
+        local idx_apply=$((menu_idx+1))
+        local idx_cancel=$((menu_idx+2))
+        
+        menu_options+="${idx_time}. ${PROM_TIMEOUT#*. }: ${SEL_TIMEOUT}s"$'\n'
+        menu_options+="${idx_apply}. ${PROM_MENU_APPLY#*. }"$'\n'
+        menu_options+="${idx_cancel}. ${PROM_MENU_CANCEL#*. }"
         
         # Redirección directa sin tuberías ni subshells
         "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "$PROM_MAIN" <<< "$menu_options" > "$tmp_choice"
@@ -358,143 +403,195 @@ select_display_interactive() {
                 fi
                 ;;
                 
-            *"$PROM_MENU_FILTER"*)
-                local filters_list
-                printf -v filters_list "%b" "$PROM_FILTERS"
-                "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "${GLYPH_FILTER}${PROM_FILTER}" <<< "$filters_list" > "$tmp_choice"
-                IFS= read -r new_filter < "$tmp_choice"
-                
-                if [ -n "$new_filter" ]; then
-                    new_filter="${new_filter//[[:space:]]/}"
-                    SEL_FILTER="$new_filter"
-                fi
-                ;;
-                
-            *"$PROM_MENU_TIME"*)
-                local times_list
-                printf -v times_list "%b" "$PROM_TIMES"
-                "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "$PROM_TIMEOUT" <<< "$times_list" > "$tmp_choice"
-                IFS= read -r new_time < "$tmp_choice"
-                
-                if [ -n "$new_time" ]; then
-                    new_time="${new_time%s}"
-                    new_time="${new_time//[[:space:]]/}"
-                    SEL_TIMEOUT="$new_time"
+            *)
+                if [[ "$choice" == *"${PROM_TIMEOUT#*. }:"* ]] || [[ "$choice" == *"$PROM_TIMEOUT"* ]]; then
+                    local times_list
+                    printf -v times_list "%b" "$PROM_TIMES"
+                    "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "$PROM_TIMEOUT" <<< "$times_list" > "$tmp_choice"
+                    IFS= read -r new_time < "$tmp_choice"
                     
-                    mkdir -p "$DISPLAY_STATE_DIR"
-                    echo "$new_time" > "$DISPLAY_STATE_DIR/timeout"
-                fi
-                ;;
-                
-            *"$PROM_MENU_APPLY"*)
-                if [ -z "$SEL_OUTPUT" ] || [ -z "$SEL_RES" ]; then
-                    rm -f "$tmp_choice"
-                    exit 1
-                fi
-                
-                hook_get_current "$SEL_OUTPUT"
-                local old_res="${RET_RES//[[:space:]]/}"
-                
-                hook_get_current_rate "$SEL_OUTPUT"
-                local old_rate="${RET_RATE//[[:space:]]/}"
-                
-                hook_get_current_scale "$SEL_OUTPUT"
-                local old_scale="${RET_SCALE//[[:space:]]/}"
-                old_scale="${old_scale:-1.0}"
-                
-                hook_get_current_rotation "$SEL_OUTPUT"
-                local old_rotation="${RET_ROTATION//[[:space:]]/}"
-                old_rotation="${old_rotation:-normal}"
-                
-                hook_get_current_brightness "$SEL_OUTPUT"
-                local old_brightness="${RET_BRIGHTNESS//[[:space:]]/}"
-                old_brightness="${old_brightness:-1.0}"
-                
-                hook_get_current_filter "$SEL_OUTPUT"
-                local old_filter="$RET_FILTER"
-                old_filter="${old_filter:-}"
-                
-                echo "Aplicando previsualización: $SEL_OUTPUT -> $SEL_RES ${SEL_RATE:+@ $SEL_RATE} ${SEL_SCALE:+[x$SEL_SCALE]} ${SEL_ROTATION:+[$SEL_ROTATION]} ${SEL_BRIGHTNESS:+[brightness $SEL_BRIGHTNESS]} ${SEL_FILTER:+[filter $SEL_FILTER]}"
-                hook_apply "$SEL_OUTPUT" "$SEL_RES" "$SEL_RATE" "$SEL_SCALE" "$SEL_ROTATION" "$SEL_BRIGHTNESS" "$SEL_FILTER"
-                hook_post_apply
-                
-                sleep 0.5
-                
-                local tmp_confirm=$(mktemp)
-                local confirmed=""
-                local prom_msg=$(printf "$PROM_MSG" "$SEL_TIMEOUT")
-                
-                # Ejecutar Rofi en segundo plano sin usar pipelines de subshell
-                "$DISP_SEL_BIN" "${DISP_CONF_ARGS_ARR[@]}" \
-                    -p "${GLYPH_CONFIRM}${PROM_CONFIRM}" \
-                    -mesg "$prom_msg" <<< "${VAL_CONFIRM}"$'\n'"${VAL_REVERT}" > "$tmp_confirm" &
-                local dialog_pid=$!
-                
-                local dialog_exited=0
-                for ((i=SEL_TIMEOUT; i>0; i--)); do
-                    for ((s=1; s<=10; s++)); do
-                        if ! kill -0 $dialog_pid 2>/dev/null; then
-                            dialog_exited=1
-                            break 2
-                        fi
-                        sleep 0.1
+                    if [ -n "$new_time" ]; then
+                        new_time="${new_time%s}"
+                        new_time="${new_time//[[:space:]]/}"
+                        SEL_TIMEOUT="$new_time"
+                        
+                        mkdir -p "$DISPLAY_STATE_DIR"
+                        echo "$new_time" > "$DISPLAY_STATE_DIR/timeout"
+                    fi
+                elif [[ "$choice" == *"[ Aplicar y Probar ]"* ]] || [[ "$choice" == *"${PROM_MENU_APPLY#*. }"* ]]; then
+                    if [ -z "$SEL_OUTPUT" ] || [ -z "$SEL_RES" ]; then
+                        rm -f "$tmp_choice"
+                        exit 1
+                    fi
+                    
+                    hook_get_current "$SEL_OUTPUT"
+                    local old_res="${RET_RES//[[:space:]]/}"
+                    
+                    hook_get_current_rate "$SEL_OUTPUT"
+                    local old_rate="${RET_RATE//[[:space:]]/}"
+                    
+                    hook_get_current_scale "$SEL_OUTPUT"
+                    local old_scale="${RET_SCALE//[[:space:]]/}"
+                    old_scale="${old_scale:-1.0}"
+                    
+                    hook_get_current_rotation "$SEL_OUTPUT"
+                    local old_rotation="${RET_ROTATION//[[:space:]]/}"
+                    old_rotation="${old_rotation:-normal}"
+                    
+                    hook_get_current_brightness "$SEL_OUTPUT"
+                    local old_brightness="${RET_BRIGHTNESS//[[:space:]]/}"
+                    old_brightness="${old_brightness:-1.0}"
+                    
+                    # Obtener viejos valores dinámicos
+                    local -A old_dynamic_vals
+                    if [ -n "$DISPLAY_SUPPORTED_OPTIONS" ]; then
+                        for opt in "${OPT_ARRAY[@]}"; do
+                            [ -z "$opt" ] && continue
+                            IFS=':' read -r opt_key opt_label opt_vals <<< "$opt"
+                            local old_val=""
+                            if [ -f "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.${opt_key}" ]; then
+                                old_val=$(cat "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.${opt_key}" | tr -d '[:space:]')
+                            else
+                                old_val=$(bash "$DISPLAY_HOOK" --get-current-${opt_key} "$SEL_OUTPUT" 2>/dev/null)
+                            fi
+                            old_dynamic_vals["$opt_key"]="${old_val:-$(echo "$opt_vals" | cut -d',' -f1)}"
+                        done
+                    fi
+                    
+                    # Construir extra_args actuales
+                    local extra_args=()
+                    if [ -n "$DISPLAY_SUPPORTED_OPTIONS" ]; then
+                        for opt in "${OPT_ARRAY[@]}"; do
+                            [ -z "$opt" ] && continue
+                            IFS=':' read -r opt_key opt_label opt_vals <<< "$opt"
+                            extra_args+=("${DYNAMIC_VALS[$opt_key]}")
+                        done
+                    fi
+                    
+                    echo "Aplicando previsualización: $SEL_OUTPUT -> $SEL_RES ${SEL_RATE:+@ $SEL_RATE} ${SEL_SCALE:+[x$SEL_SCALE]} ${SEL_ROTATION:+[$SEL_ROTATION]} ${SEL_BRIGHTNESS:+[brightness $SEL_BRIGHTNESS]} ${extra_args[*]:+[dynamic ${extra_args[*]}]}"
+                    hook_apply "$SEL_OUTPUT" "$SEL_RES" "$SEL_RATE" "$SEL_SCALE" "$SEL_ROTATION" "$SEL_BRIGHTNESS" "${extra_args[@]}"
+                    hook_post_apply
+                     
+                    sleep 0.5
+                     
+                    local tmp_confirm=$(mktemp)
+                    local confirmed=""
+                    local prom_msg=$(printf "$PROM_MSG" "$SEL_TIMEOUT")
+                     
+                    "$DISP_SEL_BIN" "${DISP_CONF_ARGS_ARR[@]}" \
+                        -p "${GLYPH_CONFIRM}${PROM_CONFIRM}" \
+                        -mesg "$prom_msg" <<< "${VAL_CONFIRM}"$'\n'"${VAL_REVERT}" > "$tmp_confirm" &
+                    local dialog_pid=$!
+                     
+                    local dialog_exited=0
+                    for ((i=SEL_TIMEOUT; i>0; i--)); do
+                        for ((s=1; s<=10; s++)); do
+                            if ! kill -0 $dialog_pid 2>/dev/null; then
+                                dialog_exited=1
+                                break 2
+                            fi
+                            sleep 0.1
+                        done
                     done
-                done
-                
-                if [ "$dialog_exited" -eq 1 ]; then
-                    local choice_confirm=$(cat "$tmp_confirm" | tr -d '[:space:]')
-                    if [ "$choice_confirm" = "$VAL_CONFIRM" ]; then
-                        confirmed="yes"
+                     
+                    if [ "$dialog_exited" -eq 1 ]; then
+                        local choice_confirm=$(cat "$tmp_confirm" | tr -d '[:space:]')
+                        if [ "$choice_confirm" = "$VAL_CONFIRM" ]; then
+                            confirmed="yes"
+                        else
+                            confirmed="no"
+                        fi
                     else
+                        kill $dialog_pid 2>/dev/null
+                        wait $dialog_pid 2>/dev/null
                         confirmed="no"
                     fi
+                    rm -f "$tmp_confirm"
+                     
+                    if [ "$confirmed" = "yes" ]; then
+                        mkdir -p "$DISPLAY_STATE_DIR"
+                        echo "$SEL_RES" > "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.resolution"
+                        if [ -n "$SEL_RATE" ]; then
+                            echo "$SEL_RATE" > "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.rate"
+                        else
+                            rm -f "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.rate"
+                        fi
+                        if [ -n "$SEL_SCALE" ]; then
+                            echo "$SEL_SCALE" > "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.scale"
+                        else
+                            rm -f "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.scale"
+                        fi
+                        if [ -n "$SEL_ROTATION" ]; then
+                            echo "$SEL_ROTATION" > "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.rotation"
+                        else
+                            rm -f "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.rotation"
+                        fi
+                        if [ -n "$SEL_BRIGHTNESS" ]; then
+                            echo "$SEL_BRIGHTNESS" > "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.brightness"
+                        else
+                            rm -f "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.brightness"
+                        fi
+                        
+                        # Guardar opciones dinámicas
+                        if [ -n "$DISPLAY_SUPPORTED_OPTIONS" ]; then
+                            for opt in "${OPT_ARRAY[@]}"; do
+                                [ -z "$opt" ] && continue
+                                IFS=':' read -r opt_key opt_label opt_vals <<< "$opt"
+                                local val="${DYNAMIC_VALS[$opt_key]}"
+                                if [ -n "$val" ]; then
+                                    echo "$val" > "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.${opt_key}"
+                                else
+                                    rm -f "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.${opt_key}"
+                                fi
+                            done
+                        fi
+                        
+                        hook_save
+                        echo "Resolución guardada permanentemente."
+                    else
+                        # Construir extra_args antiguos para reversión
+                        local old_extra_args=()
+                        if [ -n "$DISPLAY_SUPPORTED_OPTIONS" ]; then
+                            for opt in "${OPT_ARRAY[@]}"; do
+                                [ -z "$opt" ] && continue
+                                IFS=':' read -r opt_key opt_label opt_vals <<< "$opt"
+                                old_extra_args+=("${old_dynamic_vals[$opt_key]}")
+                            done
+                        fi
+                        
+                        echo "Acción cancelada o expirada. Revirtiendo..."
+                        hook_apply "$SEL_OUTPUT" "$old_res" "$old_rate" "$old_scale" "$old_rotation" "$old_brightness" "${old_extra_args[@]}"
+                        hook_post_apply
+                    fi
+                    break
+                elif [[ "$choice" == *"[ Cancelar y Salir ]"* ]] || [[ "$choice" == *"${PROM_MENU_CANCEL#*. }"* ]]; then
+                    break
                 else
-                    kill $dialog_pid 2>/dev/null
-                    wait $dialog_pid 2>/dev/null
-                    confirmed="no"
+                    # Dynamic options handling
+                    if [ -n "$DISPLAY_SUPPORTED_OPTIONS" ]; then
+                        local found_opt=0
+                        for opt in "${OPT_ARRAY[@]}"; do
+                            [ -z "$opt" ] && continue
+                            IFS=':' read -r opt_key opt_label opt_vals <<< "$opt"
+                            if [[ "$choice" == *"$opt_label"* ]]; then
+                                local opt_list=""
+                                IFS=',' read -ra ADDR <<< "$opt_vals"
+                                for val in "${ADDR[@]}"; do
+                                    opt_list+="${val}"$'\n'
+                                done
+                                opt_list="${opt_list%$'\n'}"
+                                
+                                "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "${opt_label}" <<< "$opt_list" > "$tmp_choice"
+                                IFS= read -r new_opt_val < "$tmp_choice"
+                                [ -n "$new_opt_val" ] && DYNAMIC_VALS["$opt_key"]="${new_opt_val//[[:space:]]/}"
+                                found_opt=1
+                                break
+                            fi
+                        done
+                        [ "$found_opt" -eq 1 ] && continue
+                    fi
+                    break
                 fi
-                rm -f "$tmp_confirm"
-                
-                if [ "$confirmed" = "yes" ]; then
-                    mkdir -p "$DISPLAY_STATE_DIR"
-                    echo "$SEL_RES" > "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.resolution"
-                    if [ -n "$SEL_RATE" ]; then
-                        echo "$SEL_RATE" > "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.rate"
-                    else
-                        rm -f "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.rate"
-                    fi
-                    if [ -n "$SEL_SCALE" ]; then
-                        echo "$SEL_SCALE" > "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.scale"
-                    else
-                        rm -f "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.scale"
-                    fi
-                    if [ -n "$SEL_ROTATION" ]; then
-                        echo "$SEL_ROTATION" > "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.rotation"
-                    else
-                        rm -f "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.rotation"
-                    fi
-                    if [ -n "$SEL_BRIGHTNESS" ]; then
-                        echo "$SEL_BRIGHTNESS" > "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.brightness"
-                    else
-                        rm -f "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.brightness"
-                    fi
-                    if [ -n "$SEL_FILTER" ]; then
-                        echo "$SEL_FILTER" > "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.filter"
-                    else
-                        rm -f "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.filter"
-                    fi
-                    hook_save
-                    echo "Resolución guardada permanentemente."
-                else
-                    echo "Acción cancelada o expirada. Revirtiendo a $old_res ${old_rate:+@ $old_rate} ${old_scale:+[x$old_scale]} ${old_rotation:+[$old_rotation]} ${old_brightness:+[brightness $old_brightness]} ${old_filter:+[filter $old_filter]}..."
-                    hook_apply "$SEL_OUTPUT" "$old_res" "$old_rate" "$old_scale" "$old_rotation" "$old_brightness" "$old_filter"
-                    hook_post_apply
-                fi
-                break
-                ;;
-                
-            *)
-                break
                 ;;
         esac
     done
