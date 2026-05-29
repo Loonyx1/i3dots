@@ -122,270 +122,212 @@ init_display() {
 }
 
 select_display_interactive() {
-    local tmp_sel_file="/tmp/display_sel_${USER}"
-    
-    if [ ! -f "$tmp_sel_file" ]; then
-        read -r default_output default_res default_rate <<< $(bash "$DISPLAY_HOOK" --query-default)
-        if [ -z "$default_output" ]; then
-            echo "Error: No se detectaron salidas de pantalla activas." >&2
-            exit 1
-        fi
-        
-        local default_scale=$(bash "$DISPLAY_HOOK" --get-current-scale "$default_output")
-        default_scale="${default_scale:-1.0}"
-        
-        local saved_timeout="15"
-        if [ -f "$DISPLAY_STATE_DIR/timeout" ]; then
-            saved_timeout=$(cat "$DISPLAY_STATE_DIR/timeout" | tr -d '[:space:]')
-            if ! [[ "$saved_timeout" =~ ^[0-9]+$ ]]; then
-                saved_timeout="15"
-            fi
-        fi
-        
-        echo "SEL_OUTPUT=\"$default_output\"" > "$tmp_sel_file"
-        echo "SEL_RES=\"$default_res\"" >> "$tmp_sel_file"
-        echo "SEL_RATE=\"$default_rate\"" >> "$tmp_sel_file"
-        echo "SEL_SCALE=\"$default_scale\"" >> "$tmp_sel_file"
-        echo "SEL_TIMEOUT=\"$saved_timeout\"" >> "$tmp_sel_file"
+    read -r default_output default_res default_rate <<< $(bash "$DISPLAY_HOOK" --query-default)
+    if [ -z "$default_output" ]; then
+        echo "Error: No se detectaron salidas de pantalla activas." >&2
+        exit 1
     fi
     
-    source "$tmp_sel_file"
-    
-    SEL_OUTPUT="${SEL_OUTPUT:-}"
-    SEL_RES="${SEL_RES:-}"
-    SEL_RATE="${SEL_RATE:-}"
-    
-    local saved_timeout="15"
-    if [ -f "$DISPLAY_STATE_DIR/timeout" ]; then
-        saved_timeout=$(cat "$DISPLAY_STATE_DIR/timeout" | tr -d '[:space:]')
-        if ! [[ "$saved_timeout" =~ ^[0-9]+$ ]]; then
-            saved_timeout="15"
-        fi
-    fi
-    SEL_TIMEOUT="${SEL_TIMEOUT:-$saved_timeout}"
+    local SEL_OUTPUT="$default_output"
+    local SEL_RES="$default_res"
+    local SEL_RATE="$default_rate"
+    local SEL_SCALE=$(bash "$DISPLAY_HOOK" --get-current-scale "$default_output")
     SEL_SCALE="${SEL_SCALE:-1.0}"
     
-    local menu_options=""
-    menu_options+="${PROM_MENU_OUTPUT}: $SEL_OUTPUT\n"
-    menu_options+="${PROM_MENU_RES}: ${SEL_RES:-$PROM_VAL_NONE}\n"
-    menu_options+="${PROM_MENU_RATE}: ${SEL_RATE:-$PROM_VAL_AUTO}\n"
-    menu_options+="${PROM_MENU_SCALE}: ${SEL_SCALE}\n"
-    menu_options+="${PROM_MENU_TIME}: ${SEL_TIMEOUT}s\n"
-    menu_options+="${PROM_MENU_APPLY}\n"
-    menu_options+="${PROM_MENU_CANCEL}"
+    local SEL_TIMEOUT="15"
+    if [ -f "$DISPLAY_STATE_DIR/timeout" ]; then
+        local saved_timeout=$(cat "$DISPLAY_STATE_DIR/timeout" | tr -d '[:space:]')
+        if [[ "$saved_timeout" =~ ^[0-9]+$ ]]; then
+            SEL_TIMEOUT="$saved_timeout"
+        fi
+    fi
     
-    local choice=$(echo -e "$menu_options" | "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "$PROM_MAIN")
-    [ -z "$choice" ] && { rm -f "$tmp_sel_file"; exit 0; }
-    
-    local script_path="$(realpath "${BASH_SOURCE[0]}")"
-    
-    case "$choice" in
-        *"$PROM_MENU_OUTPUT"*)
-            local outputs=$(bash "$DISPLAY_HOOK" --query-outputs)
-            local op_list=""
-            while IFS= read -r op; do
-                [ -z "$op" ] && continue
-                op_list+="${GLYPH_MONITOR}${op}\n"
-            done <<< "$outputs"
-            
-            local new_out=$(echo -e "$op_list" | "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "${GLYPH_MONITOR}${PROM_MONITOR}")
-            if [ -n "$new_out" ]; then
-                new_out="${new_out#$GLYPH_MONITOR}"
-                new_out=$(echo "$new_out" | tr -d '[:space:]')
+    while true; do
+        local menu_options=""
+        menu_options+="${PROM_MENU_OUTPUT}: $SEL_OUTPUT\n"
+        menu_options+="${PROM_MENU_RES}: ${SEL_RES:-$PROM_VAL_NONE}\n"
+        menu_options+="${PROM_MENU_RATE}: ${SEL_RATE:-$PROM_VAL_AUTO}\n"
+        menu_options+="${PROM_MENU_SCALE}: ${SEL_SCALE}\n"
+        menu_options+="${PROM_MENU_TIME}: ${SEL_TIMEOUT}s\n"
+        menu_options+="${PROM_MENU_APPLY}\n"
+        menu_options+="${PROM_MENU_CANCEL}"
+        
+        local choice=$(echo -e "$menu_options" | "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "$PROM_MAIN")
+        [ -z "$choice" ] && exit 0
+        
+        case "$choice" in
+            *"$PROM_MENU_OUTPUT"*)
+                local outputs=$(bash "$DISPLAY_HOOK" --query-outputs)
+                local op_list=""
+                while IFS= read -r op; do
+                    [ -z "$op" ] && continue
+                    op_list+="${GLYPH_MONITOR}${op}\n"
+                done <<< "$outputs"
                 
-                read -r new_res new_rate <<< $(bash "$DISPLAY_HOOK" --get-current-all "$new_out")
-                local new_scale=$(bash "$DISPLAY_HOOK" --get-current-scale "$new_out")
-                new_scale="${new_scale:-1.0}"
+                local new_out=$(echo -e "$op_list" | "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "${GLYPH_MONITOR}${PROM_MONITOR}")
+                if [ -n "$new_out" ]; then
+                    new_out="${new_out#$GLYPH_MONITOR}"
+                    new_out=$(echo "$new_out" | tr -d '[:space:]')
+                    SEL_OUTPUT="$new_out"
+                    
+                    read -r SEL_RES SEL_RATE <<< $(bash "$DISPLAY_HOOK" --get-current-all "$new_out")
+                    SEL_SCALE=$(bash "$DISPLAY_HOOK" --get-current-scale "$new_out")
+                    SEL_SCALE="${SEL_SCALE:-1.0}"
+                fi
+                ;;
                 
-                echo "SEL_OUTPUT=\"$new_out\"" > "$tmp_sel_file"
-                echo "SEL_RES=\"$new_res\"" >> "$tmp_sel_file"
-                echo "SEL_RATE=\"$new_rate\"" >> "$tmp_sel_file"
-                echo "SEL_SCALE=\"$new_scale\"" >> "$tmp_sel_file"
-                echo "SEL_TIMEOUT=\"$SEL_TIMEOUT\"" >> "$tmp_sel_file"
-            fi
-            exec "$script_path"
-            ;;
-            
-        *"$PROM_MENU_RES"*)
-            if [ -z "$SEL_OUTPUT" ]; then
-                exec "$script_path"
-            fi
-            local modes=$(bash "$DISPLAY_HOOK" --query-modes "$SEL_OUTPUT")
-            local res_list=""
-            while IFS= read -r res; do
-                [ -z "$res" ] && continue
-                res_list+="${GLYPH_RESOLUTION}${res}\n"
-            done <<< "$modes"
-            
-            local new_res=$(echo -e "$res_list" | "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "${GLYPH_RESOLUTION}${PROM_RESOLUTION}")
-            if [ -n "$new_res" ]; then
-                new_res="${new_res#$GLYPH_RESOLUTION}"
-                new_res=$(echo "$new_res" | tr -d '[:space:]')
+            *"$PROM_MENU_RES"*)
+                if [ -z "$SEL_OUTPUT" ]; then
+                    continue
+                fi
+                local modes=$(bash "$DISPLAY_HOOK" --query-modes "$SEL_OUTPUT")
+                local res_list=""
+                while IFS= read -r res; do
+                    [ -z "$res" ] && continue
+                    res_list+="${GLYPH_RESOLUTION}${res}\n"
+                done <<< "$modes"
                 
-                local new_rate=""
+                local new_res=$(echo -e "$res_list" | "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "${GLYPH_RESOLUTION}${PROM_RESOLUTION}")
+                if [ -n "$new_res" ]; then
+                    new_res="${new_res#$GLYPH_RESOLUTION}"
+                    new_res=$(echo "$new_res" | tr -d '[:space:]')
+                    SEL_RES="$new_res"
+                    SEL_RATE=""
+                fi
+                ;;
                 
-                echo "SEL_OUTPUT=\"$SEL_OUTPUT\"" > "$tmp_sel_file"
-                echo "SEL_RES=\"$new_res\"" >> "$tmp_sel_file"
-                echo "SEL_RATE=\"$new_rate\"" >> "$tmp_sel_file"
-                echo "SEL_SCALE=\"$SEL_SCALE\"" >> "$tmp_sel_file"
-                echo "SEL_TIMEOUT=\"$SEL_TIMEOUT\"" >> "$tmp_sel_file"
-            fi
-            exec "$script_path"
-            ;;
-            
-        *"$PROM_MENU_RATE"*)
-            if [ -z "$SEL_OUTPUT" ] || [ -z "$SEL_RES" ]; then
-                exec "$script_path"
-            fi
-            local rates=$(bash "$DISPLAY_HOOK" --query-rates "$SEL_OUTPUT" "$SEL_RES")
-            if [ -z "$rates" ]; then
-                exec "$script_path"
-            fi
-            local rate_list=""
-            while IFS= read -r r; do
-                [ -z "$r" ] && continue
-                rate_list+="${GLYPH_RATE}${r}${UNIT_RATE}\n"
-            done <<< "$rates"
-            
-            local new_rate=$(echo -e "$rate_list" | "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "${GLYPH_RATE}${PROM_RATE}")
-            if [ -n "$new_rate" ]; then
-                new_rate="${new_rate#$GLYPH_RATE}"
-                new_rate="${new_rate%${UNIT_RATE}}"
-                new_rate=$(echo "$new_rate" | tr -d '[:space:]')
+            *"$PROM_MENU_RATE"*)
+                if [ -z "$SEL_OUTPUT" ] || [ -z "$SEL_RES" ]; then
+                    continue
+                fi
+                local rates=$(bash "$DISPLAY_HOOK" --query-rates "$SEL_OUTPUT" "$SEL_RES")
+                if [ -z "$rates" ]; then
+                    continue
+                fi
+                local rate_list=""
+                while IFS= read -r r; do
+                    [ -z "$r" ] && continue
+                    rate_list+="${GLYPH_RATE}${r}${UNIT_RATE}\n"
+                done <<< "$rates"
                 
-                echo "SEL_OUTPUT=\"$SEL_OUTPUT\"" > "$tmp_sel_file"
-                echo "SEL_RES=\"$SEL_RES\"" >> "$tmp_sel_file"
-                echo "SEL_RATE=\"$new_rate\"" >> "$tmp_sel_file"
-                echo "SEL_SCALE=\"$SEL_SCALE\"" >> "$tmp_sel_file"
-                echo "SEL_TIMEOUT=\"$SEL_TIMEOUT\"" >> "$tmp_sel_file"
-            fi
-            exec "$script_path"
-            ;;
-            
-        *"$PROM_MENU_SCALE"*)
-            local new_scale=$(echo -e "$PROM_SCALES" | "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "${GLYPH_SCALE}${PROM_SCALE}")
-            if [ -n "$new_scale" ]; then
-                new_scale=$(echo "$new_scale" | tr -d '[:space:]')
+                local new_rate=$(echo -e "$rate_list" | "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "${GLYPH_RATE}${PROM_RATE}")
+                if [ -n "$new_rate" ]; then
+                    new_rate="${new_rate#$GLYPH_RATE}"
+                    new_rate="${new_rate%${UNIT_RATE}}"
+                    new_rate=$(echo "$new_rate" | tr -d '[:space:]')
+                    SEL_RATE="$new_rate"
+                fi
+                ;;
                 
-                if [ "$new_scale" = "personalizada" ] || [ "$new_scale" = "custom" ]; then
-                    local custom_scale=$(echo "" | "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "Escala (ej: 1.3)")
-                    custom_scale=$(echo "$custom_scale" | tr -d '[:space:]')
-                    custom_scale="${custom_scale//,/.}"
-                    if [[ "$custom_scale" =~ ^[0-9]+(\.[0-9]+)?$ ]] && [ $(awk -v cs="$custom_scale" 'BEGIN { print (cs > 0) }') -eq 1 ]; then
-                        new_scale="$custom_scale"
-                    else
-                        exec "$script_path"
+            *"$PROM_MENU_SCALE"*)
+                local new_scale=$(echo -e "$PROM_SCALES" | "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "${GLYPH_SCALE}${PROM_SCALE}")
+                if [ -n "$new_scale" ]; then
+                    new_scale=$(echo "$new_scale" | tr -d '[:space:]')
+                    
+                    if [ "$new_scale" = "personalizada" ] || [ "$new_scale" = "custom" ]; then
+                        local custom_scale=$(echo "" | "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "Escala (ej: 1.3)")
+                        custom_scale=$(echo "$custom_scale" | tr -d '[:space:]')
+                        custom_scale="${custom_scale//,/.}"
+                        if [[ "$custom_scale" =~ ^[0-9]+(\.[0-9]+)?$ ]] && [ $(awk -v cs="$custom_scale" 'BEGIN { print (cs > 0) }') -eq 1 ]; then
+                            new_scale="$custom_scale"
+                        else
+                            continue
+                        fi
                     fi
+                    SEL_SCALE="$new_scale"
+                fi
+                ;;
+                
+            *"$PROM_MENU_TIME"*)
+                local new_time=$(echo -e "$PROM_TIMES" | "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "$PROM_TIMEOUT")
+                if [ -n "$new_time" ]; then
+                    new_time="${new_time%s}"
+                    new_time=$(echo "$new_time" | tr -d '[:space:]')
+                    SEL_TIMEOUT="$new_time"
+                    
+                    mkdir -p "$DISPLAY_STATE_DIR"
+                    echo "$new_time" > "$DISPLAY_STATE_DIR/timeout"
+                fi
+                ;;
+                
+            *"$PROM_MENU_APPLY"*)
+                if [ -z "$SEL_OUTPUT" ] || [ -z "$SEL_RES" ]; then
+                    exit 1
                 fi
                 
-                echo "SEL_OUTPUT=\"$SEL_OUTPUT\"" > "$tmp_sel_file"
-                echo "SEL_RES=\"$SEL_RES\"" >> "$tmp_sel_file"
-                echo "SEL_RATE=\"$SEL_RATE\"" >> "$tmp_sel_file"
-                echo "SEL_SCALE=\"$new_scale\"" >> "$tmp_sel_file"
-                echo "SEL_TIMEOUT=\"$SEL_TIMEOUT\"" >> "$tmp_sel_file"
-            fi
-            exec "$script_path"
-            ;;
-            
-        *"$PROM_MENU_TIME"*)
-            local new_time=$(echo -e "$PROM_TIMES" | "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "$PROM_TIMEOUT")
-            if [ -n "$new_time" ]; then
-                new_time="${new_time%s}"
-                new_time=$(echo "$new_time" | tr -d '[:space:]')
+                local old_res=$(bash "$DISPLAY_HOOK" --get-current "$SEL_OUTPUT" | tr -d '[:space:]')
+                local old_rate=$(bash "$DISPLAY_HOOK" --get-current-rate "$SEL_OUTPUT" | tr -d '[:space:]')
+                local old_scale=$(bash "$DISPLAY_HOOK" --get-current-scale "$SEL_OUTPUT" | tr -d '[:space:]')
+                old_scale="${old_scale:-1.0}"
                 
-                mkdir -p "$DISPLAY_STATE_DIR"
-                echo "$new_time" > "$DISPLAY_STATE_DIR/timeout"
+                echo "Aplicando previsualización: $SEL_OUTPUT -> $SEL_RES ${SEL_RATE:+@ $SEL_RATE} ${SEL_SCALE:+[x$SEL_SCALE]}"
+                bash "$DISPLAY_HOOK" --apply "$SEL_OUTPUT" "$SEL_RES" "$SEL_RATE" "$SEL_SCALE"
+                bash "$DISPLAY_HOOK" --post-apply
                 
-                echo "SEL_OUTPUT=\"$SEL_OUTPUT\"" > "$tmp_sel_file"
-                echo "SEL_RES=\"$SEL_RES\"" >> "$tmp_sel_file"
-                echo "SEL_RATE=\"$SEL_RATE\"" >> "$tmp_sel_file"
-                echo "SEL_SCALE=\"$SEL_SCALE\"" >> "$tmp_sel_file"
-                echo "SEL_TIMEOUT=\"$new_time\"" >> "$tmp_sel_file"
-            fi
-            exec "$script_path"
-            ;;
-            
-        *"$PROM_MENU_APPLY"*)
-            if [ -z "$SEL_OUTPUT" ] || [ -z "$SEL_RES" ]; then
-                rm -f "$tmp_sel_file"
-                exit 1
-            fi
-            
-            local old_res=$(bash "$DISPLAY_HOOK" --get-current "$SEL_OUTPUT" | tr -d '[:space:]')
-            local old_rate=$(bash "$DISPLAY_HOOK" --get-current-rate "$SEL_OUTPUT" | tr -d '[:space:]')
-            local old_scale=$(bash "$DISPLAY_HOOK" --get-current-scale "$SEL_OUTPUT" | tr -d '[:space:]')
-            old_scale="${old_scale:-1.0}"
-            
-            echo "Aplicando previsualización: $SEL_OUTPUT -> $SEL_RES ${SEL_RATE:+@ $SEL_RATE} ${SEL_SCALE:+[x$SEL_SCALE]}"
-            bash "$DISPLAY_HOOK" --apply "$SEL_OUTPUT" "$SEL_RES" "$SEL_RATE" "$SEL_SCALE"
-            bash "$DISPLAY_HOOK" --post-apply
-            
-            sleep 0.5
-            
-            local tmp_confirm=$(mktemp)
-            local confirmed=""
-            local prom_msg=$(printf "$PROM_MSG" "$SEL_TIMEOUT")
-            
-            echo -e "${VAL_CONFIRM}\n${VAL_REVERT}" | "$DISP_SEL_BIN" "${DISP_CONF_ARGS_ARR[@]}" \
-                -p "${GLYPH_CONFIRM}${PROM_CONFIRM}" \
-                -mesg "$prom_msg" > "$tmp_confirm" &
-            local dialog_pid=$!
-            
-            local dialog_exited=0
-            for ((i=SEL_TIMEOUT; i>0; i--)); do
-                for ((s=1; s<=10; s++)); do
-                    if ! kill -0 $dialog_pid 2>/dev/null; then
-                        dialog_exited=1
-                        break 2
-                    fi
-                    sleep 0.1
+                sleep 0.5
+                
+                local tmp_confirm=$(mktemp)
+                local confirmed=""
+                local prom_msg=$(printf "$PROM_MSG" "$SEL_TIMEOUT")
+                
+                echo -e "${VAL_CONFIRM}\n${VAL_REVERT}" | "$DISP_SEL_BIN" "${DISP_CONF_ARGS_ARR[@]}" \
+                    -p "${GLYPH_CONFIRM}${PROM_CONFIRM}" \
+                    -mesg "$prom_msg" > "$tmp_confirm" &
+                local dialog_pid=$!
+                
+                local dialog_exited=0
+                for ((i=SEL_TIMEOUT; i>0; i--)); do
+                    for ((s=1; s<=10; s++)); do
+                        if ! kill -0 $dialog_pid 2>/dev/null; then
+                            dialog_exited=1
+                            break 2
+                        fi
+                        sleep 0.1
+                    done
                 done
-            done
-            
-            if [ "$dialog_exited" -eq 1 ]; then
-                local choice_confirm=$(cat "$tmp_confirm" | tr -d '[:space:]')
-                if [ "$choice_confirm" = "$VAL_CONFIRM" ]; then
-                    confirmed="yes"
+                
+                if [ "$dialog_exited" -eq 1 ]; then
+                    local choice_confirm=$(cat "$tmp_confirm" | tr -d '[:space:]')
+                    if [ "$choice_confirm" = "$VAL_CONFIRM" ]; then
+                        confirmed="yes"
+                    else
+                        confirmed="no"
+                    fi
                 else
+                    kill $dialog_pid 2>/dev/null
+                    wait $dialog_pid 2>/dev/null
                     confirmed="no"
                 fi
-            else
-                kill $dialog_pid 2>/dev/null
-                wait $dialog_pid 2>/dev/null
-                confirmed="no"
-            fi
-            rm -f "$tmp_confirm"
-            
-            if [ "$confirmed" = "yes" ]; then
-                mkdir -p "$DISPLAY_STATE_DIR"
-                echo "$SEL_RES" > "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.resolution"
-                if [ -n "$SEL_RATE" ]; then
-                    echo "$SEL_RATE" > "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.rate"
+                rm -f "$tmp_confirm"
+                
+                if [ "$confirmed" = "yes" ]; then
+                    mkdir -p "$DISPLAY_STATE_DIR"
+                    echo "$SEL_RES" > "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.resolution"
+                    if [ -n "$SEL_RATE" ]; then
+                        echo "$SEL_RATE" > "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.rate"
+                    else
+                        rm -f "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.rate"
+                    fi
+                    if [ -n "$SEL_SCALE" ]; then
+                        echo "$SEL_SCALE" > "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.scale"
+                    else
+                        rm -f "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.scale"
+                    fi
+                    bash "$DISPLAY_HOOK" --save
+                    echo "Resolución guardada permanentemente."
                 else
-                    rm -f "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.rate"
+                    echo "Acción cancelada o expirada. Revirtiendo a $old_res ${old_rate:+@ $old_rate} ${old_scale:+[x$old_scale]}..."
+                    bash "$DISPLAY_HOOK" --apply "$SEL_OUTPUT" "$old_res" "$old_rate" "$old_scale"
+                    bash "$DISPLAY_HOOK" --post-apply
                 fi
-                if [ -n "$SEL_SCALE" ]; then
-                    echo "$SEL_SCALE" > "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.scale"
-                else
-                    rm -f "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.scale"
-                fi
-                bash "$DISPLAY_HOOK" --save
-                echo "Resolución guardada permanentemente."
-            else
-                echo "Acción cancelada o expirada. Revirtiendo a $old_res ${old_rate:+@ $old_rate} ${old_scale:+[x$old_scale]}..."
-                bash "$DISPLAY_HOOK" --apply "$SEL_OUTPUT" "$old_res" "$old_rate" "$old_scale"
-                bash "$DISPLAY_HOOK" --post-apply
-            fi
-            
-            rm -f "$tmp_sel_file"
-            exit 0
-            ;;
-            
-        *)
-            rm -f "$tmp_sel_file"
-            exit 0
-            ;;
-    esac
+                exit 0
+                ;;
+                
+            *)
+                exit 0
+                ;;
+        esac
+    done
 }
 
 # 3. Parseo de Argumentos principales
