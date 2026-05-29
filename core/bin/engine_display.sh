@@ -24,15 +24,16 @@ if [ -z "$HOOK_DIR" ] || [ -z "$STATE_DIR" ]; then
     fi
 fi
 
-# Ruta del hook de pantalla
+# Ruta del hook de pantalla e importación
 DISPLAY_HOOK="$HOOK_DIR/components/display.sh"
 DISPLAY_STATE_DIR="${DISPLAY_STATE_DIR:-$STATE_DIR/display}"
 
-# Verificar existencia del hook
+# Verificar existencia del hook e importarlo
 if [ ! -f "$DISPLAY_HOOK" ]; then
     echo "Error: Hook de pantalla no encontrado en $DISPLAY_HOOK" >&2
     exit 1
 fi
+source "$DISPLAY_HOOK"
 
 # Configuración de UI, Glifos y Prompts
 if [ -z "$DISP_SEL_BIN" ]; then
@@ -85,7 +86,7 @@ init_display() {
     if [ ! -d "$DISPLAY_STATE_DIR" ]; then
         echo "Aviso: No hay estados de pantalla guardados."
         if [ "${DISP_INIT_POST_APPLY:-true}" = "true" ]; then
-            bash "$DISPLAY_HOOK" --post-apply
+            hook_post_apply
         fi
         exit 0
     fi
@@ -112,17 +113,20 @@ init_display() {
         fi
         
         echo "Inicializando $output -> $resolution ${rate:+@ $rate} ${scale:+[x$scale]}"
-        bash "$DISPLAY_HOOK" --apply "$output" "$resolution" "$rate" "$scale"
+        hook_apply "$output" "$resolution" "$rate" "$scale"
         applied=1
     done
     
     if [ "${DISP_INIT_POST_APPLY:-true}" = "true" ]; then
-        bash "$DISPLAY_HOOK" --post-apply
+        hook_post_apply
     fi
 }
 
 select_display_interactive() {
-    read -r default_output default_res default_rate < <(bash "$DISPLAY_HOOK" --query-default)
+    # Cargar caché al inicio en el mismo proceso (evita ejecuciones redundantes de xrandr)
+    hook_load_cache
+    
+    read -r default_output default_res default_rate < <(hook_query_default)
     if [ -z "$default_output" ]; then
         echo "Error: No se detectaron salidas de pantalla activas." >&2
         exit 1
@@ -131,7 +135,7 @@ select_display_interactive() {
     local SEL_OUTPUT="$default_output"
     local SEL_RES="$default_res"
     local SEL_RATE="$default_rate"
-    local SEL_SCALE=$(bash "$DISPLAY_HOOK" --get-current-scale "$default_output")
+    local SEL_SCALE=$(hook_get_current_scale "$default_output")
     SEL_SCALE="${SEL_SCALE:-1.0}"
     
     local SEL_TIMEOUT="15"
@@ -157,7 +161,7 @@ select_display_interactive() {
         
         case "$choice" in
             *"$PROM_MENU_OUTPUT"*)
-                local outputs=$(bash "$DISPLAY_HOOK" --query-outputs)
+                local outputs=$(hook_query_outputs)
                 local op_list=""
                 while IFS= read -r op; do
                     [ -z "$op" ] && continue
@@ -170,8 +174,8 @@ select_display_interactive() {
                     new_out=$(echo "$new_out" | tr -d '[:space:]')
                     SEL_OUTPUT="$new_out"
                     
-                    read -r SEL_RES SEL_RATE < <(bash "$DISPLAY_HOOK" --get-current-all "$new_out")
-                    SEL_SCALE=$(bash "$DISPLAY_HOOK" --get-current-scale "$new_out")
+                    read -r SEL_RES SEL_RATE < <(hook_get_current_all "$new_out")
+                    SEL_SCALE=$(hook_get_current_scale "$new_out")
                     SEL_SCALE="${SEL_SCALE:-1.0}"
                 fi
                 ;;
@@ -180,7 +184,7 @@ select_display_interactive() {
                 if [ -z "$SEL_OUTPUT" ]; then
                     continue
                 fi
-                local modes=$(bash "$DISPLAY_HOOK" --query-modes "$SEL_OUTPUT")
+                local modes=$(hook_query_modes "$SEL_OUTPUT")
                 local res_list=""
                 while IFS= read -r res; do
                     [ -z "$res" ] && continue
@@ -200,7 +204,7 @@ select_display_interactive() {
                 if [ -z "$SEL_OUTPUT" ] || [ -z "$SEL_RES" ]; then
                     continue
                 fi
-                local rates=$(bash "$DISPLAY_HOOK" --query-rates "$SEL_OUTPUT" "$SEL_RES")
+                local rates=$(hook_query_rates "$SEL_OUTPUT" "$SEL_RES")
                 if [ -z "$rates" ]; then
                     continue
                 fi
@@ -255,14 +259,14 @@ select_display_interactive() {
                     exit 1
                 fi
                 
-                local old_res=$(bash "$DISPLAY_HOOK" --get-current "$SEL_OUTPUT" | tr -d '[:space:]')
-                local old_rate=$(bash "$DISPLAY_HOOK" --get-current-rate "$SEL_OUTPUT" | tr -d '[:space:]')
-                local old_scale=$(bash "$DISPLAY_HOOK" --get-current-scale "$SEL_OUTPUT" | tr -d '[:space:]')
+                local old_res=$(hook_get_current "$SEL_OUTPUT" | tr -d '[:space:]')
+                local old_rate=$(hook_get_current_rate "$SEL_OUTPUT" | tr -d '[:space:]')
+                local old_scale=$(hook_get_current_scale "$SEL_OUTPUT" | tr -d '[:space:]')
                 old_scale="${old_scale:-1.0}"
                 
                 echo "Aplicando previsualización: $SEL_OUTPUT -> $SEL_RES ${SEL_RATE:+@ $SEL_RATE} ${SEL_SCALE:+[x$SEL_SCALE]}"
-                bash "$DISPLAY_HOOK" --apply "$SEL_OUTPUT" "$SEL_RES" "$SEL_RATE" "$SEL_SCALE"
-                bash "$DISPLAY_HOOK" --post-apply
+                hook_apply "$SEL_OUTPUT" "$SEL_RES" "$SEL_RATE" "$SEL_SCALE"
+                hook_post_apply
                 
                 sleep 0.5
                 
@@ -313,12 +317,12 @@ select_display_interactive() {
                     else
                         rm -f "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.scale"
                     fi
-                    bash "$DISPLAY_HOOK" --save
+                    hook_save
                     echo "Resolución guardada permanentemente."
                 else
                     echo "Acción cancelada o expirada. Revirtiendo a $old_res ${old_rate:+@ $old_rate} ${old_scale:+[x$old_scale]}..."
-                    bash "$DISPLAY_HOOK" --apply "$SEL_OUTPUT" "$old_res" "$old_rate" "$old_scale"
-                    bash "$DISPLAY_HOOK" --post-apply
+                    hook_apply "$SEL_OUTPUT" "$old_res" "$old_rate" "$old_scale"
+                    hook_post_apply
                 fi
                 exit 0
                 ;;
