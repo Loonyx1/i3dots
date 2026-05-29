@@ -52,6 +52,8 @@ GLYPH_MONITOR="${DISP_GLYPH_MONITOR:-}"
 GLYPH_RESOLUTION="${DISP_GLYPH_RESOLUTION:-}"
 GLYPH_RATE="${DISP_GLYPH_RATE:-}"
 GLYPH_SCALE="${DISP_GLYPH_SCALE:-}"
+GLYPH_ROTATION="${DISP_GLYPH_ROTATION:-}"
+GLYPH_BRIGHTNESS="${DISP_GLYPH_BRIGHTNESS:-}"
 GLYPH_CONFIRM="${DISP_GLYPH_CONFIRM:-}"
 
 PROM_MAIN="${DISP_PROM_MAIN:-Configuración de Pantalla}"
@@ -60,6 +62,8 @@ PROM_MONITOR="${DISP_PROM_MONITOR:-Pantalla}"
 PROM_RESOLUTION="${DISP_PROM_RESOLUTION:-Resolución}"
 PROM_RATE="${DISP_PROM_RATE:-Frecuencia}"
 PROM_SCALE="${DISP_PROM_SCALE:-Escala}"
+PROM_ROTATION="${DISP_PROM_ROTATION:-Rotación}"
+PROM_BRIGHTNESS="${DISP_PROM_BRIGHTNESS:-Brillo}"
 PROM_CONFIRM="${DISP_PROM_CONFIRM:-¿Mantener resolución?}"
 PROM_MSG="${DISP_PROM_MSG:-Se revertirá automáticamente tras %s segundos de inactividad.}"
 
@@ -67,9 +71,11 @@ PROM_MENU_OUTPUT="${DISP_PROM_MENU_OUTPUT:-1. Pantalla}"
 PROM_MENU_RES="${DISP_PROM_MENU_RES:-2. Resolución}"
 PROM_MENU_RATE="${DISP_PROM_MENU_RATE:-3. Frecuencia}"
 PROM_MENU_SCALE="${DISP_PROM_MENU_SCALE:-4. Escala}"
-PROM_MENU_TIME="${DISP_PROM_MENU_TIME:-5. Tiempo Confirmación}"
-PROM_MENU_APPLY="${DISP_PROM_MENU_APPLY:-6. [ Aplicar y Probar ]}"
-PROM_MENU_CANCEL="${DISP_PROM_MENU_CANCEL:-7. [ Cancelar y Salir ]}"
+PROM_MENU_ROTATION="${DISP_PROM_MENU_ROTATION:-5. Rotación}"
+PROM_MENU_BRIGHTNESS="${DISP_PROM_MENU_BRIGHTNESS:-6. Brillo}"
+PROM_MENU_TIME="${DISP_PROM_MENU_TIME:-7. Tiempo Confirmación}"
+PROM_MENU_APPLY="${DISP_PROM_MENU_APPLY:-8. [ Aplicar y Probar ]}"
+PROM_MENU_CANCEL="${DISP_PROM_MENU_CANCEL:-9. [ Cancelar y Salir ]}"
 
 PROM_VAL_NONE="${DISP_PROM_VAL_NONE:-No seleccionada}"
 PROM_VAL_AUTO="${DISP_PROM_VAL_AUTO:-Auto}"
@@ -77,9 +83,13 @@ PROM_VAL_AUTO="${DISP_PROM_VAL_AUTO:-Auto}"
 VAL_CONFIRM="${DISP_VAL_CONFIRM:-Confirmar}"
 VAL_REVERT="${DISP_VAL_REVERT:-Revertir}"
 
-PROM_TIMES="${DISP_PROM_TIMES:-5s\n10s\n15s\n30s\n60s}"
-PROM_SCALES="${DISP_PROM_SCALES:-0.5\n0.75\n1.0\n1.25\n1.5\n1.75\n2.0\n2.5\n3.0\npersonalizada}"
-UNIT_RATE="${DISP_UNIT_RATE:- Hz}"
+PROM_TIMES="${DISP_PROM_TIMES:-}"
+PROM_SCALES="${DISP_PROM_SCALES:-}"
+PROM_ROTATIONS="${DISP_PROM_ROTATIONS:-}"
+PROM_BRIGHTNESSES="${DISP_PROM_BRIGHTNESSES:-}"
+UNIT_RATE="${DISP_UNIT_RATE:-}"
+VAL_CUSTOM="${DISP_VAL_CUSTOM:-}"
+VAL_CUSTOM_SCALE="${DISP_VAL_CUSTOM_SCALE:-}"
 
 # 2. Funciones de Flujo
 init_display() {
@@ -101,19 +111,23 @@ init_display() {
         resolution=$(cat "$res_file")
         rate_file="$DISPLAY_STATE_DIR/${output}.rate"
         scale_file="$DISPLAY_STATE_DIR/${output}.scale"
+        rot_file="$DISPLAY_STATE_DIR/${output}.rotation"
+        bri_file="$DISPLAY_STATE_DIR/${output}.brightness"
         
         rate=""
-        if [ -f "$rate_file" ]; then
-            rate=$(cat "$rate_file")
-        fi
+        [ -f "$rate_file" ] && rate=$(cat "$rate_file")
         
         scale=""
-        if [ -f "$scale_file" ]; then
-            scale=$(cat "$scale_file")
-        fi
+        [ -f "$scale_file" ] && scale=$(cat "$scale_file")
         
-        echo "Inicializando $output -> $resolution ${rate:+@ $rate} ${scale:+[x$scale]}"
-        hook_apply "$output" "$resolution" "$rate" "$scale"
+        rotation=""
+        [ -f "$rot_file" ] && rotation=$(cat "$rot_file")
+        
+        brightness=""
+        [ -f "$bri_file" ] && brightness=$(cat "$bri_file")
+        
+        echo "Inicializando $output -> $resolution ${rate:+@ $rate} ${scale:+[x$scale]} ${rotation:+[$rotation]} ${brightness:+[brightness $brightness]}"
+        hook_apply "$output" "$resolution" "$rate" "$scale" "$rotation" "$brightness"
         applied=1
     done
     
@@ -140,6 +154,14 @@ select_display_interactive() {
     local SEL_SCALE="$RET_SCALE"
     SEL_SCALE="${SEL_SCALE:-1.0}"
     
+    hook_get_current_rotation "$SEL_OUTPUT"
+    local SEL_ROTATION="$RET_ROTATION"
+    SEL_ROTATION="${SEL_ROTATION:-normal}"
+    
+    hook_get_current_brightness "$SEL_OUTPUT"
+    local SEL_BRIGHTNESS="$RET_BRIGHTNESS"
+    SEL_BRIGHTNESS="${SEL_BRIGHTNESS:-1.0}"
+    
     local SEL_TIMEOUT="15"
     if [ -f "$DISPLAY_STATE_DIR/timeout" ]; then
         local saved_timeout=$(cat "$DISPLAY_STATE_DIR/timeout" | tr -d '[:space:]')
@@ -157,6 +179,8 @@ select_display_interactive() {
         menu_options+="${PROM_MENU_RES}: ${SEL_RES:-$PROM_VAL_NONE}"$'\n'
         menu_options+="${PROM_MENU_RATE}: ${SEL_RATE:-$PROM_VAL_AUTO}"$'\n'
         menu_options+="${PROM_MENU_SCALE}: ${SEL_SCALE}"$'\n'
+        menu_options+="${PROM_MENU_ROTATION}: ${SEL_ROTATION}"$'\n'
+        menu_options+="${PROM_MENU_BRIGHTNESS}: ${SEL_BRIGHTNESS}"$'\n'
         menu_options+="${PROM_MENU_TIME}: ${SEL_TIMEOUT}s"$'\n'
         menu_options+="${PROM_MENU_APPLY}"$'\n'
         menu_options+="${PROM_MENU_CANCEL}"
@@ -176,7 +200,6 @@ select_display_interactive() {
                     op_list+="${GLYPH_MONITOR}${op}"$'\n'
                 done <<< "$outputs"
                 
-                # Quitar salto de línea final
                 op_list="${op_list%$'\n'}"
                 
                 "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "${GLYPH_MONITOR}${PROM_MONITOR}" <<< "$op_list" > "$tmp_choice"
@@ -194,6 +217,14 @@ select_display_interactive() {
                     hook_get_current_scale "$new_out"
                     SEL_SCALE="$RET_SCALE"
                     SEL_SCALE="${SEL_SCALE:-1.0}"
+                    
+                    hook_get_current_rotation "$new_out"
+                    SEL_ROTATION="$RET_ROTATION"
+                    SEL_ROTATION="${SEL_ROTATION:-normal}"
+                    
+                    hook_get_current_brightness "$new_out"
+                    SEL_BRIGHTNESS="$RET_BRIGHTNESS"
+                    SEL_BRIGHTNESS="${SEL_BRIGHTNESS:-1.0}"
                 fi
                 ;;
                 
@@ -251,14 +282,15 @@ select_display_interactive() {
                 ;;
                 
             *"$PROM_MENU_SCALE"*)
-                local scales_list="${PROM_SCALES//\\n/$'\n'}"
+                local scales_list
+                printf -v scales_list "%b" "$PROM_SCALES"
                 "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "${GLYPH_SCALE}${PROM_SCALE}" <<< "$scales_list" > "$tmp_choice"
                 IFS= read -r new_scale < "$tmp_choice"
                 
                 if [ -n "$new_scale" ]; then
                     new_scale="${new_scale//[[:space:]]/}"
                     
-                    if [ "$new_scale" = "personalizada" ] || [ "$new_scale" = "custom" ]; then
+                    if [ "$new_scale" = "$VAL_CUSTOM_SCALE" ] || [ "$new_scale" = "personalizada" ] || [ "$new_scale" = "custom" ]; then
                         "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "Escala (ej: 1.3)" <<< "" > "$tmp_choice"
                         IFS= read -r custom_scale < "$tmp_choice"
                         custom_scale="${custom_scale//[[:space:]]/}"
@@ -273,8 +305,45 @@ select_display_interactive() {
                 fi
                 ;;
                 
+            *"$PROM_MENU_ROTATION"*)
+                local rotations_list
+                printf -v rotations_list "%b" "$PROM_ROTATIONS"
+                "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "${GLYPH_ROTATION}${PROM_ROTATION}" <<< "$rotations_list" > "$tmp_choice"
+                IFS= read -r new_rot < "$tmp_choice"
+                
+                if [ -n "$new_rot" ]; then
+                    new_rot="${new_rot//[[:space:]]/}"
+                    SEL_ROTATION="$new_rot"
+                fi
+                ;;
+                
+            *"$PROM_MENU_BRIGHTNESS"*)
+                local brightnesses_list
+                printf -v brightnesses_list "%b" "$PROM_BRIGHTNESSES"
+                "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "${GLYPH_BRIGHTNESS}${PROM_BRIGHTNESS}" <<< "$brightnesses_list" > "$tmp_choice"
+                IFS= read -r new_bri < "$tmp_choice"
+                
+                if [ -n "$new_bri" ]; then
+                    new_bri="${new_bri//[[:space:]]/}"
+                    
+                    if [ "$new_bri" = "$VAL_CUSTOM" ] || [ "$new_bri" = "personalizado" ] || [ "$new_bri" = "custom" ]; then
+                        "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "Brillo (ej: 0.85)" <<< "" > "$tmp_choice"
+                        IFS= read -r custom_bri < "$tmp_choice"
+                        custom_bri="${custom_bri//[[:space:]]/}"
+                        custom_bri="${custom_bri//,/.}"
+                        if [[ "$custom_bri" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+                            new_bri="$custom_bri"
+                        else
+                            continue
+                        fi
+                    fi
+                    SEL_BRIGHTNESS="$new_bri"
+                fi
+                ;;
+                
             *"$PROM_MENU_TIME"*)
-                local times_list="${PROM_TIMES//\\n/$'\n'}"
+                local times_list
+                printf -v times_list "%b" "$PROM_TIMES"
                 "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "$PROM_TIMEOUT" <<< "$times_list" > "$tmp_choice"
                 IFS= read -r new_time < "$tmp_choice"
                 
@@ -304,8 +373,16 @@ select_display_interactive() {
                 local old_scale="${RET_SCALE//[[:space:]]/}"
                 old_scale="${old_scale:-1.0}"
                 
-                echo "Aplicando previsualización: $SEL_OUTPUT -> $SEL_RES ${SEL_RATE:+@ $SEL_RATE} ${SEL_SCALE:+[x$SEL_SCALE]}"
-                hook_apply "$SEL_OUTPUT" "$SEL_RES" "$SEL_RATE" "$SEL_SCALE"
+                hook_get_current_rotation "$SEL_OUTPUT"
+                local old_rotation="${RET_ROTATION//[[:space:]]/}"
+                old_rotation="${old_rotation:-normal}"
+                
+                hook_get_current_brightness "$SEL_OUTPUT"
+                local old_brightness="${RET_BRIGHTNESS//[[:space:]]/}"
+                old_brightness="${old_brightness:-1.0}"
+                
+                echo "Aplicando previsualización: $SEL_OUTPUT -> $SEL_RES ${SEL_RATE:+@ $SEL_RATE} ${SEL_SCALE:+[x$SEL_SCALE]} ${SEL_ROTATION:+[$SEL_ROTATION]} ${SEL_BRIGHTNESS:+[brightness $SEL_BRIGHTNESS]}"
+                hook_apply "$SEL_OUTPUT" "$SEL_RES" "$SEL_RATE" "$SEL_SCALE" "$SEL_ROTATION" "$SEL_BRIGHTNESS"
                 hook_post_apply
                 
                 sleep 0.5
@@ -358,11 +435,21 @@ select_display_interactive() {
                     else
                         rm -f "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.scale"
                     fi
+                    if [ -n "$SEL_ROTATION" ]; then
+                        echo "$SEL_ROTATION" > "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.rotation"
+                    else
+                        rm -f "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.rotation"
+                    fi
+                    if [ -n "$SEL_BRIGHTNESS" ]; then
+                        echo "$SEL_BRIGHTNESS" > "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.brightness"
+                    else
+                        rm -f "$DISPLAY_STATE_DIR/${SEL_OUTPUT}.brightness"
+                    fi
                     hook_save
                     echo "Resolución guardada permanentemente."
                 else
-                    echo "Acción cancelada o expirada. Revirtiendo a $old_res ${old_rate:+@ $old_rate} ${old_scale:+[x$old_scale]}..."
-                    hook_apply "$SEL_OUTPUT" "$old_res" "$old_rate" "$old_scale"
+                    echo "Acción cancelada o expirada. Revirtiendo a $old_res ${old_rate:+@ $old_rate} ${old_scale:+[x$old_scale]} ${old_rotation:+[$old_rotation]} ${old_brightness:+[brightness $old_brightness]}..."
+                    hook_apply "$SEL_OUTPUT" "$old_res" "$old_rate" "$old_scale" "$old_rotation" "$old_brightness"
                     hook_post_apply
                 fi
                 break
