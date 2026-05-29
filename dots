@@ -158,7 +158,10 @@ else
 fi
 
 # 6. Ejecutar Secuencia Seleccionada
+seq_len=${#FINAL_SEQUENCE[@]}
+idx=0
 for action in "${FINAL_SEQUENCE[@]}"; do
+    ((idx++))
     # Separar el nombre del script de sus argumentos internos
     read -r -a action_parts <<< "$action"
     script_name="${action_parts[0]}"
@@ -167,17 +170,42 @@ for action in "${FINAL_SEQUENCE[@]}"; do
     clean_name="${script_name%.sh}"
     specific="${TARGETED_ARGS["$clean_name"]}"
     
+    is_last=0
+    if [ "$idx" -eq "$seq_len" ]; then
+        is_last=1
+    fi
+    
     # Intentar ejecutar (con y sin .sh)
     if [ -x "$PACKAGE_DIR/bin/$script_name" ]; then
-        "$PACKAGE_DIR/bin/$script_name" "${GENERAL_ARGS[@]}" "${internal_args[@]}" $specific
+        if [ "$is_last" -eq 1 ]; then
+            exec "$PACKAGE_DIR/bin/$script_name" "${GENERAL_ARGS[@]}" "${internal_args[@]}" $specific
+        else
+            "$PACKAGE_DIR/bin/$script_name" "${GENERAL_ARGS[@]}" "${internal_args[@]}" $specific
+        fi
     elif [ -x "$PACKAGE_DIR/bin/${script_name}.sh" ]; then
-        "$PACKAGE_DIR/bin/${script_name}.sh" "${GENERAL_ARGS[@]}" "${internal_args[@]}" $specific
+        if [ "$is_last" -eq 1 ]; then
+            exec "$PACKAGE_DIR/bin/${script_name}.sh" "${GENERAL_ARGS[@]}" "${internal_args[@]}" $specific
+        else
+            "$PACKAGE_DIR/bin/${script_name}.sh" "${GENERAL_ARGS[@]}" "${internal_args[@]}" $specific
+        fi
     elif [ -x "$BIN_DIR/$script_name" ]; then
-        "$BIN_DIR/$script_name" "${GENERAL_ARGS[@]}" "${internal_args[@]}" $specific
+        if [ "$is_last" -eq 1 ]; then
+            exec "$BIN_DIR/$script_name" "${GENERAL_ARGS[@]}" "${internal_args[@]}" $specific
+        else
+            "$BIN_DIR/$script_name" "${GENERAL_ARGS[@]}" "${internal_args[@]}" $specific
+        fi
     elif [ -x "$BIN_DIR/${script_name}.sh" ]; then
-        "$BIN_DIR/${script_name}.sh" "${GENERAL_ARGS[@]}" "${internal_args[@]}" $specific
+        if [ "$is_last" -eq 1 ]; then
+            exec "$BIN_DIR/${script_name}.sh" "${GENERAL_ARGS[@]}" "${internal_args[@]}" $specific
+        else
+            "$BIN_DIR/${script_name}.sh" "${GENERAL_ARGS[@]}" "${internal_args[@]}" $specific
+        fi
     elif command -v "$script_name" >/dev/null; then
-        "$script_name" "${GENERAL_ARGS[@]}" "${internal_args[@]}" $specific
+        if [ "$is_last" -eq 1 ]; then
+            exec "$script_name" "${GENERAL_ARGS[@]}" "${internal_args[@]}" $specific
+        else
+            "$script_name" "${GENERAL_ARGS[@]}" "${internal_args[@]}" $specific
+        fi
     else
         print_sub_err "Error: Accion '$script_name' no encontrada."
     fi
