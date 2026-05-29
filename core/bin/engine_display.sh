@@ -126,16 +126,18 @@ select_display_interactive() {
     # Cargar caché al inicio en el mismo proceso (evita ejecuciones redundantes de xrandr)
     hook_load_cache
     
-    read -r default_output default_res default_rate < <(hook_query_default)
-    if [ -z "$default_output" ]; then
+    hook_query_default
+    local SEL_OUTPUT="$RET_OUT"
+    local SEL_RES="$RET_RES"
+    local SEL_RATE="$RET_RATE"
+    
+    if [ -z "$SEL_OUTPUT" ]; then
         echo "Error: No se detectaron salidas de pantalla activas." >&2
         exit 1
     fi
     
-    local SEL_OUTPUT="$default_output"
-    local SEL_RES="$default_res"
-    local SEL_RATE="$default_rate"
-    local SEL_SCALE=$(hook_get_current_scale "$default_output")
+    hook_get_current_scale "$SEL_OUTPUT"
+    local SEL_SCALE="$RET_SCALE"
     SEL_SCALE="${SEL_SCALE:-1.0}"
     
     local SEL_TIMEOUT="15"
@@ -146,36 +148,51 @@ select_display_interactive() {
         fi
     fi
     
+    # Crear archivo temporal único de selección para evitar forks de subshells Bash $(...)
+    local tmp_choice=$(mktemp)
+    
     while true; do
         local menu_options=""
-        menu_options+="${PROM_MENU_OUTPUT}: $SEL_OUTPUT\n"
-        menu_options+="${PROM_MENU_RES}: ${SEL_RES:-$PROM_VAL_NONE}\n"
-        menu_options+="${PROM_MENU_RATE}: ${SEL_RATE:-$PROM_VAL_AUTO}\n"
-        menu_options+="${PROM_MENU_SCALE}: ${SEL_SCALE}\n"
-        menu_options+="${PROM_MENU_TIME}: ${SEL_TIMEOUT}s\n"
-        menu_options+="${PROM_MENU_APPLY}\n"
+        menu_options+="${PROM_MENU_OUTPUT}: $SEL_OUTPUT"$'\n'
+        menu_options+="${PROM_MENU_RES}: ${SEL_RES:-$PROM_VAL_NONE}"$'\n'
+        menu_options+="${PROM_MENU_RATE}: ${SEL_RATE:-$PROM_VAL_AUTO}"$'\n'
+        menu_options+="${PROM_MENU_SCALE}: ${SEL_SCALE}"$'\n'
+        menu_options+="${PROM_MENU_TIME}: ${SEL_TIMEOUT}s"$'\n'
+        menu_options+="${PROM_MENU_APPLY}"$'\n'
         menu_options+="${PROM_MENU_CANCEL}"
         
-        local choice=$(echo -e "$menu_options" | "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "$PROM_MAIN")
-        [ -z "$choice" ] && exit 0
+        # Redirección directa sin tuberías ni subshells
+        "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "$PROM_MAIN" <<< "$menu_options" > "$tmp_choice"
+        IFS= read -r choice < "$tmp_choice"
+        [ -z "$choice" ] && break
         
         case "$choice" in
             *"$PROM_MENU_OUTPUT"*)
-                local outputs=$(hook_query_outputs)
+                hook_query_outputs
+                local outputs="$RET_LIST"
                 local op_list=""
                 while IFS= read -r op; do
                     [ -z "$op" ] && continue
-                    op_list+="${GLYPH_MONITOR}${op}\n"
+                    op_list+="${GLYPH_MONITOR}${op}"$'\n'
                 done <<< "$outputs"
                 
-                local new_out=$(echo -e "$op_list" | "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "${GLYPH_MONITOR}${PROM_MONITOR}")
+                # Quitar salto de línea final
+                op_list="${op_list%$'\n'}"
+                
+                "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "${GLYPH_MONITOR}${PROM_MONITOR}" <<< "$op_list" > "$tmp_choice"
+                IFS= read -r new_out < "$tmp_choice"
+                
                 if [ -n "$new_out" ]; then
                     new_out="${new_out#$GLYPH_MONITOR}"
-                    new_out=$(echo "$new_out" | tr -d '[:space:]')
+                    new_out="${new_out//[[:space:]]/}"
                     SEL_OUTPUT="$new_out"
                     
-                    read -r SEL_RES SEL_RATE < <(hook_get_current_all "$new_out")
-                    SEL_SCALE=$(hook_get_current_scale "$new_out")
+                    hook_get_current_all "$new_out"
+                    SEL_RES="$RET_RES"
+                    SEL_RATE="$RET_RATE"
+                    
+                    hook_get_current_scale "$new_out"
+                    SEL_SCALE="$RET_SCALE"
                     SEL_SCALE="${SEL_SCALE:-1.0}"
                 fi
                 ;;
@@ -184,17 +201,22 @@ select_display_interactive() {
                 if [ -z "$SEL_OUTPUT" ]; then
                     continue
                 fi
-                local modes=$(hook_query_modes "$SEL_OUTPUT")
+                hook_query_modes "$SEL_OUTPUT"
+                local modes="$RET_LIST"
                 local res_list=""
                 while IFS= read -r res; do
                     [ -z "$res" ] && continue
-                    res_list+="${GLYPH_RESOLUTION}${res}\n"
+                    res_list+="${GLYPH_RESOLUTION}${res}"$'\n'
                 done <<< "$modes"
                 
-                local new_res=$(echo -e "$res_list" | "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "${GLYPH_RESOLUTION}${PROM_RESOLUTION}")
+                res_list="${res_list%$'\n'}"
+                
+                "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "${GLYPH_RESOLUTION}${PROM_RESOLUTION}" <<< "$res_list" > "$tmp_choice"
+                IFS= read -r new_res < "$tmp_choice"
+                
                 if [ -n "$new_res" ]; then
                     new_res="${new_res#$GLYPH_RESOLUTION}"
-                    new_res=$(echo "$new_res" | tr -d '[:space:]')
+                    new_res="${new_res//[[:space:]]/}"
                     SEL_RES="$new_res"
                     SEL_RATE=""
                 fi
@@ -204,33 +226,42 @@ select_display_interactive() {
                 if [ -z "$SEL_OUTPUT" ] || [ -z "$SEL_RES" ]; then
                     continue
                 fi
-                local rates=$(hook_query_rates "$SEL_OUTPUT" "$SEL_RES")
+                hook_query_rates "$SEL_OUTPUT" "$SEL_RES"
+                local rates="$RET_LIST"
                 if [ -z "$rates" ]; then
                     continue
                 fi
                 local rate_list=""
                 while IFS= read -r r; do
                     [ -z "$r" ] && continue
-                    rate_list+="${GLYPH_RATE}${r}${UNIT_RATE}\n"
+                    rate_list+="${GLYPH_RATE}${r}${UNIT_RATE}"$'\n'
                 done <<< "$rates"
                 
-                local new_rate=$(echo -e "$rate_list" | "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "${GLYPH_RATE}${PROM_RATE}")
+                rate_list="${rate_list%$'\n'}"
+                
+                "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "${GLYPH_RATE}${PROM_RATE}" <<< "$rate_list" > "$tmp_choice"
+                IFS= read -r new_rate < "$tmp_choice"
+                
                 if [ -n "$new_rate" ]; then
                     new_rate="${new_rate#$GLYPH_RATE}"
                     new_rate="${new_rate%${UNIT_RATE}}"
-                    new_rate=$(echo "$new_rate" | tr -d '[:space:]')
+                    new_rate="${new_rate//[[:space:]]/}"
                     SEL_RATE="$new_rate"
                 fi
                 ;;
                 
             *"$PROM_MENU_SCALE"*)
-                local new_scale=$(echo -e "$PROM_SCALES" | "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "${GLYPH_SCALE}${PROM_SCALE}")
+                local scales_list="${PROM_SCALES//\\n/$'\n'}"
+                "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "${GLYPH_SCALE}${PROM_SCALE}" <<< "$scales_list" > "$tmp_choice"
+                IFS= read -r new_scale < "$tmp_choice"
+                
                 if [ -n "$new_scale" ]; then
-                    new_scale=$(echo "$new_scale" | tr -d '[:space:]')
+                    new_scale="${new_scale//[[:space:]]/}"
                     
                     if [ "$new_scale" = "personalizada" ] || [ "$new_scale" = "custom" ]; then
-                        local custom_scale=$(echo "" | "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "Escala (ej: 1.3)")
-                        custom_scale=$(echo "$custom_scale" | tr -d '[:space:]')
+                        "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "Escala (ej: 1.3)" <<< "" > "$tmp_choice"
+                        IFS= read -r custom_scale < "$tmp_choice"
+                        custom_scale="${custom_scale//[[:space:]]/}"
                         custom_scale="${custom_scale//,/.}"
                         if [[ "$custom_scale" =~ ^[0-9]+(\.[0-9]+)?$ ]] && [ $(awk -v cs="$custom_scale" 'BEGIN { print (cs > 0) }') -eq 1 ]; then
                             new_scale="$custom_scale"
@@ -243,10 +274,13 @@ select_display_interactive() {
                 ;;
                 
             *"$PROM_MENU_TIME"*)
-                local new_time=$(echo -e "$PROM_TIMES" | "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "$PROM_TIMEOUT")
+                local times_list="${PROM_TIMES//\\n/$'\n'}"
+                "$DISP_SEL_BIN" "${DISP_SEL_ARGS_ARR[@]}" -p "$PROM_TIMEOUT" <<< "$times_list" > "$tmp_choice"
+                IFS= read -r new_time < "$tmp_choice"
+                
                 if [ -n "$new_time" ]; then
                     new_time="${new_time%s}"
-                    new_time=$(echo "$new_time" | tr -d '[:space:]')
+                    new_time="${new_time//[[:space:]]/}"
                     SEL_TIMEOUT="$new_time"
                     
                     mkdir -p "$DISPLAY_STATE_DIR"
@@ -256,12 +290,18 @@ select_display_interactive() {
                 
             *"$PROM_MENU_APPLY"*)
                 if [ -z "$SEL_OUTPUT" ] || [ -z "$SEL_RES" ]; then
+                    rm -f "$tmp_choice"
                     exit 1
                 fi
                 
-                local old_res=$(hook_get_current "$SEL_OUTPUT" | tr -d '[:space:]')
-                local old_rate=$(hook_get_current_rate "$SEL_OUTPUT" | tr -d '[:space:]')
-                local old_scale=$(hook_get_current_scale "$SEL_OUTPUT" | tr -d '[:space:]')
+                hook_get_current "$SEL_OUTPUT"
+                local old_res="${RET_RES//[[:space:]]/}"
+                
+                hook_get_current_rate "$SEL_OUTPUT"
+                local old_rate="${RET_RATE//[[:space:]]/}"
+                
+                hook_get_current_scale "$SEL_OUTPUT"
+                local old_scale="${RET_SCALE//[[:space:]]/}"
                 old_scale="${old_scale:-1.0}"
                 
                 echo "Aplicando previsualización: $SEL_OUTPUT -> $SEL_RES ${SEL_RATE:+@ $SEL_RATE} ${SEL_SCALE:+[x$SEL_SCALE]}"
@@ -274,9 +314,10 @@ select_display_interactive() {
                 local confirmed=""
                 local prom_msg=$(printf "$PROM_MSG" "$SEL_TIMEOUT")
                 
-                echo -e "${VAL_CONFIRM}\n${VAL_REVERT}" | "$DISP_SEL_BIN" "${DISP_CONF_ARGS_ARR[@]}" \
+                # Ejecutar Rofi en segundo plano sin usar pipelines de subshell
+                "$DISP_SEL_BIN" "${DISP_CONF_ARGS_ARR[@]}" \
                     -p "${GLYPH_CONFIRM}${PROM_CONFIRM}" \
-                    -mesg "$prom_msg" > "$tmp_confirm" &
+                    -mesg "$prom_msg" <<< "${VAL_CONFIRM}"$'\n'"${VAL_REVERT}" > "$tmp_confirm" &
                 local dialog_pid=$!
                 
                 local dialog_exited=0
@@ -324,14 +365,17 @@ select_display_interactive() {
                     hook_apply "$SEL_OUTPUT" "$old_res" "$old_rate" "$old_scale"
                     hook_post_apply
                 fi
-                exit 0
+                break
                 ;;
                 
             *)
-                exit 0
+                break
                 ;;
         esac
     done
+    
+    rm -f "$tmp_choice"
+    exit 0
 }
 
 # 3. Parseo de Argumentos principales

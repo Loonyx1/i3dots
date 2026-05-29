@@ -5,6 +5,13 @@
 XRANDR_CACHE=""
 XRANDR_VERBOSE_CACHE=""
 
+# Variables de retorno globales (para evitar subshells)
+RET_OUT=""
+RET_RES=""
+RET_RATE=""
+RET_SCALE=""
+RET_LIST=""
+
 hook_load_cache() {
     XRANDR_CACHE=$(xrandr 2>/dev/null)
     XRANDR_VERBOSE_CACHE=$(xrandr --verbose 2>/dev/null)
@@ -24,120 +31,230 @@ ensure_verbose_cache() {
 
 hook_query_outputs() {
     ensure_cache
-    echo "$XRANDR_CACHE" | grep " connected" | cut -d' ' -f1
+    RET_LIST=""
+    local line
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^([^[:space:]]+)[[:space:]]+connected ]]; then
+            RET_LIST+="${BASH_REMATCH[1]}"$'\n'
+        fi
+    done <<< "$XRANDR_CACHE"
+    RET_LIST="${RET_LIST%$'\n'}"
 }
 
 hook_query_modes() {
     local output="$1"
     ensure_cache
-    echo "$XRANDR_CACHE" | awk -v out="$output" '
-        $0 ~ "^"out" connected" { flag=1; next }
-        $0 ~ "^[A-Za-z]" && $0 !~ "^"out { flag=0 }
-        flag && $1 ~ /^[0-9]+x[0-9]+/ { print $1 }
-    ' | sort -V -r | uniq
+    RET_LIST=""
+    local line flag=0
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^([^[:space:]]+)[[:space:]]+connected ]]; then
+            if [ "${BASH_REMATCH[1]}" = "$output" ]; then
+                flag=1
+            else
+                flag=0
+            fi
+            continue
+        elif [[ "$line" =~ ^[A-Za-z] ]]; then
+            flag=0
+        fi
+        
+        if [ "$flag" -eq 1 ]; then
+            if [[ "$line" =~ ^[[:space:]]+([0-9]+x[0-9]+) ]]; then
+                RET_LIST+="${BASH_REMATCH[1]}"$'\n'
+            fi
+        fi
+    done <<< "$XRANDR_CACHE"
+    RET_LIST="${RET_LIST%$'\n'}"
 }
 
 hook_query_rates() {
     local output="$1"
     local resolution="$2"
     ensure_cache
-    echo "$XRANDR_CACHE" | awk -v out="$output" -v res="$resolution" '
-        $0 ~ "^"out" connected" { flag=1; next }
-        $0 ~ "^[A-Za-z]" && $0 !~ "^"out { flag=0 }
-        flag && $1 == res {
-            for(i=2; i<=NF; i++) {
-                rate=$i
-                gsub(/[*+]/, "", rate)
-                print rate
-            }
-        }
-    ' | sort -n -r | uniq
+    RET_LIST=""
+    local line flag=0
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^([^[:space:]]+)[[:space:]]+connected ]]; then
+            if [ "${BASH_REMATCH[1]}" = "$output" ]; then
+                flag=1
+            else
+                flag=0
+            fi
+            continue
+        elif [[ "$line" =~ ^[A-Za-z] ]]; then
+            flag=0
+        fi
+        
+        if [ "$flag" -eq 1 ]; then
+            if [[ "$line" =~ ^[[:space:]]+(${resolution})[[:space:]]+(.*) ]]; then
+                local rates_str="${BASH_REMATCH[2]}"
+                local rate
+                for rate in $rates_str; do
+                    rate="${rate//[*+]/}"
+                    RET_LIST+="$rate"$'\n'
+                done
+                break
+            fi
+        fi
+    done <<< "$XRANDR_CACHE"
+    RET_LIST="${RET_LIST%$'\n'}"
 }
 
 hook_get_current() {
     local output="$1"
     ensure_cache
-    echo "$XRANDR_CACHE" | grep -A12 "^$output connected" | awk '
-        /\*/ {
-            print $1
-        }
-    ' | head -n1
+    RET_RES=""
+    local line flag=0
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^([^[:space:]]+)[[:space:]]+connected ]]; then
+            if [ "${BASH_REMATCH[1]}" = "$output" ]; then
+                flag=1
+            else
+                flag=0
+            fi
+            continue
+        elif [[ "$line" =~ ^[A-Za-z] ]]; then
+            flag=0
+        fi
+        
+        if [ "$flag" -eq 1 ]; then
+            if [[ "$line" =~ ^[[:space:]]+([0-9]+x[0-9]+).*[*] ]]; then
+                RET_RES="${BASH_REMATCH[1]}"
+                break
+            fi
+        fi
+    done <<< "$XRANDR_CACHE"
 }
 
 hook_get_current_rate() {
     local output="$1"
     ensure_cache
-    echo "$XRANDR_CACHE" | grep -A12 "^$output connected" | awk '
-        /\*/ {
-            for(i=2; i<=NF; i++) {
-                if($i ~ /\*/) {
-                    rate=$i
-                    gsub(/[*+]/, "", rate)
-                    print rate
-                }
-            }
-        }
-    ' | head -n1
+    RET_RATE=""
+    local line flag=0
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^([^[:space:]]+)[[:space:]]+connected ]]; then
+            if [ "${BASH_REMATCH[1]}" = "$output" ]; then
+                flag=1
+            else
+                flag=0
+            fi
+            continue
+        elif [[ "$line" =~ ^[A-Za-z] ]]; then
+            flag=0
+        fi
+        
+        if [ "$flag" -eq 1 ]; then
+            if [[ "$line" =~ ^[[:space:]]+[0-9]+x[0-9]+[[:space:]]+(.*) ]]; then
+                local rates_str="${BASH_REMATCH[1]}"
+                local rate
+                for rate in $rates_str; do
+                    if [[ "$rate" == *"*"* ]]; then
+                        RET_RATE="${rate//[*+]/}"
+                        break 2
+                    fi
+                done
+            fi
+        fi
+    done <<< "$XRANDR_CACHE"
 }
 
 hook_get_current_all() {
     local output="$1"
     ensure_cache
-    echo "$XRANDR_CACHE" | grep -A12 "^$output connected" | awk '
-        /\*/ {
-            res=$1
-            for(i=2; i<=NF; i++) {
-                if($i ~ /\*/) {
-                    rate=$i
-                    gsub(/[*+]/, "", rate)
-                    print res, rate
-                    exit
-                }
-            }
-        }
-    ' | head -n1
+    RET_RES=""
+    RET_RATE=""
+    local line flag=0
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^([^[:space:]]+)[[:space:]]+connected ]]; then
+            if [ "${BASH_REMATCH[1]}" = "$output" ]; then
+                flag=1
+            else
+                flag=0
+            fi
+            continue
+        elif [[ "$line" =~ ^[A-Za-z] ]]; then
+            flag=0
+        fi
+        
+        if [ "$flag" -eq 1 ]; then
+            if [[ "$line" =~ ^[[:space:]]+([0-9]+x[0-9]+)[[:space:]]+(.*) ]]; then
+                local res="${BASH_REMATCH[1]}"
+                local rates_str="${BASH_REMATCH[2]}"
+                local rate
+                for rate in $rates_str; do
+                    if [[ "$rate" == *"*"* ]]; then
+                        RET_RES="$res"
+                        RET_RATE="${rate//[*+]/}"
+                        break 2
+                    fi
+                done
+            fi
+        fi
+    done <<< "$XRANDR_CACHE"
 }
 
 hook_query_default() {
     ensure_cache
-    echo "$XRANDR_CACHE" | awk '
-        /^[^ ]+ connected/ {
-            out=$1
-        }
-        out && /\*/ {
-            res=$1
-            for(i=2; i<=NF; i++) {
-                if($i ~ /\*/) {
-                    rate=$i
-                    gsub(/[*+]/, "", rate)
-                    print out, res, rate
-                    exit
-                }
-            }
-        }
-    '
+    RET_OUT=""
+    RET_RES=""
+    RET_RATE=""
+    local line current_out=""
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^([^[:space:]]+)[[:space:]]+connected ]]; then
+            current_out="${BASH_REMATCH[1]}"
+        elif [[ "$line" =~ ^[A-Za-z] ]]; then
+            current_out=""
+        fi
+        
+        if [ -n "$current_out" ]; then
+            if [[ "$line" =~ ^[[:space:]]+([0-9]+x[0-9]+)[[:space:]]+(.*) ]]; then
+                local res="${BASH_REMATCH[1]}"
+                local rates_str="${BASH_REMATCH[2]}"
+                local rate
+                for rate in $rates_str; do
+                    if [[ "$rate" == *"*"* ]]; then
+                        RET_OUT="$current_out"
+                        RET_RES="$res"
+                        RET_RATE="${rate//[*+]/}"
+                        break 2
+                    fi
+                done
+            fi
+        fi
+    done <<< "$XRANDR_CACHE"
 }
 
 hook_get_current_scale() {
     local output="$1"
     ensure_verbose_cache
-    echo "$XRANDR_VERBOSE_CACHE" | awk -v out="$output" '
-        $0 ~ "^"out" connected" { flag=1; next }
-        $0 ~ "^[A-Za-z]" && $0 !~ "^"out { flag=0 }
-        flag && /Transform:/ {
-            scale=$2
-            if (scale == "" || scale == "1.000000") {
-                print "1.0"
-                exit
-            }
-            ui_scale = 1 / scale
-            val = sprintf("%.2f", ui_scale)
-            sub(/0+$/, "", val)
-            sub(/\.$/, "", val)
-            print val
-            exit
-        }
-    '
+    RET_SCALE="1.0"
+    local line flag=0
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^([^[:space:]]+)[[:space:]]+connected ]]; then
+            if [ "${BASH_REMATCH[1]}" = "$output" ]; then
+                flag=1
+            else
+                flag=0
+            fi
+            continue
+        elif [[ "$line" =~ ^[A-Za-z] ]]; then
+            flag=0
+        fi
+        
+        if [ "$flag" -eq 1 ]; then
+            if [[ "$line" =~ [[:space:]]*Transform:[[:space:]]+([^[:space:]]+) ]]; then
+                local scale="${BASH_REMATCH[1]}"
+                if [ "$scale" = "1.000000" ] || [ -z "$scale" ]; then
+                    RET_SCALE="1.0"
+                else
+                    RET_SCALE=$(awk -v s="$scale" 'BEGIN { printf "%.2f", 1/s }' 2>/dev/null)
+                    RET_SCALE="${RET_SCALE%0}"
+                    RET_SCALE="${RET_SCALE%.}"
+                fi
+                break
+            fi
+        fi
+    done <<< "$XRANDR_VERBOSE_CACHE"
 }
 
 hook_apply() {
@@ -235,14 +352,38 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     action="$1"
     shift
     case "$action" in
-        --query-outputs) hook_query_outputs "$@" ;;
-        --query-modes) hook_query_modes "$@" ;;
-        --query-rates) hook_query_rates "$@" ;;
-        --get-current) hook_get_current "$@" ;;
-        --get-current-rate) hook_get_current_rate "$@" ;;
-        --get-current-all) hook_get_current_all "$@" ;;
-        --query-default) hook_query_default "$@" ;;
-        --get-current-scale) hook_get_current_scale "$@" ;;
+        --query-outputs)
+            hook_query_outputs "$@"
+            echo "$RET_LIST"
+            ;;
+        --query-modes)
+            hook_query_modes "$@"
+            echo "$RET_LIST"
+            ;;
+        --query-rates)
+            hook_query_rates "$@"
+            echo "$RET_LIST"
+            ;;
+        --get-current)
+            hook_get_current "$@"
+            echo "$RET_RES"
+            ;;
+        --get-current-rate)
+            hook_get_current_rate "$@"
+            echo "$RET_RATE"
+            ;;
+        --get-current-all)
+            hook_get_current_all "$@"
+            echo "$RET_RES $RET_RATE"
+            ;;
+        --query-default)
+            hook_query_default "$@"
+            echo "$RET_OUT $RET_RES $RET_RATE"
+            ;;
+        --get-current-scale)
+            hook_get_current_scale "$@"
+            echo "$RET_SCALE"
+            ;;
         --apply) hook_apply "$@" ;;
         --save) hook_save "$@" ;;
         --post-apply) hook_post_apply "$@" ;;
