@@ -308,6 +308,15 @@ hook_get_current_brightness() {
     done <<< "$XRANDR_VERBOSE_CACHE"
 }
 
+hook_get_current_filter() {
+    local output="$1"
+    RET_FILTER=""
+    if [ -f "$DISPLAY_STATE_DIR/${output}.filter" ]; then
+        RET_FILTER=$(cat "$DISPLAY_STATE_DIR/${output}.filter" | tr -d '[:space:]')
+    fi
+    RET_FILTER="${RET_FILTER:-ninguno}"
+}
+
 hook_apply() {
     local output="$1"
     local resolution="$2"
@@ -315,6 +324,7 @@ hook_apply() {
     local scale="$4"
     local rotation="$5"
     local brightness="$6"
+    local filter="$7"
     
     local args=()
     if [ -n "$resolution" ]; then
@@ -323,8 +333,15 @@ hook_apply() {
     if [ -n "$rate" ]; then
         args+=(--rate "$rate")
     fi
+    local scale_filter="${filter:-${DISP_SCALE_FILTER:-}}"
+    if [ "$scale_filter" = "ninguno" ] || [ "$scale_filter" = "none" ]; then
+        scale_filter=""
+    fi
     if [ -n "$scale" ] && [ "$scale" != "1" ] && [ "$scale" != "1.0" ]; then
         xrandr_scale=$(awk -v z="$scale" 'BEGIN { printf "%.3f", 1/z }')
+        if [ -n "$scale_filter" ]; then
+            args+=(--filter "$scale_filter")
+        fi
         args+=(--scale "${xrandr_scale}x${xrandr_scale}")
     else
         args+=(--transform none)
@@ -365,6 +382,7 @@ hook_save() {
             local scale_file="$DISPLAY_STATE_DIR/${output}.scale"
             local rot_file="$DISPLAY_STATE_DIR/${output}.rotation"
             local bri_file="$DISPLAY_STATE_DIR/${output}.brightness"
+            local filter_file="$DISPLAY_STATE_DIR/${output}.filter"
             
             local cmd="xrandr --output $output"
             if [ -n "$resolution" ]; then
@@ -374,10 +392,19 @@ hook_save() {
                 local rate=$(cat "$rate_file")
                 [ -n "$rate" ] && cmd="$cmd --rate $rate"
             fi
+            local filter=""
+            [ -f "$filter_file" ] && filter=$(cat "$filter_file")
+            local scale_filter="${filter:-${DISP_SCALE_FILTER:-}}"
+            if [ "$scale_filter" = "ninguno" ] || [ "$scale_filter" = "none" ]; then
+                scale_filter=""
+            fi
             if [ -f "$scale_file" ]; then
                 local scale=$(cat "$scale_file")
                 if [ -n "$scale" ] && [ "$scale" != "1" ] && [ "$scale" != "1.0" ]; then
                     local xrandr_scale=$(awk -v z="$scale" 'BEGIN { printf "%.3f", 1/z }')
+                    if [ -n "$scale_filter" ]; then
+                        cmd="$cmd --filter $scale_filter"
+                    fi
                     cmd="$cmd --scale ${xrandr_scale}x${xrandr_scale}"
                 else
                     cmd="$cmd --transform none"
@@ -460,6 +487,10 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
         --get-current-brightness)
             hook_get_current_brightness "$@"
             echo "$RET_BRIGHTNESS"
+            ;;
+        --get-current-filter)
+            hook_get_current_filter "$@"
+            echo "$RET_FILTER"
             ;;
         --apply) hook_apply "$@" ;;
         --save) hook_save "$@" ;;
