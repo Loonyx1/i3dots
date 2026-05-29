@@ -10,6 +10,8 @@ RET_OUT=""
 RET_RES=""
 RET_RATE=""
 RET_SCALE=""
+RET_ROTATION=""
+RET_BRIGHTNESS=""
 RET_LIST=""
 
 hook_load_cache() {
@@ -263,11 +265,56 @@ hook_get_current_scale() {
     done <<< "$XRANDR_VERBOSE_CACHE"
 }
 
+hook_get_current_rotation() {
+    local output="$1"
+    ensure_cache
+    RET_ROTATION="normal"
+    local line
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^([^[:space:]]+)[[:space:]]+connected ]]; then
+            if [ "${BASH_REMATCH[1]}" = "$output" ]; then
+                if [[ "$line" =~ [[:space:]]+(normal|left|right|inverted)[[:space:]]+\( ]]; then
+                    RET_ROTATION="${BASH_REMATCH[1]}"
+                fi
+                break
+            fi
+        fi
+    done <<< "$XRANDR_CACHE"
+}
+
+hook_get_current_brightness() {
+    local output="$1"
+    ensure_verbose_cache
+    RET_BRIGHTNESS="1.0"
+    local line flag=0
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^([^[:space:]]+)[[:space:]]+connected ]]; then
+            if [ "${BASH_REMATCH[1]}" = "$output" ]; then
+                flag=1
+            else
+                flag=0
+            fi
+            continue
+        elif [[ "$line" =~ ^[A-Za-z] ]]; then
+            flag=0
+        fi
+        
+        if [ "$flag" -eq 1 ]; then
+            if [[ "$line" =~ [[:space:]]*Brightness:[[:space:]]+([^[:space:]]+) ]]; then
+                RET_BRIGHTNESS="${BASH_REMATCH[1]}"
+                break
+            fi
+        fi
+    done <<< "$XRANDR_VERBOSE_CACHE"
+}
+
 hook_apply() {
     local output="$1"
     local resolution="$2"
     local rate="$3"
     local scale="$4"
+    local rotation="$5"
+    local brightness="$6"
     
     local args=()
     if [ -n "$resolution" ]; then
@@ -281,6 +328,12 @@ hook_apply() {
         args+=(--scale "${xrandr_scale}x${xrandr_scale}")
     else
         args+=(--transform none)
+    fi
+    if [ -n "$rotation" ]; then
+        args+=(--rotate "$rotation")
+    fi
+    if [ -n "$brightness" ]; then
+        args+=(--brightness "$brightness")
     fi
     
     xrandr --output "$output" "${args[@]}"
@@ -310,6 +363,8 @@ hook_save() {
             local resolution=$(cat "$res_file")
             local rate_file="$DISPLAY_STATE_DIR/${output}.rate"
             local scale_file="$DISPLAY_STATE_DIR/${output}.scale"
+            local rot_file="$DISPLAY_STATE_DIR/${output}.rotation"
+            local bri_file="$DISPLAY_STATE_DIR/${output}.brightness"
             
             local cmd="xrandr --output $output"
             if [ -n "$resolution" ]; then
@@ -329,6 +384,14 @@ hook_save() {
                 fi
             else
                 cmd="$cmd --transform none"
+            fi
+            if [ -f "$rot_file" ]; then
+                local rotation=$(cat "$rot_file")
+                [ -n "$rotation" ] && cmd="$cmd --rotate $rotation"
+            fi
+            if [ -f "$bri_file" ]; then
+                local brightness=$(cat "$bri_file")
+                [ -n "$brightness" ] && cmd="$cmd --brightness $brightness"
             fi
             
             echo "exec_always --no-startup-id $cmd" >> "$I3_OUTPUT_CONF"
@@ -389,6 +452,14 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
         --get-current-scale)
             hook_get_current_scale "$@"
             echo "$RET_SCALE"
+            ;;
+        --get-current-rotation)
+            hook_get_current_rotation "$@"
+            echo "$RET_ROTATION"
+            ;;
+        --get-current-brightness)
+            hook_get_current_brightness "$@"
+            echo "$RET_BRIGHTNESS"
             ;;
         --apply) hook_apply "$@" ;;
         --save) hook_save "$@" ;;
