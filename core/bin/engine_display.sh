@@ -122,7 +122,7 @@ init_display() {
 }
 
 select_display_interactive() {
-    read -r default_output default_res default_rate <<< $(bash "$DISPLAY_HOOK" --query-default)
+    read -r default_output default_res default_rate < <(bash "$DISPLAY_HOOK" --query-default)
     if [ -z "$default_output" ]; then
         echo "Error: No se detectaron salidas de pantalla activas." >&2
         exit 1
@@ -170,7 +170,7 @@ select_display_interactive() {
                     new_out=$(echo "$new_out" | tr -d '[:space:]')
                     SEL_OUTPUT="$new_out"
                     
-                    read -r SEL_RES SEL_RATE <<< $(bash "$DISPLAY_HOOK" --get-current-all "$new_out")
+                    read -r SEL_RES SEL_RATE < <(bash "$DISPLAY_HOOK" --get-current-all "$new_out")
                     SEL_SCALE=$(bash "$DISPLAY_HOOK" --get-current-scale "$new_out")
                     SEL_SCALE="${SEL_SCALE:-1.0}"
                 fi
