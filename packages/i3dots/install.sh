@@ -49,10 +49,40 @@ cat << "EOF"
 EOF
 echo -e "${NC}"
 
-# 1. Persistencia de variante
+# 1. Parseo de argumentos y persistencia de variante
 PACKAGE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -n "$1" ]]; then
-    echo "$1" > "$PACKAGE_DIR/.current_variant"
+VARIANT_ARG=""
+IS_OFFLINE=false
+
+for arg in "$@"; do
+    case "$arg" in
+        --offline)
+            IS_OFFLINE=true
+            ;;
+        -*)
+            # Ignorar otros flags
+            ;;
+        *)
+            if [ -z "$VARIANT_ARG" ]; then
+                VARIANT_ARG="$arg"
+            fi
+            ;;
+    esac
+done
+
+if [ -n "$OFFLINE" ]; then
+    IS_OFFLINE=true
+fi
+
+if [ "$IS_OFFLINE" = "true" ]; then
+    export SKIP_SYSTEM_PKGS=1
+    export SKIP_FONTS_DOWNLOAD=1
+    export SKIP_THEMES_DOWNLOAD=1
+    export SKIP_MATUGEN_DOWNLOAD=1
+fi
+
+if [ -n "$VARIANT_ARG" ]; then
+    echo "$VARIANT_ARG" > "$PACKAGE_DIR/.current_variant"
 fi
 
 VARIANT_NAME=$(cat "$PACKAGE_DIR/.current_variant" 2>/dev/null || echo "debian")
@@ -63,7 +93,7 @@ else
     exit 1
 fi
 
-print_step "Iniciando instalación para variante: ${VARIANT_NAME}"
+print_step "Iniciando instalación para variante: ${VARIANT_NAME} (Offline: ${IS_OFFLINE})"
 
 # 2. Detección de Hardware
 print_sub "Detectando componentes de hardware..."
