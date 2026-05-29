@@ -13,19 +13,19 @@ RET_SCALE=""
 RET_LIST=""
 
 hook_load_cache() {
-    XRANDR_CACHE=$(xrandr 2>/dev/null)
-    XRANDR_VERBOSE_CACHE=$(xrandr --verbose 2>/dev/null)
+    XRANDR_CACHE=$(xrandr --current 2>/dev/null)
+    XRANDR_VERBOSE_CACHE=$(xrandr --current --verbose 2>/dev/null)
 }
 
 ensure_cache() {
     if [ -z "$XRANDR_CACHE" ]; then
-        XRANDR_CACHE=$(xrandr 2>/dev/null)
+        XRANDR_CACHE=$(xrandr --current 2>/dev/null)
     fi
 }
 
 ensure_verbose_cache() {
     if [ -z "$XRANDR_VERBOSE_CACHE" ]; then
-        XRANDR_VERBOSE_CACHE=$(xrandr --verbose 2>/dev/null)
+        XRANDR_VERBOSE_CACHE=$(xrandr --current --verbose 2>/dev/null)
     fi
 }
 
@@ -59,8 +59,11 @@ hook_query_modes() {
         fi
         
         if [ "$flag" -eq 1 ]; then
-            if [[ "$line" =~ ^[[:space:]]+([0-9]+x[0-9]+) ]]; then
-                RET_LIST+="${BASH_REMATCH[1]}"$'\n'
+            if [[ "$line" =~ ^[[:space:]]+[^[:space:]] ]]; then
+                read -r res_name rates_str <<< "$line"
+                if [ -n "$res_name" ]; then
+                    RET_LIST+="$res_name"$'\n'
+                fi
             fi
         fi
     done <<< "$XRANDR_CACHE"
@@ -86,14 +89,16 @@ hook_query_rates() {
         fi
         
         if [ "$flag" -eq 1 ]; then
-            if [[ "$line" =~ ^[[:space:]]+(${resolution})[[:space:]]+(.*) ]]; then
-                local rates_str="${BASH_REMATCH[2]}"
-                local rate
-                for rate in $rates_str; do
-                    rate="${rate//[*+]/}"
-                    RET_LIST+="$rate"$'\n'
-                done
-                break
+            if [[ "$line" =~ ^[[:space:]]+[^[:space:]] ]]; then
+                read -r res_name rates_str <<< "$line"
+                if [ "$res_name" = "$resolution" ]; then
+                    local rate
+                    for rate in $rates_str; do
+                        rate="${rate//[*+]/}"
+                        RET_LIST+="$rate"$'\n'
+                    done
+                    break
+                fi
             fi
         fi
     done <<< "$XRANDR_CACHE"
@@ -118,9 +123,12 @@ hook_get_current() {
         fi
         
         if [ "$flag" -eq 1 ]; then
-            if [[ "$line" =~ ^[[:space:]]+([0-9]+x[0-9]+).*[*] ]]; then
-                RET_RES="${BASH_REMATCH[1]}"
-                break
+            if [[ "$line" =~ ^[[:space:]]+[^[:space:]] ]]; then
+                read -r res_name rates_str <<< "$line"
+                if [[ "$rates_str" == *"*"* ]]; then
+                    RET_RES="$res_name"
+                    break
+                fi
             fi
         fi
     done <<< "$XRANDR_CACHE"
@@ -144,8 +152,8 @@ hook_get_current_rate() {
         fi
         
         if [ "$flag" -eq 1 ]; then
-            if [[ "$line" =~ ^[[:space:]]+[0-9]+x[0-9]+[[:space:]]+(.*) ]]; then
-                local rates_str="${BASH_REMATCH[1]}"
+            if [[ "$line" =~ ^[[:space:]]+[^[:space:]] ]]; then
+                read -r res_name rates_str <<< "$line"
                 local rate
                 for rate in $rates_str; do
                     if [[ "$rate" == *"*"* ]]; then
@@ -177,13 +185,12 @@ hook_get_current_all() {
         fi
         
         if [ "$flag" -eq 1 ]; then
-            if [[ "$line" =~ ^[[:space:]]+([0-9]+x[0-9]+)[[:space:]]+(.*) ]]; then
-                local res="${BASH_REMATCH[1]}"
-                local rates_str="${BASH_REMATCH[2]}"
+            if [[ "$line" =~ ^[[:space:]]+[^[:space:]] ]]; then
+                read -r res_name rates_str <<< "$line"
                 local rate
                 for rate in $rates_str; do
                     if [[ "$rate" == *"*"* ]]; then
-                        RET_RES="$res"
+                        RET_RES="$res_name"
                         RET_RATE="${rate//[*+]/}"
                         break 2
                     fi
@@ -207,14 +214,13 @@ hook_query_default() {
         fi
         
         if [ -n "$current_out" ]; then
-            if [[ "$line" =~ ^[[:space:]]+([0-9]+x[0-9]+)[[:space:]]+(.*) ]]; then
-                local res="${BASH_REMATCH[1]}"
-                local rates_str="${BASH_REMATCH[2]}"
+            if [[ "$line" =~ ^[[:space:]]+[^[:space:]] ]]; then
+                read -r res_name rates_str <<< "$line"
                 local rate
                 for rate in $rates_str; do
                     if [[ "$rate" == *"*"* ]]; then
                         RET_OUT="$current_out"
-                        RET_RES="$res"
+                        RET_RES="$res_name"
                         RET_RATE="${rate//[*+]/}"
                         break 2
                     fi
