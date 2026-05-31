@@ -276,6 +276,17 @@ safe_link "$PACKAGE_DIR/dotfiles/gtk-3.0" "$HOME/.config/gtk-3.0"
 safe_link "$PACKAGE_DIR/dotfiles/gtk-4.0" "$HOME/.config/gtk-4.0"
 safe_link "$PACKAGE_DIR/dotfiles/qt6ct" "$HOME/.config/qt6ct"
 safe_link "$PACKAGE_DIR/dotfiles/matugen" "$HOME/.config/matugen"
+safe_link "$PACKAGE_DIR/dotfiles/.gtkrc-2.0" "$HOME/.gtkrc-2.0"
+
+# 8.5 Configurar GTK para root (opcional, si se tienen privilegios sin contraseña)
+if [ "$EUID" -ne 0 ] && command -v sudo &>/dev/null && sudo -n true 2>/dev/null; then
+    print_sub "Configurando tema GTK para root (sudo sin contraseña)..."
+    sudo mkdir -p /root/.config &>> "$LOG_FILE"
+    sudo cp -rf "$PACKAGE_DIR/dotfiles/gtk-3.0" /root/.config/ &>> "$LOG_FILE"
+    sudo cp -rf "$PACKAGE_DIR/dotfiles/gtk-4.0" /root/.config/ &>> "$LOG_FILE"
+    sudo cp -f "$PACKAGE_DIR/dotfiles/.gtkrc-2.0" /root/ &>> "$LOG_FILE" && \
+    print_sub_ok "Configuración GTK copiada a /root."
+fi
 
 # Permisos de ejecución
 print_sub "Asegurando permisos de ejecución en scripts..."
