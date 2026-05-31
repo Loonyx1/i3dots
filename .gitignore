@@ -8,7 +8,9 @@ core/state/
 
 # Enlaces simbólicos y archivos generados por Motores de Colores (Matugen/Hellwal)
 packages/*/dotfiles/gtk-3.0/colors.css
+packages/*/dotfiles/gtk-3.0/dank-colors.css
 packages/*/dotfiles/gtk-4.0/colors.css
+packages/*/dotfiles/gtk-4.0/dank-colors.css
 packages/*/dotfiles/kitty/colors.conf
 packages/*/dotfiles/matugen/wallpaper.txt
 packages/*/dotfiles/qt6ct/colors/matugen.conf
