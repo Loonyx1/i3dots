@@ -11,7 +11,7 @@ BLUE="\e[34m"
 CYAN="\e[36m"
 GRAY="\e[90m"
 
-LOG_FILE="/tmp/dots_install.log"
+LOG_FILE="${LOG_FILE:-/tmp/dots_install.log}"
 echo -e "${GRAY}--- Inicio de instalación $(date) ---${NC}" > "$LOG_FILE"
 
 print_step() {

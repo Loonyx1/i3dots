@@ -464,7 +464,7 @@ hook_post_apply() {
     
     # Relanzar Polybar de forma directa
     if [ -x "$HOME/.config/polybar/launch.sh" ]; then
-        bash "$HOME/.config/polybar/launch.sh" >/dev/null 2>&1 &
+        bash "$HOME/.config/polybar/launch.sh" >/tmp/polybar.log 2>&1 &
     fi
 }
 
