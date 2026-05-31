@@ -98,13 +98,14 @@ case "$COMMAND" in
         [ -z "$PACKAGE_NAME" ] && { print_sub_err "Error: especifica paquete a instalar."; exit 1; }
         export PACKAGE_DIR="$PACKAGES_DIR/$PACKAGE_NAME"
         if [ -x "$PACKAGE_DIR/install.sh" ]; then
+            export LOG_FILE="/tmp/dots_install_${PACKAGE_NAME}.log"
             "$PACKAGE_DIR/install.sh" "${GENERAL_ARGS[@]}"
             
             # Aplicar configuración básica sin correr toda la secuencia (evita Rofi)
             print_step "Aplicando configuración inicial..."
             export CURRENT_ENV="$PACKAGE_NAME"
             [ -f "$PACKAGE_DIR/config.env" ] && source "$PACKAGE_DIR/config.env"
-            "$BIN_DIR/apply_dots.sh"
+            "$BIN_DIR/apply_dots.sh" >> "$LOG_FILE" 2>&1
             exit 0
         else
             print_sub_err "Error: el paquete '$PACKAGE_NAME' no tiene script de instalación."

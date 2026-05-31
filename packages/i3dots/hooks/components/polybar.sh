@@ -273,5 +273,5 @@ EOF
 
 # 6. Lanzar
 if [ -x "$CONF_DIR/launch.sh" ] && [ -n "$DISPLAY" ]; then
-    bash "$CONF_DIR/launch.sh" &
+    bash "$CONF_DIR/launch.sh" >/tmp/polybar.log 2>&1 &
 fi

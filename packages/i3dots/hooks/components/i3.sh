@@ -14,4 +14,4 @@ if [ -f "$I3_APPEARANCE" ] && [ -n "$I3_FONT" ]; then
 fi
 
 # 2. Recargar i3 para aplicar cambios de colores y config
-i3-msg reload
+i3-msg reload >/dev/null 2>&1
