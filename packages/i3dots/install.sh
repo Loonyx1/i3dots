@@ -53,19 +53,31 @@ echo -e "${NC}"
 PACKAGE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VARIANT_ARG=""
 IS_OFFLINE=false
+CLI_WALL=""
+CLI_WALL_SRC=""
 
-for arg in "$@"; do
-    case "$arg" in
+while [[ $# -gt 0 ]]; do
+    case "$1" in
         --offline)
             IS_OFFLINE=true
+            shift
+            ;;
+        --wallpaper)
+            CLI_WALL="$2"
+            shift 2
+            ;;
+        --wallpaper-src)
+            CLI_WALL_SRC="$2"
+            shift 2
             ;;
         -*)
-            # Ignorar otros flags
+            shift
             ;;
         *)
             if [ -z "$VARIANT_ARG" ]; then
-                VARIANT_ARG="$arg"
+                VARIANT_ARG="$1"
             fi
+            shift
             ;;
     esac
 done
@@ -273,24 +285,40 @@ find "$PACKAGE_DIR/dotfiles/polybar_configs" -type f -name "*.sh" -exec chmod +x
 
 # 9. Inicializar Wallpaper y Matugen
 print_step "Estableciendo wallpaper e inicializando paleta..."
-[ ! -d "$HOME/wall" ] && cp -r "$PACKAGE_DIR/dotfiles/wall" "$HOME/wall" &>> "$LOG_FILE"
-cp -f "$PACKAGE_DIR/dotfiles/wall/zd.png" "$HOME/wall/zd.png" &>> "$LOG_FILE"
+DEFAULT_WALL="${CLI_WALL:-${DEFAULT_WALLPAPER:-zd.png}}"
+WALL_DIR="${CLI_WALL_SRC:-${WALLPAPER_SRC:-$PACKAGE_DIR/dotfiles/wall}}"
 
-# Guardar estado del wallpaper
-mkdir -p "$HOME/.config/i3"
-ln -sf "$HOME/wall/zd.png" "$HOME/.config/i3/current"
-echo "$HOME/wall/zd.png" > "$HOME/.config/i3/wall"
-
-if command -v matugen &> /dev/null; then
-    if matugen image "$HOME/wall/zd.png" --prefer saturation &>> "$LOG_FILE"; then
-        print_sub_ok "Paleta de colores Matugen generada (zd.png)."
-    else
-        print_sub_err "Fallo al ejecutar Matugen."
-    fi
+mkdir -p "$HOME/wall"
+if [ -d "$WALL_DIR" ]; then
+    # Crear enlaces simbólicos individuales para no duplicar espacio en disco
+    for f in "$WALL_DIR"/*; do
+        if [ -f "$f" ]; then
+            ln -sf "$f" "$HOME/wall/$(basename "$f")"
+        fi
+    done
 fi
-if command -v feh &> /dev/null; then
-    feh --bg-fill "$HOME/wall/zd.png" &>> "$LOG_FILE"
-    print_sub_ok "Wallpaper fijado en pantalla."
+
+WALLPAPER_FILE="$HOME/wall/$DEFAULT_WALL"
+
+if [ -f "$WALLPAPER_FILE" ]; then
+    # Guardar estado del wallpaper
+    mkdir -p "$HOME/.config/i3"
+    ln -sf "$WALLPAPER_FILE" "$HOME/.config/i3/current"
+    echo "$WALLPAPER_FILE" > "$HOME/.config/i3/wall"
+    
+    if command -v matugen &> /dev/null; then
+        if matugen image "$WALLPAPER_FILE" --prefer saturation &>> "$LOG_FILE"; then
+            print_sub_ok "Paleta de colores Matugen generada ($DEFAULT_WALL)."
+        else
+            print_sub_err "Fallo al ejecutar Matugen."
+        fi
+    fi
+    if command -v feh &> /dev/null; then
+        feh --bg-fill "$WALLPAPER_FILE" &>> "$LOG_FILE"
+        print_sub_ok "Wallpaper fijado en pantalla."
+    fi
+else
+    print_sub_err "No se pudo encontrar el wallpaper '$DEFAULT_WALL' en $HOME/wall/."
 fi
 
 # 10. Aplicar gsettings (GTK)
