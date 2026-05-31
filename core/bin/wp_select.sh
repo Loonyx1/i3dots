@@ -22,7 +22,7 @@ if [[ -n "$W_PATH" ]]; then
     [[ ! -f "$W_PATH" ]] && { echo "Error: $W_PATH no existe." >&2; exit 1; }
     FINAL_PATH="$W_PATH"
 elif [[ "$USE_CLI" -eq 1 ]]; then
-    mapfile -d $'\0' wallpapers_found < <(find "$WALLPAPER_DIR" -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.gif" -o -iname "*.webp" \) -print0 | sort -z)
+    mapfile -d $'\0' wallpapers_found < <(find -L "$WALLPAPER_DIR" -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.gif" -o -iname "*.webp" \) -print0 | sort -z)
     for i in "${!wallpapers_found[@]}"; do
         printf "%3d) %s\n" "$((i+1))" "$(basename "${wallpapers_found[$i]}")" >&2
     done
@@ -38,14 +38,18 @@ else
     # Por defecto usamos el selector configurado (Rofi/Wofi/etc)
     SEL_BIN="${WP_SEL_BIN:-rofi}"
     SEL_ARGS=(${WP_SEL_ARGS:--dmenu -p "Wallpaper" -theme "${ROFI_THEME}"})
-    LINE_TMPL="${WP_SEL_LINE_TMPL:-%f\x00icon\x1f%p}"
+    LINE_TMPL="${WP_SEL_LINE_TMPL:-%r\x00icon\x1f%p}"
 
-    wallpapers_found=$(find "$WALLPAPER_DIR" -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.gif" -o -iname "*.webp" \) | sort)
+    wallpapers_found=$(find -L "$WALLPAPER_DIR" -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.gif" -o -iname "*.webp" \) | sort)
     options=""
     while IFS= read -r file; do
-        # Generar linea segun el template (%f=filename, %p=path)
+        [[ -z "$file" ]] && continue
+        # Calcular ruta relativa a WALLPAPER_DIR
+        rel_path="${file#$WALLPAPER_DIR/}"
+        # Generar linea segun el template (%f=filename, %r=relative path, %p=path)
         line="$LINE_TMPL"
         line="${line//%f/$(basename "$file")}"
+        line="${line//%r/$rel_path}"
         line="${line//%p/$file}"
         options+="$line\n"
     done <<< "$wallpapers_found"
@@ -60,11 +64,34 @@ else
     fi
 
     [[ -z "$FINAL_NAME" ]] && exit 0
-    FINAL_PATH="$WALLPAPER_DIR/$FINAL_NAME"
+
+    # Buscar coincidencia exacta, por ruta relativa o por basename
+    FOUND_PATH=""
+    while IFS= read -r file; do
+        [[ -z "$file" ]] && continue
+        rel_path="${file#$WALLPAPER_DIR/}"
+        base_name="$(basename "$file")"
+        if [[ "$file" == "$FINAL_NAME" || "$rel_path" == "$FINAL_NAME" || "$base_name" == "$FINAL_NAME" ]]; then
+            FOUND_PATH="$file"
+            break
+        fi
+    done <<< "$wallpapers_found"
+
+    if [[ -n "$FOUND_PATH" ]]; then
+        FINAL_PATH="$FOUND_PATH"
+    else
+        FINAL_PATH="$WALLPAPER_DIR/$FINAL_NAME"
+    fi
 fi
 
 # 3. Guardar Estado
 if [[ -n "$FINAL_PATH" ]]; then
+    # Resolver enlace simbólico a la ruta real de la imagen
+    REAL_PATH=$(readlink -f "$FINAL_PATH")
+    if [[ -f "$REAL_PATH" ]]; then
+        FINAL_PATH="$REAL_PATH"
+    fi
+
     mkdir -p "$(dirname "$CURRENT_WALLPAPER_LINK")"
     ln -sf "$FINAL_PATH" "$CURRENT_WALLPAPER_LINK"
     echo "$FINAL_PATH" > "$LAST_WALLPAPER_PATH_FILE"
