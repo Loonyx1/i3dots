@@ -284,7 +284,11 @@ if [ "$EUID" -ne 0 ] && command -v sudo &>/dev/null && sudo -n true 2>/dev/null;
     sudo mkdir -p /root/.config &>> "$LOG_FILE"
     sudo cp -rf "$PACKAGE_DIR/dotfiles/gtk-3.0" /root/.config/ &>> "$LOG_FILE"
     sudo cp -rf "$PACKAGE_DIR/dotfiles/gtk-4.0" /root/.config/ &>> "$LOG_FILE"
-    sudo cp -f "$PACKAGE_DIR/dotfiles/.gtkrc-2.0" /root/ &>> "$LOG_FILE" && \
+    sudo cp -f "$PACKAGE_DIR/dotfiles/.gtkrc-2.0" /root/ &>> "$LOG_FILE"
+    if [ -d "$HOME/.themes/adw-gtk3-dark" ]; then
+        sudo mkdir -p /root/.themes &>> "$LOG_FILE"
+        sudo ln -sfn "$HOME/.themes/adw-gtk3-dark" /root/.themes/adw-gtk3-dark &>> "$LOG_FILE"
+    fi
     print_sub_ok "Configuración GTK copiada a /root."
 fi
 
