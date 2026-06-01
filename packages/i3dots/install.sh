@@ -234,6 +234,8 @@ print_step "Configurando persistencia de rutas en el sistema..."
 export STATE_DIR="${STATE_DIR:-$PROJECT_ROOT/core/state}"
 echo "set \$dots_cmd $PROJECT_ROOT/dots" > "$PACKAGE_DIR/dotfiles/i3/conf.d/vars.generated"
 
+
+
 # Bashrc
 if ! grep -q ".local/bin" "$HOME/.bashrc"; then
     echo 'export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"' >> "$HOME/.bashrc"
@@ -335,6 +337,11 @@ if [ -f "$WALLPAPER_FILE" ]; then
 else
     print_sub_err "No se pudo encontrar el wallpaper '$DEFAULT_WALL' en $HOME/wall/."
 fi
+
+# 9.5 Inicializar estado de la barra por defecto
+print_step "Inicializando estado de la barra en disco..."
+export STATE_DIR="${STATE_DIR:-$PROJECT_ROOT/core/state}"
+bash "$PROJECT_ROOT/dots" i3dots bar --set type "${BAR_DEFAULT_TYPE:-polybar_antigua}" &>> "$LOG_FILE"
 
 # 10. Aplicar gsettings (GTK)
 if command -v gsettings &> /dev/null; then

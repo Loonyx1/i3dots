@@ -3,7 +3,7 @@
 
 # 0. Protocolo de Consulta para el Core
 if [ "$1" == "--query" ]; then
-    CUR_TYPE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/type" 2>/dev/null || echo "polybar_antigua")
+    CUR_TYPE="${2:-$(cat "$STATE_DIR/$CURRENT_ENV/bar/type" 2>/dev/null || echo "polybar_antigua")}"
     CUR_TYPE=$(echo "$CUR_TYPE" | tr -d '[:space:]')
     THEME_SRC="$PACKAGE_DIR/dotfiles/polybar_configs/$CUR_TYPE"
     
@@ -259,9 +259,19 @@ icon-disk = 󰋊
 icon-vol = 󰕾
 icon-light = 󰃠
 icon-bat = 󱊣
+
+[module/help-keys]
+type = custom/text
+format = "  Atajos "
+format-foreground = \${colors.primary}
+format-background = \${colors.background-alt}
+click-left = \${vars.dots-cmd} i3dots show_cheatsheet.sh
 EOF
 
+
+
 cp "$RAM_CONFIG" "$CONF_DIR/user_configs.ini.bak"
+
 
 # 5. Configuración de entrada única para Polybar
 cat > "$CONF_DIR/config.ini" <<EOF
