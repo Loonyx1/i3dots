@@ -56,7 +56,8 @@ query_hook_capabilities() {
 }
 
 # Inicializar capacidades dinámicas con el tipo activo actual
-CUR_TYPE_INIT=$(cat "$BAR_STATE_DIR/type" 2>/dev/null | tr -d '[:space:]')
+CUR_TYPE_INIT=$(cat "$BAR_STATE_DIR/type" 2>/dev/null)
+CUR_TYPE_INIT="${CUR_TYPE_INIT//[[:space:]]/}"
 if [ -z "$CUR_TYPE_INIT" ]; then
     # Primer inicio: consultar hook sin tipo para obtener BAR_DEFAULT_TYPE
     query_hook_capabilities ""
@@ -161,6 +162,7 @@ check_preset_match() {
     local preset_cmd="$1"
     local -A PRESET_PARAMS
     local -a args
+    local key
     read -r -a args <<< "$preset_cmd"
     parse_args_to_map PRESET_PARAMS "${args[@]}"
     
@@ -169,10 +171,12 @@ check_preset_match() {
         local expected_val="${PRESET_PARAMS[$key]}"
         local current_val
         if [ "$key" == "type" ]; then
-            current_val=$(cat "$BAR_STATE_DIR/type" 2>/dev/null | tr -d '[:space:]')
+            current_val=$(cat "$BAR_STATE_DIR/type" 2>/dev/null)
+            current_val="${current_val//[[:space:]]/}"
             [[ -z "$current_val" ]] && current_val="$CUR_TYPE_INIT"
         else
-            current_val=$(cat "$BAR_STATE_DIR/$key" 2>/dev/null | tr -d '[:space:]')
+            current_val=$(cat "$BAR_STATE_DIR/$key" 2>/dev/null)
+            current_val="${current_val//[[:space:]]/}"
             [[ -z "$current_val" ]] && current_val=$(get_default_option_val "$key")
         fi
         if [ "$expected_val" != "$current_val" ]; then
@@ -205,7 +209,10 @@ if [ "$LIST_PRESETS" -eq 1 ]; then
     if [ -n "$BAR_PRESETS" ]; then
         IFS='|' read -ra PRESET_ARRAY <<< "$BAR_PRESETS"
         for preset in "${PRESET_ARRAY[@]}"; do
-            echo "$(echo "$preset" | cut -d':' -f1 | xargs)"
+            name="${preset%%:*}"
+            name="${name##[[:space:]]}"
+            name="${name%%[[:space:]]}"
+            echo "$name"
         done
     fi
     exit 0
@@ -215,13 +222,15 @@ fi
 if [ -n "$GET_KEY" ]; then
     if [ "$GET_KEY" == "$PRIMARY_KEY" ] || [ "$GET_KEY" == "type" ]; then
         if [ -f "$BAR_STATE_DIR/type" ]; then
-            cat "$BAR_STATE_DIR/type" | tr -d '[:space:]'
+            local val_type=$(cat "$BAR_STATE_DIR/type" 2>/dev/null)
+            echo -n "${val_type//[[:space:]]/}"
         else
-            echo -n "${BAR_DEFAULT_TYPE:-polybar_antigua}"
+            echo -n "${BAR_DEFAULT_TYPE:-standard}"
         fi
     else
         if [ -f "$BAR_STATE_DIR/$GET_KEY" ]; then
-            cat "$BAR_STATE_DIR/$GET_KEY" | tr -d '[:space:]'
+            local val_opt=$(cat "$BAR_STATE_DIR/$GET_KEY" 2>/dev/null)
+            echo -n "${val_opt//[[:space:]]/}"
         else
             echo -n "$(get_default_option_val "$GET_KEY")"
         fi
@@ -243,7 +252,9 @@ if [ "$DO_NEXT" -eq 1 ] || [ "$DO_PREV" -eq 1 ] || [ -n "$APPLY_PRESET" ]; then
 
     if [ -n "$APPLY_PRESET" ]; then
         for preset in "${PRESET_ARRAY[@]}"; do
-            name=$(echo "$preset" | cut -d':' -f1 | xargs)
+            name="${preset%%:*}"
+            name="${name##[[:space:]]}"
+            name="${name%%[[:space:]]}"
             if [ "$name" == "$APPLY_PRESET" ]; then
                 SELECTED_PRESET="$preset"
                 break
@@ -252,7 +263,7 @@ if [ "$DO_NEXT" -eq 1 ] || [ "$DO_PREV" -eq 1 ] || [ -n "$APPLY_PRESET" ]; then
     else
         CURRENT_INDEX=-1
         for i in "${!PRESET_ARRAY[@]}"; do
-            preset_cmd=$(echo "${PRESET_ARRAY[$i]}" | cut -d':' -f2)
+            preset_cmd="${PRESET_ARRAY[$i]#*:}"
             if check_preset_match "$preset_cmd"; then
                 CURRENT_INDEX=$i
                 break
@@ -268,7 +279,7 @@ if [ "$DO_NEXT" -eq 1 ] || [ "$DO_PREV" -eq 1 ] || [ -n "$APPLY_PRESET" ]; then
     fi
 
     if [ -n "$SELECTED_PRESET" ]; then
-        NEW_PRESET_CMD=$(echo "$SELECTED_PRESET" | cut -d':' -f2)
+        NEW_PRESET_CMD="${SELECTED_PRESET#*:}"
         declare -a preset_args
         read -r -a preset_args <<< "$NEW_PRESET_CMD"
         
@@ -297,8 +308,9 @@ fi
 if [ -n "$SEL_TYPE" ]; then
     echo "$SEL_TYPE" > "$TYPE_STATE_FILE"
 fi
-CUR_TYPE=$(cat "$TYPE_STATE_FILE" 2>/dev/null || echo "$BAR_DEFAULT_TYPE")
-CUR_TYPE=$(echo "$CUR_TYPE" | tr -d '[:space:]')
+CUR_TYPE=$(cat "$TYPE_STATE_FILE" 2>/dev/null)
+[[ -z "$CUR_TYPE" ]] && CUR_TYPE="$BAR_DEFAULT_TYPE"
+CUR_TYPE="${CUR_TYPE//[[:space:]]/}"
 
 # Calcular sufijo de variante dinámico si aplica
 variant_suffix=""
@@ -307,7 +319,10 @@ if [ -n "$VARIANT_KEYS" ]; then
     for v_key in "${V_KEYS_ARR[@]}"; do
         if [[ "$BAR_SUPPORTED_OPTIONS" == *"${v_key}:"* ]]; then
             v_val="${CLI_PARAMS[$v_key]}"
-            [[ -z "$v_val" ]] && v_val=$(cat "$BAR_STATE_DIR/$v_key" 2>/dev/null | tr -d '[:space:]')
+            if [[ -z "$v_val" ]]; then
+                v_val=$(cat "$BAR_STATE_DIR/$v_key" 2>/dev/null)
+                v_val="${v_val//[[:space:]]/}"
+            fi
             [[ -z "$v_val" ]] && v_val=$(get_default_option_val "$v_key")
             [ -n "$v_val" ] && variant_suffix="${variant_suffix}_$v_val"
         fi
@@ -328,11 +343,12 @@ if [ -n "$BAR_SUPPORTED_OPTIONS" ]; then
             echo "$val" > "$THEME_STATE_FILE"
             echo "$val" > "$STATE_FILE"
         else
-            saved_theme_val=$(cat "$THEME_STATE_FILE" 2>/dev/null | tr -d '[:space:]')
+            saved_theme_val=$(cat "$THEME_STATE_FILE" 2>/dev/null)
+            saved_theme_val="${saved_theme_val//[[:space:]]/}"
             if [ -n "$saved_theme_val" ]; then
                 echo "$saved_theme_val" > "$STATE_FILE"
             else
-                fallback_val=$(echo "$opt_vals" | cut -d',' -f1)
+                fallback_val="${opt_vals%%,*}"
                 echo "$fallback_val" > "$THEME_STATE_FILE"
                 echo "$fallback_val" > "$STATE_FILE"
             fi

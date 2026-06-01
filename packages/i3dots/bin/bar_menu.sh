@@ -8,7 +8,7 @@ ENGINE_CMD="$CORE_DIR/bin/engine_bar.sh"
 HEADLESS=0
 for arg in "$@"; do
     case "$arg" in
-        --next|--prev|--set|--get|--list-themes|--list-options|--list-presets|-L|--list)
+        --next|--prev|--set|--get|--list-themes|--list-options|--list-presets|-L|--list|--apply-preset)
             HEADLESS=1
             break
             ;;
@@ -61,7 +61,12 @@ fi
 
 # B. Configurar opciones (--manage)
 if [ "$DO_MANAGE" -eq 1 ]; then
-    CUR_TYPE=$(bash "$ENGINE_CMD" --get type)
+    CUR_TYPE=""
+    if [ -f "$STATE_DIR/$CURRENT_ENV/bar/type" ]; then
+        CUR_TYPE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/type" 2>/dev/null | tr -d '[:space:]')
+    fi
+    [[ -z "$CUR_TYPE" ]] && CUR_TYPE="polybar_antigua"
+    
     opts_raw=$(bash "$ENGINE_CMD" --list-options)
     
     options=""
@@ -74,7 +79,12 @@ if [ "$DO_MANAGE" -eq 1 ]; then
         OPT_LABELS["$opt_key"]="$opt_label"
         OPT_VALUES["$opt_key"]="$opt_vals"
         
-        cur_val=$(bash "$ENGINE_CMD" --get "$opt_key")
+        cur_val=""
+        if [ -f "$STATE_DIR/$CURRENT_ENV/bar/$opt_key" ]; then
+            cur_val=$(cat "$STATE_DIR/$CURRENT_ENV/bar/$opt_key" 2>/dev/null | tr -d '[:space:]')
+        fi
+        [[ -z "$cur_val" ]] && cur_val="${opt_vals%%,*}"
+        
         options="$options$opt_label: $cur_val\n"
     done
     
