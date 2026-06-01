@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+# packages/i3dots/hooks/components/bar_menu.sh - Rofi Frontend para engine_bar.sh
+
+# 1. Configurar Variables y Directorios
+ENGINE_CMD="$CORE_DIR/bin/engine_bar.sh"
+
+# Si se pasó argumentos que no requieren menús (ej: --next, --prev, --set, --get, -L, --list)
+HEADLESS=0
+for arg in "$@"; do
+    case "$arg" in
+        --next|--prev|--set|--get|--list-themes|--list-options|--list-presets|-L|--list)
+            HEADLESS=1
+            break
+            ;;
+    esac
+done
+
+if [ "$HEADLESS" -eq 1 ]; then
+    # Delegación directa al backend
+    exec bash "$ENGINE_CMD" "$@"
+fi
+
+# Cargar configuraciones de visualización
+BAR_SEL_BIN="${BAR_SEL_BIN:-rofi}"
+BAR_SEL_PROMPT_FLAG="${BAR_SEL_PROMPT_FLAG:--p}"
+read -ra BAR_ARGS_ARR <<< "${BAR_SEL_ARGS:--dmenu}"
+if [[ "$BAR_SEL_BIN" == *"rofi"* ]] && [ -n "$BAR_SEL_THEME" ] && [[ "${BAR_SEL_ARGS}" != *"-theme"* ]]; then
+    BAR_ARGS_ARR+=("-theme" "$BAR_SEL_THEME")
+fi
+
+notify_applied() {
+    local preset_name="$1"
+    if command -v notify-send &>/dev/null; then
+        notify-send "Estilo de Barra" "Aplicando: $preset_name" -i display -t 1500
+    fi
+}
+
+# --- Lógica de Menús con Rofi ---
+
+DO_SELECT=0
+DO_MANAGE=0
+for arg in "$@"; do
+    [[ "$arg" == "--select" ]] && DO_SELECT=1
+    [[ "$arg" == "--manage" ]] && DO_MANAGE=1
+done
+
+# A. Selector de Presets (--select)
+if [ "$DO_SELECT" -eq 1 ]; then
+    presets=$(bash "$ENGINE_CMD" --list-presets)
+    if [ -z "$presets" ]; then
+        echo "Error: No se encontraron presets de barra." >&2
+        exit 1
+    fi
+    
+    choice=$(echo -e "$presets" | "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Presets de Barra")
+    [[ -z "$choice" ]] && exit 0
+    
+    notify_applied "$choice"
+    exec bash "$ENGINE_CMD" --apply-preset "$choice"
+fi
+
+# B. Configurar opciones (--manage)
+if [ "$DO_MANAGE" -eq 1 ]; then
+    CUR_TYPE=$(bash "$ENGINE_CMD" --get type)
+    opts_raw=$(bash "$ENGINE_CMD" --list-options)
+    
+    options=""
+    declare -A OPT_LABELS
+    declare -A OPT_VALUES
+    
+    IFS='|' read -ra OPT_ARRAY <<< "$opts_raw"
+    for opt in "${OPT_ARRAY[@]}"; do
+        IFS=':' read -r opt_key opt_label opt_vals <<< "$opt"
+        OPT_LABELS["$opt_key"]="$opt_label"
+        OPT_VALUES["$opt_key"]="$opt_vals"
+        
+        cur_val=$(bash "$ENGINE_CMD" --get "$opt_key")
+        options="$options$opt_label: $cur_val\n"
+    done
+    
+    choice=$(echo -e -n "$options" | "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Ajustes: $CUR_TYPE")
+    [[ -z "$choice" ]] && exit 0
+    
+    choice_label=$(echo "$choice" | cut -d':' -f1 | xargs)
+    for opt_key in "${!OPT_LABELS[@]}"; do
+        if [ "${OPT_LABELS[$opt_key]}" == "$choice_label" ]; then
+            val_options=$(echo "${OPT_VALUES[$opt_key]}" | tr ',' '\n')
+            NEW_VAL=$(echo -e "$val_options" | "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Elegir $choice_label")
+            if [ -n "$NEW_VAL" ]; then
+                if [ "$NEW_VAL" == "custom" ]; then
+                    NEW_VAL=$(echo "" | "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Valor personalizado para $choice_label")
+                    [[ -z "$NEW_VAL" ]] && exit 0
+                fi
+                exec bash "$ENGINE_CMD" --set "$opt_key" "$NEW_VAL"
+            fi
+        fi
+    done
+    exit 0
+fi
+
+# C. Menú interactivo general (sin argumentos)
+# Mostrar lista de temas y opciones en una sola lista
+themes=$(bash "$ENGINE_CMD" --list-themes)
+opts_raw=$(bash "$ENGINE_CMD" --list-options)
+
+options=""
+if [ -n "$themes" ]; then
+    for theme in $themes; do
+        options+="Tema: $theme\n"
+    done
+fi
+
+declare -A OPT_LABELS
+declare -A OPT_VALUES
+if [ -n "$opts_raw" ]; then
+    IFS='|' read -ra OPT_ARRAY <<< "$opts_raw"
+    for opt in "${OPT_ARRAY[@]}"; do
+        IFS=':' read -r opt_key opt_label opt_vals <<< "$opt"
+        OPT_LABELS["$opt_key"]="$opt_label"
+        OPT_VALUES["$opt_key"]="$opt_vals"
+        
+        IFS=',' read -ra VALS_ARR <<< "$opt_vals"
+        for val in "${VALS_ARR[@]}"; do
+            options+="$opt_label: $val\n"
+        done
+    done
+fi
+
+choice=$(echo -e -n "$options" | "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Configuración de Barra")
+[[ -z "$choice" ]] && exit 0
+
+if [[ "$choice" == Tema:* ]]; then
+    selected_theme="${choice#Tema: }"
+    exec bash "$ENGINE_CMD" --set type "$selected_theme"
+else
+    choice_label=$(echo "$choice" | cut -d':' -f1 | xargs)
+    choice_val=$(echo "$choice" | cut -d':' -f2 | xargs)
+    for opt_key in "${!OPT_LABELS[@]}"; do
+        if [ "${OPT_LABELS[$opt_key]}" == "$choice_label" ]; then
+            if [ "$choice_val" == "custom" ]; then
+                choice_val=$(echo "" | "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Valor personalizado para $choice_label")
+                [[ -z "$choice_val" ]] && exit 0
+            fi
+            exec bash "$ENGINE_CMD" --set "$opt_key" "$choice_val"
+        fi
+    done
+fi
