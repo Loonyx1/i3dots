@@ -16,21 +16,46 @@ pkill polybar 2>/dev/null
 while pgrep -u $UID -x polybar >/dev/null; do sleep 0.1; done
 
 # 2. Detectar Hardware y entorno para modulos dinamicos
-export BACKLIGHT_CARD=$(ls -1 /sys/class/backlight/ | head -n 1)
-export HAS_BATTERY=$(ls -1 /sys/class/power_supply/ | grep -i "BAT")
+BACKLIGHT_CARDS=(/sys/class/backlight/*)
+if [ -e "${BACKLIGHT_CARDS[0]}" ]; then
+    export BACKLIGHT_CARD="${BACKLIGHT_CARDS[0]##*/}"
+else
+    export BACKLIGHT_CARD=""
+fi
+
+BATTERIES=(/sys/class/power_supply/*BAT*)
+if [ -e "${BATTERIES[0]}" ]; then
+    export HAS_BATTERY="yes"
+else
+    export HAS_BATTERY=""
+fi
+
 export HAS_AUDIO=$(pactl info >/dev/null 2>&1 && echo "yes")
 
 # Detectar sensor de temperatura (hwmon)
 for i in /sys/class/hwmon/hwmon*/name; do
-    if grep -qE "coretemp|fam15h_power|k10temp" "$i" >/dev/null 2>&1; then
-        export HWMON_PATH="$(dirname $i)/temp1_input"
+    if [ -f "$i" ] && grep -qE "coretemp|fam15h_power|k10temp" "$i" >/dev/null 2>&1; then
+        export HWMON_PATH="${i%/*}/temp1_input"
         break
     fi
 done
-[ -z "$HWMON_PATH" ] && export HWMON_PATH=$(ls -1 /sys/class/hwmon/hwmon*/temp1_input 2>/dev/null | head -n 1)
+
+if [ -z "$HWMON_PATH" ]; then
+    HWMONS=(/sys/class/hwmon/hwmon*/temp1_input)
+    if [ -e "${HWMONS[0]}" ]; then
+        export HWMON_PATH="${HWMONS[0]}"
+    else
+        export HWMON_PATH=""
+    fi
+fi
 
 # Autodetectar nombre de la barra desde config.ini si existe
 if [ -f "$CONF_DIR/current_theme/config.ini" ]; then
-    export BAR_NAME=$(grep -oE '^\[bar/[a-zA-Z0-9_-]+\]' "$CONF_DIR/current_theme/config.ini" | head -n 1 | cut -d'/' -f2 | tr -d ']')
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^\[bar/([a-zA-Z0-9_-]+)\] ]]; then
+            export BAR_NAME="${BASH_REMATCH[1]}"
+            break
+        fi
+    done < "$CONF_DIR/current_theme/config.ini"
 fi
 [ -z "$BAR_NAME" ] && export BAR_NAME="bottom"

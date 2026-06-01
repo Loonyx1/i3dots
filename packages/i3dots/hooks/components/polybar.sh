@@ -89,7 +89,10 @@ ICON_PADDING=$(echo "$ICON_PADDING" | tr -d '[:space:]')
 CONF_DIR="$HOME/.config/polybar"
 [ -f "$CONF_DIR/colors.ini" ] && cp "$CONF_DIR/colors.ini" "/tmp/poly_colors.ini"
 [ -f "$CONF_DIR/user_configs.ini.bak" ] && cp "$CONF_DIR/user_configs.ini.bak" "/tmp/poly_user_configs.ini"
-rm -rf "$CONF_DIR"
+
+# Borrado selectivo para preservar configuraciones propias del usuario
+rm -f "$CONF_DIR/hardware.ini" "$CONF_DIR/launch.sh" "$CONF_DIR/current_theme" "$CONF_DIR/config.ini" "$CONF_DIR/colors.ini"
+rm -rf "$CONF_DIR/scripts"
 mkdir -p "$CONF_DIR"
 
 if [ -f "/tmp/poly_colors.ini" ]; then
@@ -119,7 +122,7 @@ fi
 [ "$POS" == "top" ] && IS_BOTTOM="false" || IS_BOTTOM="true"
 
 # Fuentes (Matriz de escalado con soporte para Rofi y centrado vertical)
-H_NUM=$(echo "$HEIGHT" | grep -oE '[0-9]+' | head -n 1)
+H_NUM="${HEIGHT//[!0-9]/}"
 [[ -z "$H_NUM" ]] && H_NUM=15
 
 # Cálculo dinámico de fuentes según altura de la barra (para soporte HDPI/Custom completo)
