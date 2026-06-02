@@ -10,10 +10,9 @@ if [ ! -f "/dev/shm/user_configs.ini" ]; then
     fi
 fi
 
-# 1. Matar instancias existentes de forma robusta
-polybar-msg cmd quit >/dev/null 2>&1
-pkill polybar 2>/dev/null
-while pgrep -u $UID -x polybar >/dev/null; do sleep 0.1; done
+# 1. Matar instancias existentes de forma inmediata para evitar solape
+pkill -9 -u $UID -x polybar 2>/dev/null
+while pgrep -u $UID -x polybar >/dev/null; do :; done
 
 # 2. Detectar Hardware y entorno para modulos dinamicos
 BACKLIGHT_CARDS=(/sys/class/backlight/*)
