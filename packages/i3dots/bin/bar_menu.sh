@@ -3,6 +3,7 @@
 
 # 1. Configurar Variables y Directorios
 ENGINE_CMD="$CORE_DIR/bin/engine_bar.sh"
+CHOICE_FILE="/dev/shm/bar_menu_${UID}.choice"
 
 # Si se pasó argumentos que no requieren menús (ej: --next, --prev, --set, --get, -L, --list)
 HEADLESS=0
@@ -17,7 +18,7 @@ done
 
 if [ "$HEADLESS" -eq 1 ]; then
     # Delegación directa al backend
-    exec bash "$ENGINE_CMD" "$@"
+    exec "$ENGINE_CMD" "$@"
 fi
 
 # Cargar configuraciones de visualización
@@ -52,11 +53,12 @@ if [ "$DO_SELECT" -eq 1 ]; then
         exit 1
     fi
     
-    choice=$(echo -e "$presets" | "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Presets de Barra")
+    "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Presets de Barra" <<< "$presets" > "$CHOICE_FILE"
+    IFS= read -r choice < "$CHOICE_FILE"
     [[ -z "$choice" ]] && exit 0
     
     notify_applied "$choice"
-    exec bash "$ENGINE_CMD" --apply-preset "$choice"
+    exec "$ENGINE_CMD" --apply-preset "$choice"
 fi
 
 # B. Configurar opciones (--manage)
@@ -85,23 +87,30 @@ if [ "$DO_MANAGE" -eq 1 ]; then
         fi
         [[ -z "$cur_val" ]] && cur_val="${opt_vals%%,*}"
         
-        options="$options$opt_label: $cur_val\n"
+        options="$options$opt_label: $cur_val"$'\n'
     done
     
-    choice=$(echo -e -n "$options" | "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Ajustes: $CUR_TYPE")
+    "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Ajustes: $CUR_TYPE" <<< "$options" > "$CHOICE_FILE"
+    IFS= read -r choice < "$CHOICE_FILE"
     [[ -z "$choice" ]] && exit 0
     
-    choice_label=$(echo "$choice" | cut -d':' -f1 | xargs)
+    choice_label="${choice%%:*}"
+    choice_label="${choice_label##[[:space:]]}"
+    choice_label="${choice_label%%[[:space:]]}"
     for opt_key in "${!OPT_LABELS[@]}"; do
         if [ "${OPT_LABELS[$opt_key]}" == "$choice_label" ]; then
-            val_options=$(echo "${OPT_VALUES[$opt_key]}" | tr ',' '\n')
-            NEW_VAL=$(echo -e "$val_options" | "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Elegir $choice_label")
+            val_options="${OPT_VALUES[$opt_key]//,/$'\n'}"
+            
+            "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Elegir $choice_label" <<< "$val_options" > "$CHOICE_FILE"
+            IFS= read -r NEW_VAL < "$CHOICE_FILE"
+            
             if [ -n "$NEW_VAL" ]; then
                 if [ "$NEW_VAL" == "custom" ]; then
-                    NEW_VAL=$(echo "" | "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Valor personalizado para $choice_label")
+                    "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Valor personalizado para $choice_label" <<< "" > "$CHOICE_FILE"
+                    IFS= read -r NEW_VAL < "$CHOICE_FILE"
                     [[ -z "$NEW_VAL" ]] && exit 0
                 fi
-                exec bash "$ENGINE_CMD" --set "$opt_key" "$NEW_VAL"
+                exec "$ENGINE_CMD" --set "$opt_key" "$NEW_VAL"
             fi
         fi
     done
@@ -116,7 +125,7 @@ opts_raw=$(bash "$ENGINE_CMD" --list-options)
 options=""
 if [ -n "$themes" ]; then
     for theme in $themes; do
-        options+="Tema: $theme\n"
+        options+="Tema: $theme"$'\n'
     done
 fi
 
@@ -131,27 +140,34 @@ if [ -n "$opts_raw" ]; then
         
         IFS=',' read -ra VALS_ARR <<< "$opt_vals"
         for val in "${VALS_ARR[@]}"; do
-            options+="$opt_label: $val\n"
+            options+="$opt_label: $val"$'\n'
         done
     done
 fi
 
-choice=$(echo -e -n "$options" | "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Configuración de Barra")
+"$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Configuración de Barra" <<< "$options" > "$CHOICE_FILE"
+IFS= read -r choice < "$CHOICE_FILE"
 [[ -z "$choice" ]] && exit 0
 
 if [[ "$choice" == Tema:* ]]; then
     selected_theme="${choice#Tema: }"
-    exec bash "$ENGINE_CMD" --set type "$selected_theme"
+    exec "$ENGINE_CMD" --set type "$selected_theme"
 else
-    choice_label=$(echo "$choice" | cut -d':' -f1 | xargs)
-    choice_val=$(echo "$choice" | cut -d':' -f2 | xargs)
+    choice_label="${choice%%:*}"
+    choice_label="${choice_label##[[:space:]]}"
+    choice_label="${choice_label%%[[:space:]]}"
+    
+    choice_val="${choice#*:}"
+    choice_val="${choice_val##[[:space:]]}"
+    choice_val="${choice_val%%[[:space:]]}"
     for opt_key in "${!OPT_LABELS[@]}"; do
         if [ "${OPT_LABELS[$opt_key]}" == "$choice_label" ]; then
             if [ "$choice_val" == "custom" ]; then
-                choice_val=$(echo "" | "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Valor personalizado para $choice_label")
+                "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Valor personalizado para $choice_label" <<< "" > "$CHOICE_FILE"
+                IFS= read -r choice_val < "$CHOICE_FILE"
                 [[ -z "$choice_val" ]] && exit 0
             fi
-            exec bash "$ENGINE_CMD" --set "$opt_key" "$choice_val"
+            exec "$ENGINE_CMD" --set "$opt_key" "$choice_val"
         fi
     done
 fi
