@@ -107,12 +107,68 @@ fi
 
 print_step "Iniciando instalación para variante: ${VARIANT_NAME} (Offline: ${IS_OFFLINE})"
 
+# Detección del elevador de privilegios (SUDO_CMD o ELEVATOR)
+ELEVATOR="${ELEVATOR:-$SUDO_CMD}"
+if [ -z "$ELEVATOR" ]; then
+    if [ "$EUID" -eq 0 ]; then
+        ELEVATOR=""
+    elif command -v sudo &>/dev/null; then
+        ELEVATOR="sudo"
+    elif command -v doas &>/dev/null; then
+        ELEVATOR="doas"
+    else
+        ELEVATOR=""
+    fi
+fi
+
+run_elevated() {
+    local cmd=()
+    if [ "$EUID" -ne 0 ] && [ -n "$ELEVATOR" ]; then
+        cmd+=("$ELEVATOR")
+    fi
+    cmd+=("$@")
+    "${cmd[@]}" &>> "$LOG_FILE"
+}
+
+run_elevated_nopasswd() {
+    [ "$EUID" -eq 0 ] && return 0
+    [ -z "$ELEVATOR" ] && return 1
+    if [ "$ELEVATOR" = "sudo" ] || [ "$ELEVATOR" = "doas" ]; then
+        "$ELEVATOR" -n true 2>/dev/null
+    else
+        "$ELEVATOR" true 2>/dev/null
+    fi
+}
+
 # 2. Detección de Hardware
 print_sub "Detectando componentes de hardware..."
-SYS_BAT=$(ls -1 /sys/class/power_supply/ | grep -E '^BAT' | head -n 1 || echo "BAT0")
-SYS_ADAPTER=$(ls -1 /sys/class/power_supply/ | grep -E '^AC|^AD' | head -n 1 || echo "ACAD")
-SYS_INTERFACE=$(ip link | awk '/state UP/ {print $2}' | tr -d ':' | head -n 1 || echo "wlan0")
-SYS_BACKLIGHT=$(ls -1 /sys/class/backlight/ | head -n 1 || echo "intel_backlight")
+
+# Batería
+SYS_BAT="BAT0"
+for d in /sys/class/power_supply/BAT*; do
+    [ -d "$d" ] && { SYS_BAT="${d##*/}"; break; }
+done
+
+# Adaptador de Corriente
+SYS_ADAPTER="ACAD"
+for d in /sys/class/power_supply/AC* /sys/class/power_supply/AD*; do
+    [ -d "$d" ] && { SYS_ADAPTER="${d##*/}"; break; }
+done
+
+# Backlight
+SYS_BACKLIGHT="intel_backlight"
+for d in /sys/class/backlight/*; do
+    [ -d "$d" ] && { SYS_BACKLIGHT="${d##*/}"; break; }
+done
+
+# Interfaz de Red
+SYS_INTERFACE="wlan0"
+for d in /sys/class/net/*; do
+    if [ -f "$d/operstate" ] && [ "$(cat "$d/operstate" 2>/dev/null)" = "up" ]; then
+        SYS_INTERFACE="${d##*/}"
+        break
+    fi
+done
 
 HARDWARE_INI="$PACKAGE_DIR/dotfiles/polybar_base/hardware.ini"
 if [ -f "$HARDWARE_INI" ]; then
@@ -128,12 +184,21 @@ fi
 # 3. Instalar dependencias
 if [ -n "$PKG_LIST" ] && [ -z "$SKIP_SYSTEM_PKGS" ]; then
     print_step "Instalando paquetes y dependencias del sistema..."
-    print_sub "Ejecutando gestor de paquetes (puede requerir sudo)..."
-    if eval "$PKG_MANAGER $PKG_INSTALL_CMD $PKG_LIST" &>> "$LOG_FILE"; then
+    
+    # Paso 3.1: Actualizar repositorios (si aplica)
+    if [ -n "$PKG_UPDATE_CMD" ]; then
+        print_sub "Actualizando repositorios..."
+        if ! run_elevated "$PKG_MANAGER" $PKG_UPDATE_CMD; then
+            print_sub_warn "Fallo al actualizar repositorios. Intentando instalar paquetes..."
+        fi
+    fi
+    
+    # Paso 3.2: Instalar paquetes
+    print_sub "Instalando paquetes..."
+    if run_elevated "$PKG_MANAGER" $PKG_INSTALL_CMD $PKG_LIST; then
         print_sub_ok "Paquetes de sistema instalados correctamente."
     else
-        print_sub_err "Fallo en gestor de paquetes. Detalles en $LOG_FILE"
-        exit 1
+        print_sub_warn "Fallo en gestor de paquetes. Se omiten dependencias de sistema."
     fi
 fi
 
@@ -252,20 +317,39 @@ print_sub_ok "Rutas y variables persistidas en ~/.bashrc"
 
 # 8. Crear enlaces simbólicos
 print_step "Enlazando archivos de configuración (symlinks)..."
+
+BACKUP_DIR=""
+BACKUPS_MADE=()
+
+init_backup_dir() {
+    if [ -z "$BACKUP_DIR" ]; then
+        local current_time current_date
+        printf -v current_time '%(%Y%m%d_%H%M%S)T' -1
+        printf -v current_date '%(%Y-%m-%d %H:%M:%S)T' -1
+        
+        BACKUP_DIR="$HOME/.config/i3dots_backups/backup_$current_time"
+        mkdir -p "$BACKUP_DIR"
+        echo "# Historial de backups - $current_date" > "$BACKUP_DIR/backup_list.txt"
+    fi
+}
+
 safe_link() {
     local src="$1"
     local dst="$2"
+    
     if [ -L "$dst" ]; then
         rm "$dst"
-    elif [ -d "$dst" ]; then
-        print_sub_warn "Directorio real '$dst' detectado. Guardando copia en '${dst}.bak'."
-        mv "$dst" "${dst}.bak"
-    elif [ -f "$dst" ]; then
-        print_sub_warn "Archivo real '$dst' detectado. Guardando copia en '${dst}.bak'."
-        mv "$dst" "${dst}.bak"
+    elif [ -e "$dst" ]; then
+        init_backup_dir
+        local name="${dst##*/}"
+        
+        mv "$dst" "$BACKUP_DIR/$name"
+        echo "$dst -> $BACKUP_DIR/$name" >> "$BACKUP_DIR/backup_list.txt"
+        BACKUPS_MADE+=("$name")
     fi
+    
     ln -s "$src" "$dst"
-    print_sub_ok "Enlazado: $(basename "$dst")"
+    print_sub_ok "Enlazado: ${dst##*/}"
 }
 
 mkdir -p ~/.config
@@ -281,15 +365,13 @@ safe_link "$PACKAGE_DIR/dotfiles/matugen" "$HOME/.config/matugen"
 safe_link "$PACKAGE_DIR/dotfiles/.gtkrc-2.0" "$HOME/.gtkrc-2.0"
 
 # 8.5 Configurar GTK para root (opcional, si se tienen privilegios sin contraseña)
-if [ "$EUID" -ne 0 ] && command -v sudo &>/dev/null && sudo -n true 2>/dev/null; then
-    print_sub "Configurando tema GTK para root (sudo sin contraseña)..."
-    sudo mkdir -p /root/.config &>> "$LOG_FILE"
-    sudo cp -rf "$PACKAGE_DIR/dotfiles/gtk-3.0" /root/.config/ &>> "$LOG_FILE"
-    sudo cp -rf "$PACKAGE_DIR/dotfiles/gtk-4.0" /root/.config/ &>> "$LOG_FILE"
-    sudo cp -f "$PACKAGE_DIR/dotfiles/.gtkrc-2.0" /root/ &>> "$LOG_FILE"
+if run_elevated_nopasswd; then
+    print_sub "Configurando tema GTK para root..."
+    run_elevated mkdir -p /root/.config /root/.themes
+    run_elevated cp -rf "$PACKAGE_DIR/dotfiles/gtk-3.0" "$PACKAGE_DIR/dotfiles/gtk-4.0" /root/.config/
+    run_elevated cp -f "$PACKAGE_DIR/dotfiles/.gtkrc-2.0" /root/
     if [ -d "$HOME/.themes/adw-gtk3-dark" ]; then
-        sudo mkdir -p /root/.themes &>> "$LOG_FILE"
-        sudo ln -sfn "$HOME/.themes/adw-gtk3-dark" /root/.themes/adw-gtk3-dark &>> "$LOG_FILE"
+        run_elevated ln -sfn "$HOME/.themes/adw-gtk3-dark" /root/.themes/adw-gtk3-dark
     fi
     print_sub_ok "Configuración GTK copiada a /root."
 fi
@@ -308,11 +390,13 @@ WALL_DIR="${CLI_WALL_SRC:-${WALLPAPER_SRC:-$PACKAGE_DIR/dotfiles/wall}}"
 mkdir -p "$HOME/wall"
 if [ -d "$WALL_DIR" ]; then
     # Crear enlaces simbólicos individuales para no duplicar espacio en disco
+    shopt -s nullglob
     for f in "$WALL_DIR"/*; do
         if [ -f "$f" ]; then
             ln -sf "$f" "$HOME/wall/$(basename "$f")"
         fi
     done
+    shopt -u nullglob
 fi
 
 WALLPAPER_FILE="$HOME/wall/$DEFAULT_WALL"
@@ -351,6 +435,13 @@ if command -v gsettings &> /dev/null; then
     gsettings set org.gnome.desktop.interface icon-theme "Inverse-pink-dark" 2>/dev/null || true
     gsettings set org.gnome.desktop.interface cursor-theme "Layan-border-cursors" 2>/dev/null || true
     print_sub_ok "Tema oscuro y cursores establecidos."
+fi
+
+# Resumen de backups realizados (si los hubo)
+if [ -n "$BACKUP_DIR" ] && [ "${#BACKUPS_MADE[@]}" -gt 0 ]; then
+    print_step "Resumen de respaldos realizados..."
+    print_sub_warn "Respaldos guardados en: $BACKUP_DIR"
+    print_sub "Elementos respaldados: $(IFS=", "; echo "${BACKUPS_MADE[*]}")"
 fi
 
 print_success "Instalación completada correctamente para variante: ${VARIANT_NAME}"
