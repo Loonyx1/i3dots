@@ -10,9 +10,11 @@ if [ ! -f "/dev/shm/user_configs.ini" ]; then
     fi
 fi
 
-# 1. Matar instancias existentes de forma inmediata para evitar solape
-pkill -9 -u $UID -x polybar 2>/dev/null
-while pgrep -u $UID -x polybar >/dev/null; do :; done
+# 1. Ocultar instancias existentes de forma instantánea
+polybar-msg cmd hide 2>/dev/null &
+
+# 2. Matar instancias existentes de forma limpia
+kill $(pgrep -u $UID -x polybar) 2>/dev/null
 
 # 2. Detectar Hardware y entorno para modulos dinamicos
 BACKLIGHT_CARDS=(/sys/class/backlight/*)
@@ -33,9 +35,12 @@ export HAS_AUDIO=$(pactl info >/dev/null 2>&1 && echo "yes")
 
 # Detectar sensor de temperatura (hwmon)
 for i in /sys/class/hwmon/hwmon*/name; do
-    if [ -f "$i" ] && grep -qE "coretemp|fam15h_power|k10temp" "$i" >/dev/null 2>&1; then
-        export HWMON_PATH="${i%/*}/temp1_input"
-        break
+    if [ -f "$i" ]; then
+        read -r name < "$i"
+        if [[ "$name" =~ coretemp|fam15h_power|k10temp ]]; then
+            export HWMON_PATH="${i%/*}/temp1_input"
+            break
+        fi
     fi
 done
 

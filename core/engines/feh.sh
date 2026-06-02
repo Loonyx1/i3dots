@@ -9,5 +9,5 @@ engine_init() {
 
 engine_set() {
     local wp_path="$1"
-    feh --bg-fill "$wp_path"
+    feh --bg-fill "$wp_path" &
 }
