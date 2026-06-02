@@ -121,11 +121,14 @@ if [ "$needs_setup" -eq 1 ]; then
     if [ -d "$THEME_SRC" ]; then
         ln -sfT "$THEME_SRC" "$CONF_DIR/current_theme"
         ln -sf "current_theme/launch.sh" "$CONF_DIR/launch.sh"
-        
-        # Ejecutar setup.sh específico del tema si existe (evita hardcodeo)
-        [ -f "$THEME_SRC/setup.sh" ] && source "$THEME_SRC/setup.sh"
     fi
 fi
+
+# Ejecutar setup.sh específico del tema si existe (evita hardcodeo)
+if [ -d "$THEME_SRC" ]; then
+    [ -f "$THEME_SRC/setup.sh" ] && source "$THEME_SRC/setup.sh"
+fi
+
 
 # 3. Preparar Variables para RAM (/dev/shm)
 [ "$STYLE" == "round" ] && RADIUS=10 || RADIUS=0
