@@ -6,7 +6,7 @@ I3_AUTOSTART="$I3_CONFIG_DIR/conf.d/autostart.conf"
 I3_APPEARANCE="$I3_CONFIG_DIR/conf.d/appearance.conf"
 
 if [ -f "$I3_AUTOSTART" ] && [ -n "$POLKIT_AGENT" ]; then
-    if ! grep -q "exec_always --no-startup-id $POLKIT_AGENT \&" "$I3_AUTOSTART"; then
+    if ! grep -q "exec_always --no-startup-id $POLKIT_AGENT &" "$I3_AUTOSTART"; then
         sed -i "s|exec_always --no-startup-id .*polkit.*|exec_always --no-startup-id $POLKIT_AGENT \&|g" "$I3_AUTOSTART"
     fi
 fi

@@ -14,7 +14,7 @@ fi
 polybar-msg cmd hide 2>/dev/null &
 
 # 2. Matar instancias existentes de forma limpia
-kill $(pgrep -u $UID -x polybar) 2>/dev/null
+pkill -u $UID -x polybar 2>/dev/null
 
 # 2. Detectar Hardware y entorno para modulos dinamicos
 BACKLIGHT_CARDS=(/sys/class/backlight/*)
