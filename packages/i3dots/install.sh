@@ -1,53 +1,15 @@
 #!/usr/bin/env bash
 # i3dots/install.sh
 
-# 0. Definición de colores y helpers visuales
-NC="\e[0m"
-BOLD="\e[1m"
-RED="\e[31m"
-GREEN="\e[32m"
-YELLOW="\e[33m"
-BLUE="\e[34m"
-CYAN="\e[36m"
-GRAY="\e[90m"
+# 0. Cargar biblioteca de utilidades del core
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$PROJECT_ROOT/core/lib/utils.sh"
 
 LOG_FILE="${LOG_FILE:-/tmp/dots_install.log}"
 echo -e "${GRAY}--- Inicio de instalación $(date) ---${NC}" > "$LOG_FILE"
 
-print_step() {
-    echo -e "${BLUE}•${NC} ${BOLD}$1${NC}"
-}
-
-print_success() {
-    echo -e "${GREEN}•${NC} ${GREEN}${BOLD}$1${NC}"
-}
-
-print_sub() {
-    echo -e "  ${GRAY}•${NC} $1"
-}
-
-print_sub_ok() {
-    echo -e "  ${GREEN}•${NC} $1"
-}
-
-print_sub_warn() {
-    echo -e "  ${YELLOW}•${NC} ${YELLOW}$1${NC}"
-}
-
-print_sub_err() {
-    echo -e "  ${RED}•${NC} ${RED}$1${NC}" >&2
-}
-
 # Mostrar Banner
-echo -e "${CYAN}${BOLD}"
-cat << "EOF"
-▗▄▄▄▖▄▄▄▄ ▗▄▄▄   ▗▄▖▗▄▄▄▖▗▄▄▖
-  █     █ ▐▌  █ ▐▌ ▐▌ █ ▐▌
-  █  ▀▀▀█ ▐▌  █ ▐▌ ▐▌ █  ▝▀▚▖
-▗▄█▄▖▄▄▄█ ▐▙▄▄▀ ▝▚▄▞▘ █ ▗▄▄▞▘
-          by loonyx
-EOF
-echo -e "${NC}"
+echo -e "${CYAN}${BOLD}▗▄▄▄▖▄▄▄▄ ▗▄▄▄   ▗▄▖▗▄▄▄▖▗▄▄▖\n  █     █ ▐▌  █ ▐▌ ▐▌ █ ▐▌\n  █  ▀▀▀█ ▐▌  █ ▐▌ ▐▌ █  ▝▀▚▖\n▗▄█▄▖▄▄▄█ ▐▙▄▄▀ ▝▚▄▞▘ █ ▗▄▄▞▘\n          by loonyx${NC}"
 
 # 1. Parseo de argumentos y persistencia de variante
 PACKAGE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -58,27 +20,11 @@ CLI_WALL_SRC=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --offline)
-            IS_OFFLINE=true
-            shift
-            ;;
-        --wallpaper)
-            CLI_WALL="$2"
-            shift 2
-            ;;
-        --wallpaper-src)
-            CLI_WALL_SRC="$2"
-            shift 2
-            ;;
-        -*)
-            shift
-            ;;
-        *)
-            if [ -z "$VARIANT_ARG" ]; then
-                VARIANT_ARG="$1"
-            fi
-            shift
-            ;;
+        --offline) IS_OFFLINE=true; shift ;;
+        --wallpaper) CLI_WALL="$2"; shift 2 ;;
+        --wallpaper-src) CLI_WALL_SRC="$2"; shift 2 ;;
+        -*) shift ;;
+        *) [ -z "$VARIANT_ARG" ] && VARIANT_ARG="$1"; shift ;;
     esac
 done
 
@@ -107,67 +53,23 @@ fi
 
 print_step "Iniciando instalación para variante: ${VARIANT_NAME} (Offline: ${IS_OFFLINE})"
 
-# Detección del elevador de privilegios (SUDO_CMD o ELEVATOR)
-ELEVATOR="${ELEVATOR:-$SUDO_CMD}"
-if [ -z "$ELEVATOR" ]; then
-    if [ "$EUID" -eq 0 ]; then
-        ELEVATOR=""
-    elif command -v sudo &>/dev/null; then
-        ELEVATOR="sudo"
-    elif command -v doas &>/dev/null; then
-        ELEVATOR="doas"
-    else
-        ELEVATOR=""
-    fi
-fi
-
-run_elevated() {
-    local cmd=()
-    if [ "$EUID" -ne 0 ] && [ -n "$ELEVATOR" ]; then
-        cmd+=("$ELEVATOR")
-    fi
-    cmd+=("$@")
-    "${cmd[@]}" &>> "$LOG_FILE"
-}
-
-run_elevated_nopasswd() {
-    [ "$EUID" -eq 0 ] && return 0
-    [ -z "$ELEVATOR" ] && return 1
-    if [ "$ELEVATOR" = "sudo" ] || [ "$ELEVATOR" = "doas" ]; then
-        "$ELEVATOR" -n true 2>/dev/null
-    else
-        "$ELEVATOR" true 2>/dev/null
-    fi
-}
+# (Lógica del elevador importada desde utils.sh)
 
 # 2. Detección de Hardware
 print_sub "Detectando componentes de hardware..."
 
-# Batería
-SYS_BAT="BAT0"
-for d in /sys/class/power_supply/BAT*; do
-    [ -d "$d" ] && { SYS_BAT="${d##*/}"; break; }
-done
+bats=(/sys/class/power_supply/BAT*)
+[ -e "${bats[0]}" ] && SYS_BAT="${bats[0]##*/}" || SYS_BAT="BAT0"
 
-# Adaptador de Corriente
-SYS_ADAPTER="ACAD"
-for d in /sys/class/power_supply/AC* /sys/class/power_supply/AD*; do
-    [ -d "$d" ] && { SYS_ADAPTER="${d##*/}"; break; }
-done
+adapters=(/sys/class/power_supply/AC* /sys/class/power_supply/AD*)
+[ -e "${adapters[0]}" ] && SYS_ADAPTER="${adapters[0]##*/}" || SYS_ADAPTER="ACAD"
 
-# Backlight
-SYS_BACKLIGHT="intel_backlight"
-for d in /sys/class/backlight/*; do
-    [ -d "$d" ] && { SYS_BACKLIGHT="${d##*/}"; break; }
-done
+bk=(/sys/class/backlight/*)
+[ -e "${bk[0]}" ] && SYS_BACKLIGHT="${bk[0]##*/}" || SYS_BACKLIGHT="intel_backlight"
 
-# Interfaz de Red
 SYS_INTERFACE="wlan0"
 for d in /sys/class/net/*; do
-    if [ -f "$d/operstate" ] && [ "$(cat "$d/operstate" 2>/dev/null)" = "up" ]; then
-        SYS_INTERFACE="${d##*/}"
-        break
-    fi
+    [ -f "$d/operstate" ] && [ "$(< "$d/operstate")" = "up" ] && { SYS_INTERFACE="${d##*/}"; break; }
 done
 
 HARDWARE_INI="$PACKAGE_DIR/dotfiles/polybar_base/hardware.ini"
@@ -207,30 +109,30 @@ print_step "Instalando tipografías (Nerd Fonts)..."
 mkdir -p ~/.local/share/fonts
 
 install_font() {
-    local name="$1"
-    local url="$2"
-    if [ -d "$HOME/.local/share/fonts/$name" ] || [ -d "/usr/share/fonts/$name" ] || [ -d "/usr/share/fonts/TTF/$name" ] || [ -d "/usr/share/fonts/truetype/$name" ]; then
-        print_sub_ok "Fuente $name ya instalada."
-    elif [ -n "$SKIP_FONTS_DOWNLOAD" ]; then
-        print_sub_ok "Fuente $name (omitida por configuración)."
+    local name="$1" url="$2"
+    for path in "$HOME/.local/share/fonts/$name" "/usr/share/fonts/$name" "/usr/share/fonts/TTF/$name" "/usr/share/fonts/truetype/$name"; do
+        [ -d "$path" ] && { print_sub_ok "Fuente $name ya instalada."; return 0; }
+    done
+    [ -n "$SKIP_FONTS_DOWNLOAD" ] && { print_sub_ok "Fuente $name (omitida)."; return 0; }
+    
+    print_sub "Instalando tipografía $name..."
+    local temp=$(mktemp -d)
+    if wget -q --show-progress -P "$temp" "$url" &>> "$LOG_FILE" && unzip -q "$temp"/*.zip -d ~/.local/share/fonts/"$name" &>> "$LOG_FILE"; then
+        print_sub_ok "Fuente $name lista."
     else
-        print_sub "Instalando tipografía $name..."
-        local TEMP_F=$(mktemp -d)
-        if wget -q --show-progress -P "$TEMP_F" "$url" &>> "$LOG_FILE" && \
-           unzip -q "$TEMP_F"/*.zip -d ~/.local/share/fonts/"$name" &>> "$LOG_FILE"; then
-            rm -rf "$TEMP_F"
-            print_sub_ok "Fuente $name lista."
-        else
-            rm -rf "$TEMP_F"
-            print_sub_err "Fallo al descargar/extraer $name."
-            return 1
-        fi
+        print_sub_err "Fallo al descargar/extraer $name."
     fi
+    rm -rf "$temp"
 }
 
-install_font "JetBrainsMonoNerd" "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/JetBrainsMono.zip"
-install_font "FiraCodeNerd" "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/FiraCode.zip"
-install_font "SymbolsNerdFont" "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/NerdFontsSymbolsOnly.zip"
+fonts_list=(
+    "JetBrainsMonoNerd|https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/JetBrainsMono.zip"
+    "FiraCodeNerd|https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/FiraCode.zip"
+    "SymbolsNerdFont|https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/NerdFontsSymbolsOnly.zip"
+)
+for f in "${fonts_list[@]}"; do
+    install_font "${f%%|*}" "${f##*|}"
+done
 fc-cache -fv &>> "$LOG_FILE"
 
 # 5. Temas (adw-gtk3)
@@ -302,17 +204,12 @@ echo "set \$dots_cmd $PROJECT_ROOT/dots" > "$PACKAGE_DIR/dotfiles/i3/conf.d/vars
 
 
 # Bashrc
-if ! grep -q ".local/bin" "$HOME/.bashrc"; then
-    echo 'export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"' >> "$HOME/.bashrc"
-fi
-if ! grep -q "MAHOGARA_DOTS" "$HOME/.bashrc"; then
-    echo -e "\n# Mahogara Dots" >> "$HOME/.bashrc"
-    echo "export PATH=\"$PROJECT_ROOT:\$PATH\"" >> "$HOME/.bashrc"
-    echo "export MAHOGARA_DOTS=\"$PROJECT_ROOT\"" >> "$HOME/.bashrc"
-fi
-if ! grep -q "QT_QPA_PLATFORMTHEME" "$HOME/.bashrc"; then
-    echo 'export QT_QPA_PLATFORMTHEME=qt6ct' >> "$HOME/.bashrc"
-fi
+add_rc() {
+    grep -q "$1" "$HOME/.bashrc" || echo "$2" >> "$HOME/.bashrc"
+}
+add_rc ".local/bin" 'export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"'
+add_rc "MAHOGARA_DOTS" $'\n# Mahogara Dots\nexport PATH="'"$PROJECT_ROOT"':$PATH"\nexport MAHOGARA_DOTS="'"$PROJECT_ROOT"'"'
+add_rc "QT_QPA_PLATFORMTHEME" 'export QT_QPA_PLATFORMTHEME=qt6ct'
 print_sub_ok "Rutas y variables persistidas en ~/.bashrc"
 
 # 8. Crear enlaces simbólicos
@@ -322,15 +219,13 @@ BACKUP_DIR=""
 BACKUPS_MADE=()
 
 init_backup_dir() {
-    if [ -z "$BACKUP_DIR" ]; then
-        local current_time current_date
-        printf -v current_time '%(%Y%m%d_%H%M%S)T' -1
-        printf -v current_date '%(%Y-%m-%d %H:%M:%S)T' -1
-        
-        BACKUP_DIR="$HOME/.config/i3dots_backups/backup_$current_time"
-        mkdir -p "$BACKUP_DIR"
-        echo "# Historial de backups - $current_date" > "$BACKUP_DIR/backup_list.txt"
-    fi
+    [ -n "$BACKUP_DIR" ] && return
+    local t d
+    printf -v t '%(%Y%m%d_%H%M%S)T' -1
+    printf -v d '%(%Y-%m-%d %H:%M:%S)T' -1
+    BACKUP_DIR="$HOME/.config/i3dots_backups/backup_$t"
+    mkdir -p "$BACKUP_DIR"
+    echo "# Historial de backups - $d" > "$BACKUP_DIR/backup_list.txt"
 }
 
 safe_link() {
@@ -370,9 +265,7 @@ if run_elevated_nopasswd; then
     run_elevated mkdir -p /root/.config /root/.themes
     run_elevated cp -rf "$PACKAGE_DIR/dotfiles/gtk-3.0" "$PACKAGE_DIR/dotfiles/gtk-4.0" /root/.config/
     run_elevated cp -f "$PACKAGE_DIR/dotfiles/.gtkrc-2.0" /root/
-    if [ -d "$HOME/.themes/adw-gtk3-dark" ]; then
-        run_elevated ln -sfn "$HOME/.themes/adw-gtk3-dark" /root/.themes/adw-gtk3-dark
-    fi
+    [ -d "$HOME/.themes/adw-gtk3-dark" ] && run_elevated ln -sfn "$HOME/.themes/adw-gtk3-dark" /root/.themes/adw-gtk3-dark
     print_sub_ok "Configuración GTK copiada a /root."
 fi
 
