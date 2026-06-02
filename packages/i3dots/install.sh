@@ -340,8 +340,8 @@ fi
 
 # 9.5 Inicializar estado de la barra por defecto
 print_step "Inicializando estado de la barra en disco..."
-export STATE_DIR="${STATE_DIR:-$PROJECT_ROOT/core/state}"
-bash "$PROJECT_ROOT/dots" i3dots bar --set type "${BAR_DEFAULT_TYPE:-polybar_antigua}" &>> "$LOG_FILE"
+mkdir -p "$STATE_DIR/bar"
+echo "${BAR_DEFAULT_TYPE:-polybar_antigua}" > "$STATE_DIR/bar/type"
 
 # 10. Aplicar gsettings (GTK)
 if command -v gsettings &> /dev/null; then
