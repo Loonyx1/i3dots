@@ -268,7 +268,7 @@ type = custom/text
 format = "  Atajos "
 format-foreground = \${colors.primary}
 format-background = \${colors.background-alt}
-click-left = \${vars.dots-cmd} i3dots show_cheatsheet.sh
+click-left = ${BASE_DIR:-$PROJECT_ROOT}/dots i3dots show_cheatsheet.sh
 EOF
 
 
