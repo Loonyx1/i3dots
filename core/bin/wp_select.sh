@@ -54,14 +54,24 @@ else
         options+="$line\n"
     done <<< "$wallpapers_found"
     
+    tmp_choice=$(mktemp)
+    tmp_options=$(mktemp)
+
+    # Escribir las opciones con escapes expandidos directamente al archivo temporal en RAM
+    # printf es builtin y maneja bytes nulos reales en la redirección sin truncar
+    printf "%b" "$options" > "$tmp_options"
+
     if [[ "$SEL_BIN" == *"rofi"* ]]; then
         # Caso específico Rofi: requiere -format 's'
         # Usamos eval para que las comillas en WP_SEL_STYLE se interpreten correctamente
-        eval "FINAL_NAME=\$(echo -e \"\$options\" | \"\$SEL_BIN\" \"\${SEL_ARGS[@]}\" $WP_SEL_STYLE -format 's')"
+        eval "\"\$SEL_BIN\" \"\${SEL_ARGS[@]}\" $WP_SEL_STYLE -format 's' < \"\$tmp_options\"" > "$tmp_choice"
     else
         # Caso genérico (Wofi, Fuzzel, etc)
-        eval "FINAL_NAME=\$(echo -e \"\$options\" | \"\$SEL_BIN\" \"\${SEL_ARGS[@]}\" $WP_SEL_STYLE)"
+        eval "\"\$SEL_BIN\" \"\${SEL_ARGS[@]}\" $WP_SEL_STYLE < \"\$tmp_options\"" > "$tmp_choice"
     fi
+
+    IFS= read -r FINAL_NAME < "$tmp_choice"
+    rm -f "$tmp_choice" "$tmp_options"
 
     [[ -z "$FINAL_NAME" ]] && exit 1
 
