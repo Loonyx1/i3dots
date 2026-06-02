@@ -4,8 +4,8 @@
 source "$HOME/.config/polybar/scripts/detect.sh"
 
 # Launch bar
-echo "---" | tee -a /tmp/polybar1.log
-polybar "$BAR_NAME" 2>&1 | tee -a /tmp/polybar1.log & disown
+echo "---" >> /tmp/polybar1.log
+polybar "$BAR_NAME" >> /tmp/polybar1.log 2>&1 &
 
 echo "Bars launched..."
 
