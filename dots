@@ -8,37 +8,7 @@ export BIN_DIR="$CORE_DIR/bin"
 export STATE_DIR="$CORE_DIR/state"
 
 # 0. Definición de colores y helpers visuales
-NC="\e[0m"
-BOLD="\e[1m"
-RED="\e[31m"
-GREEN="\e[32m"
-YELLOW="\e[33m"
-BLUE="\e[34m"
-GRAY="\e[90m"
-
-print_step() {
-    echo -e "${BLUE}•${NC} ${BOLD}$1${NC}"
-}
-
-print_success() {
-    echo -e "${GREEN}•${NC} ${GREEN}${BOLD}$1${NC}"
-}
-
-print_sub() {
-    echo -e "  ${GRAY}•${NC} $1"
-}
-
-print_sub_ok() {
-    echo -e "  ${GREEN}•${NC} $1"
-}
-
-print_sub_warn() {
-    echo -e "  ${YELLOW}•${NC} ${YELLOW}$1${NC}"
-}
-
-print_sub_err() {
-    echo -e "  ${RED}•${NC} ${RED}$1${NC}" >&2
-}
+source "$CORE_DIR/lib/utils.sh"
 
 # 1. Almacenes de Argumentos
 GENERAL_ARGS=()
