@@ -24,7 +24,7 @@ if [[ -n "$W_PATH" ]]; then
 elif [[ "$USE_CLI" -eq 1 ]]; then
     mapfile -d $'\0' wallpapers_found < <(find -L "$WALLPAPER_DIR" -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.gif" -o -iname "*.webp" \) -print0 | sort -z)
     for i in "${!wallpapers_found[@]}"; do
-        printf "%3d) %s\n" "$((i+1))" "$(basename "${wallpapers_found[$i]}")" >&2
+        printf "%3d) %s\n" "$((i+1))" "${wallpapers_found[$i]##*/}" >&2
     done
     while true; do
         read -p "Numero (q salir): " choice >&2
@@ -48,7 +48,7 @@ else
         rel_path="${file#$WALLPAPER_DIR/}"
         # Generar linea segun el template (%f=filename, %r=relative path, %p=path)
         line="$LINE_TMPL"
-        line="${line//%f/$(basename "$file")}"
+        line="${line//%f/${file##*/}}"
         line="${line//%r/$rel_path}"
         line="${line//%p/$file}"
         options+="$line\n"
@@ -75,7 +75,7 @@ else
         while IFS= read -r file; do
             [[ -z "$file" ]] && continue
             rel_path="${file#$WALLPAPER_DIR/}"
-            base_name="$(basename "$file")"
+            base_name="${file##*/}"
             if [[ "$file" == "$FINAL_NAME" || "$rel_path" == "$FINAL_NAME" || "$base_name" == "$FINAL_NAME" ]]; then
                 FOUND_PATH="$file"
                 break
@@ -98,7 +98,7 @@ if [[ -n "$FINAL_PATH" ]]; then
         FINAL_PATH="$REAL_PATH"
     fi
 
-    mkdir -p "$(dirname "$CURRENT_WALLPAPER_LINK")"
+    mkdir -p "${CURRENT_WALLPAPER_LINK%/*}"
     ln -sf "$FINAL_PATH" "$CURRENT_WALLPAPER_LINK"
     echo "$FINAL_PATH" > "$LAST_WALLPAPER_PATH_FILE"
 fi
