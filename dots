@@ -132,8 +132,14 @@ fi
 # 6. Ejecutar Secuencia Seleccionada
 seq_len=${#FINAL_SEQUENCE[@]}
 idx=0
+is_cancelable=0
 for action in "${FINAL_SEQUENCE[@]}"; do
     ((idx++))
+    
+    if [ "$action" = "-c" ]; then
+        is_cancelable=1
+        continue
+    fi
     
     # 6.1 Detectar si la acción debe correr en segundo plano (asíncrona)
     run_in_background=0
@@ -155,6 +161,14 @@ for action in "${FINAL_SEQUENCE[@]}"; do
             eval exec "$action"
         else
             eval "$action"
+        fi
+        
+        exit_code=$?
+        if [ "$is_cancelable" -eq 1 ]; then
+            is_cancelable=0
+            if [ $exit_code -ne 0 ]; then
+                exit 0
+            fi
         fi
         continue
     fi
@@ -215,5 +229,13 @@ for action in "${FINAL_SEQUENCE[@]}"; do
         fi
     else
         print_sub_err "Error: Accion '$script_name' no encontrada."
+    fi
+
+    exit_code=$?
+    if [ "$is_cancelable" -eq 1 ]; then
+        is_cancelable=0
+        if [ $exit_code -ne 0 ]; then
+            exit 0
+        fi
     fi
 done

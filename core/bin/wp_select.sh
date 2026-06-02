@@ -63,7 +63,7 @@ else
         eval "FINAL_NAME=\$(echo -e \"\$options\" | \"\$SEL_BIN\" \"\${SEL_ARGS[@]}\" $WP_SEL_STYLE)"
     fi
 
-    [[ -z "$FINAL_NAME" ]] && exit 0
+    [[ -z "$FINAL_NAME" ]] && exit 1
 
     # Buscar coincidencia exacta, por ruta relativa o por basename
     FOUND_PATH=""
