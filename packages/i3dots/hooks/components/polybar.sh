@@ -87,34 +87,44 @@ ICON_PADDING=$(echo "$ICON_PADDING" | tr -d '[:space:]')
 
 # 2. Setup de Directorio con Enlaces Simbólicos
 CONF_DIR="$HOME/.config/polybar"
-[ -f "$CONF_DIR/colors.ini" ] && cp "$CONF_DIR/colors.ini" "/tmp/poly_colors.ini"
-[ -f "$CONF_DIR/user_configs.ini.bak" ] && cp "$CONF_DIR/user_configs.ini.bak" "/tmp/poly_user_configs.ini"
-
-# Borrado selectivo para preservar configuraciones propias del usuario
-rm -f "$CONF_DIR/hardware.ini" "$CONF_DIR/launch.sh" "$CONF_DIR/current_theme" "$CONF_DIR/config.ini" "$CONF_DIR/colors.ini"
-rm -rf "$CONF_DIR/scripts"
-mkdir -p "$CONF_DIR"
-
-if [ -f "/tmp/poly_colors.ini" ]; then
-    mv "/tmp/poly_colors.ini" "$CONF_DIR/colors.ini"
-else
-    ln -sf "$PACKAGE_DIR/dotfiles/polybar_base/colors.ini" "$CONF_DIR/colors.ini"
-fi
-
-if [ -f "/tmp/poly_user_configs.ini" ]; then
-    mv "/tmp/poly_user_configs.ini" "$CONF_DIR/user_configs.ini.bak"
-fi
-
-ln -sf "$PACKAGE_DIR/dotfiles/polybar_base/hardware.ini" "$CONF_DIR/hardware.ini"
-ln -sf "$PACKAGE_DIR/dotfiles/polybar_base/scripts" "$CONF_DIR/scripts"
-
 THEME_SRC="$PACKAGE_DIR/dotfiles/polybar_configs/$TYPE"
-if [ -d "$THEME_SRC" ]; then
-    ln -sfT "$THEME_SRC" "$CONF_DIR/current_theme"
-    ln -sf "current_theme/launch.sh" "$CONF_DIR/launch.sh"
-    
-    # Ejecutar setup.sh específico del tema si existe (evita hardcodeo)
-    [ -f "$THEME_SRC/setup.sh" ] && source "$THEME_SRC/setup.sh"
+
+needs_setup=1
+if pgrep -u $UID -x polybar >/dev/null && [ -d "$CONF_DIR/current_theme" ]; then
+    if [ "$(readlink -f "$CONF_DIR/current_theme")" = "$THEME_SRC" ]; then
+        needs_setup=0
+    fi
+fi
+
+if [ "$needs_setup" -eq 1 ]; then
+    [ -f "$CONF_DIR/colors.ini" ] && cp "$CONF_DIR/colors.ini" "/tmp/poly_colors.ini"
+    [ -f "$CONF_DIR/user_configs.ini.bak" ] && cp "$CONF_DIR/user_configs.ini.bak" "/tmp/poly_user_configs.ini"
+
+    # Borrado selectivo para preservar configuraciones propias del usuario
+    rm -f "$CONF_DIR/hardware.ini" "$CONF_DIR/launch.sh" "$CONF_DIR/current_theme" "$CONF_DIR/config.ini" "$CONF_DIR/colors.ini"
+    rm -rf "$CONF_DIR/scripts"
+    mkdir -p "$CONF_DIR"
+
+    if [ -f "/tmp/poly_colors.ini" ]; then
+        mv "/tmp/poly_colors.ini" "$CONF_DIR/colors.ini"
+    else
+        ln -sf "$PACKAGE_DIR/dotfiles/polybar_base/colors.ini" "$CONF_DIR/colors.ini"
+    fi
+
+    if [ -f "/tmp/poly_user_configs.ini" ]; then
+        mv "/tmp/poly_user_configs.ini" "$CONF_DIR/user_configs.ini.bak"
+    fi
+
+    ln -sf "$PACKAGE_DIR/dotfiles/polybar_base/hardware.ini" "$CONF_DIR/hardware.ini"
+    ln -sf "$PACKAGE_DIR/dotfiles/polybar_base/scripts" "$CONF_DIR/scripts"
+
+    if [ -d "$THEME_SRC" ]; then
+        ln -sfT "$THEME_SRC" "$CONF_DIR/current_theme"
+        ln -sf "current_theme/launch.sh" "$CONF_DIR/launch.sh"
+        
+        # Ejecutar setup.sh específico del tema si existe (evita hardcodeo)
+        [ -f "$THEME_SRC/setup.sh" ] && source "$THEME_SRC/setup.sh"
+    fi
 fi
 
 # 3. Preparar Variables para RAM (/dev/shm)
@@ -277,12 +287,14 @@ cp "$RAM_CONFIG" "$CONF_DIR/user_configs.ini.bak"
 
 
 # 5. Configuración de entrada única para Polybar
-cat > "$CONF_DIR/config.ini" <<EOF
+if [ "$needs_setup" -eq 1 ]; then
+    cat > "$CONF_DIR/config.ini" <<EOF
 [global/wm]
 include-file = \$HOME/.config/polybar/colors.ini
 include-file = /dev/shm/user_configs.ini
 include-file = \$HOME/.config/polybar/current_theme/config.ini
 EOF
+fi
 
 # 6. Lanzar
 if [ -x "$CONF_DIR/launch.sh" ] && [ -n "$DISPLAY" ]; then

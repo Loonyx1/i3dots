@@ -67,15 +67,21 @@ else
 
     # Buscar coincidencia exacta, por ruta relativa o por basename
     FOUND_PATH=""
-    while IFS= read -r file; do
-        [[ -z "$file" ]] && continue
-        rel_path="${file#$WALLPAPER_DIR/}"
-        base_name="$(basename "$file")"
-        if [[ "$file" == "$FINAL_NAME" || "$rel_path" == "$FINAL_NAME" || "$base_name" == "$FINAL_NAME" ]]; then
-            FOUND_PATH="$file"
-            break
-        fi
-    done <<< "$wallpapers_found"
+    if [[ -f "$FINAL_NAME" ]]; then
+        FOUND_PATH="$FINAL_NAME"
+    elif [[ -f "$WALLPAPER_DIR/$FINAL_NAME" ]]; then
+        FOUND_PATH="$WALLPAPER_DIR/$FINAL_NAME"
+    else
+        while IFS= read -r file; do
+            [[ -z "$file" ]] && continue
+            rel_path="${file#$WALLPAPER_DIR/}"
+            base_name="$(basename "$file")"
+            if [[ "$file" == "$FINAL_NAME" || "$rel_path" == "$FINAL_NAME" || "$base_name" == "$FINAL_NAME" ]]; then
+                FOUND_PATH="$file"
+                break
+            fi
+        done <<< "$wallpapers_found"
+    fi
 
     if [[ -n "$FOUND_PATH" ]]; then
         FINAL_PATH="$FOUND_PATH"

@@ -20,15 +20,11 @@ for component in $MANAGED_COMPONENTS; do
     
     component_hook="$HOOK_DIR/components/${component}.sh"
     if [ -f "$component_hook" ]; then
-        # Ejecutar en paralelo Kitty, Picom y Rofi para no bloquear a Polybar/i3
-        if [[ "$component" =~ ^(kitty|picom|rofi)$ ]]; then
-            source "$component_hook" "$value" &
-        else
-            source "$component_hook" "$value"
-        fi
+        # Ejecutar todos los hooks en paralelo para velocidad extrema
+        source "$component_hook" "$value" &
     fi
 done
-wait # Esperar a que los paralelos terminen antes del hook final
+wait # Esperar a que todos terminen antes del hook final
 
 # 3. Aplicar Hook
 if [ -n "$H_NAME" ]; then
