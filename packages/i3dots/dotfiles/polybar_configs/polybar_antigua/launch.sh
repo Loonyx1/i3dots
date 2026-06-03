@@ -16,6 +16,5 @@ export POLY_RIGHT="left cpu-temperature right"
 export POLY_RIGHT="$POLY_RIGHT space left tray right space"
 
 # 3. Iniciar las nuevas instancias de forma silenciosa
-polybar -q "$BAR_NAME" &
-sleep 0.1
+exec polybar -q "$BAR_NAME"
 
