@@ -20,45 +20,33 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# 2. Configurar Directorios y Cargar Estado de forma dinámica
+# 2. Cargar entorno y lógica compartida
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PKG_PARENT="${SCRIPT_DIR%/*}"
-PKG_NAME="${PKG_PARENT##*/}"
-CUR_ENV="${CURRENT_ENV:-$PKG_NAME}"
-ROOT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-STATE_DIR_VAL="${STATE_DIR:-$ROOT_DIR/core/state}"
-
-WP_STATE_DIR="$STATE_DIR_VAL/$CUR_ENV/wallpaper"
-mkdir -p "$WP_STATE_DIR"
-
-THUMB_SIZE="450"
-[[ -f "$WP_STATE_DIR/thumbnail_size" ]] && THUMB_SIZE=$(<"$WP_STATE_DIR/thumbnail_size")
-THUMB_SIZE="${THUMB_SIZE//[[:space:]]/}"
-
-THUMB_DIR="$WP_STATE_DIR/thumbs/$THUMB_SIZE"
-
-# Cargar variables del entorno con fallbacks
-WALLPAPER_DIR="${WALLPAPER_DIR:-$HOME/wall}"
-
-# Validar dependencia de vipsthumbnail
-HAS_VIPS=0
-command -v vipsthumbnail &>/dev/null && HAS_VIPS=1
+source "$SCRIPT_DIR/wp_shared.sh"
 
 # 3. Modo: Pre-caché en background (--bg-gen)
 if [[ "$BG_GEN" -eq 1 ]]; then
     [[ "$HAS_VIPS" -eq 0 ]] && exit 1
     
-    wallpapers_found=$(wp_select.sh -L)
+    if [[ ! -t 0 ]]; then
+        wallpapers_found=$(cat)
+    else
+        wallpapers_found=$(list_wallpapers)
+    fi
     [[ -z "$wallpapers_found" ]] && exit 0
     
-    mkdir -p "$THUMB_DIR"
+    [[ -d "$THUMB_DIR" ]] || mkdir -p "$THUMB_DIR"
     
     # Bucle secuencial de baja prioridad para wallpapers faltantes
     while IFS= read -r file; do
         [[ -z "$file" ]] && continue
-        real_file=$(readlink -f "$file")
-        safe_name="${real_file//\//_}"
-        thumb="$THUMB_DIR/${safe_name}.jpg"
+        if [[ -L "$file" ]]; then
+            real_file=$(readlink -f "$file")
+        else
+            real_file="$file"
+        fi
+        get_thumb_path "$real_file"
+        thumb="$RET_THUMB"
         if [[ ! -f "$thumb" || "$real_file" -nt "$thumb" ]]; then
             nice -n 19 vipsthumbnail -s "$THUMB_SIZE" -o "$thumb" "$real_file" 2>/dev/null
         fi
@@ -70,19 +58,23 @@ fi
 if [[ "$CACHE_NOW" -eq 1 ]]; then
     [[ "$HAS_VIPS" -eq 0 ]] && { echo "Error: vipsthumbnail no disponible. Instala libvips." >&2; exit 1; }
     
-    wallpapers_found=$(wp_select.sh -L)
+    wallpapers_found=$(list_wallpapers)
     [[ -z "$wallpapers_found" ]] && { echo "No se encontraron wallpapers." >&2; exit 0; }
     
-    mkdir -p "$THUMB_DIR"
+    [[ -d "$THUMB_DIR" ]] || mkdir -p "$THUMB_DIR"
     
     # Filtrar imágenes pendientes
     mapfile -t files <<< "$wallpapers_found"
     declare -a pending=()
     for file in "${files[@]}"; do
         [[ -z "$file" ]] && continue
-        real_file=$(readlink -f "$file")
-        safe_name="${real_file//\//_}"
-        thumb="$THUMB_DIR/${safe_name}.jpg"
+        if [[ -L "$file" ]]; then
+            real_file=$(readlink -f "$file")
+        else
+            real_file="$file"
+        fi
+        get_thumb_path "$real_file"
+        thumb="$RET_THUMB"
         if [[ ! -f "$thumb" || "$real_file" -nt "$thumb" ]]; then
             pending+=("$real_file")
         fi
@@ -99,8 +91,8 @@ if [[ "$CACHE_NOW" -eq 1 ]]; then
     for file in "${pending[@]}"; do
         count=$((count+1))
         echo -e "\e[1A\e[K[$count/$total] Procesando: ${file##*/}"
-        safe_name="${file//\//_}"
-        thumb="$THUMB_DIR/${safe_name}.jpg"
+        get_thumb_path "$file"
+        thumb="$RET_THUMB"
         vipsthumbnail -s "$THUMB_SIZE" -o "$thumb" "$file" 2>/dev/null
     done
     
@@ -119,7 +111,7 @@ if [[ "$CLEAN_CACHE" -eq 1 ]]; then
     case "$CLEAN_ARG" in
         orphans)
             echo "Buscando miniaturas huérfanas en todas las calidades..."
-            wallpapers_found=$(wp_select.sh -L)
+            wallpapers_found=$(list_wallpapers)
             
             declare -A active_walls
             while IFS= read -r file; do

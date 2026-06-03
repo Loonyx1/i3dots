@@ -49,12 +49,16 @@ if [[ -n "$W_PATH" ]]; then
     FINAL_PATH=$(readlink -f "$FOUND_PATH")
 
     # Guardar Estado
-    mkdir -p "${CURRENT_WALLPAPER_LINK%/*}"
+    [[ -d "${CURRENT_WALLPAPER_LINK%/*}" ]] || mkdir -p "${CURRENT_WALLPAPER_LINK%/*}"
     ln -sf "$FINAL_PATH" "$CURRENT_WALLPAPER_LINK"
     echo "$FINAL_PATH" > "$LAST_WALLPAPER_PATH_FILE"
 
     # Aplicar motor de wallpaper
-    CORE_DIR="${CORE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+    if [[ -z "$CORE_DIR" ]]; then
+        SCRIPT_PATH="${BASH_SOURCE[0]}"
+        SCRIPT_DIR="${SCRIPT_PATH%/*}"
+        CORE_DIR="${SCRIPT_DIR%/*}"
+    fi
     local_engine="$CORE_DIR/engines/${WP_ENGINE}.sh"
     if [[ -f "$local_engine" ]]; then
         source "$local_engine"
