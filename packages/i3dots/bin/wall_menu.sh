@@ -22,8 +22,15 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# 2. Configurar Directorios y Cargar Estado
-WP_STATE_DIR="${STATE_DIR:-$HOME/.config/i3dots/core/state}/$CURRENT_ENV/wallpaper"
+# 2. Configurar Directorios y Cargar Estado de forma dinámica
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PKG_PARENT="${SCRIPT_DIR%/*}"
+PKG_NAME="${PKG_PARENT##*/}"
+CUR_ENV="${CURRENT_ENV:-$PKG_NAME}"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+STATE_DIR_VAL="${STATE_DIR:-$ROOT_DIR/core/state}"
+
+WP_STATE_DIR="$STATE_DIR_VAL/$CUR_ENV/wallpaper"
 mkdir -p "$WP_STATE_DIR"
 
 # Cargar configuraciones del estado (optimizando I/O: solo lectura rápida)
@@ -79,118 +86,18 @@ save_state() {
     fi
 }
 
-# 4. Modo Headless: Cachear Ahora (--cache-now)
+# 4. Modo Headless: Delegar a wp_cache.sh
 if [[ "$CACHE_NOW" -eq 1 ]]; then
-    [[ "$HAS_VIPS" -eq 0 ]] && { echo "Error: vipsthumbnail no está disponible." >&2; exit 1; }
-    
-    wallpapers_found=$(wp_select.sh -L)
-    [[ -z "$wallpapers_found" ]] && { echo "No se encontraron wallpapers." >&2; exit 0; }
-    
-    mkdir -p "$THUMB_DIR"
-    
-    # Filtrar imágenes pendientes
-    mapfile -t files <<< "$wallpapers_found"
-    declare -a pending=()
-    for file in "${files[@]}"; do
-        [[ -z "$file" ]] && continue
-        safe_name="${file//\//_}"
-        thumb="$THUMB_DIR/${safe_name}.jpg"
-        if [[ ! -f "$thumb" || "$file" -nt "$thumb" ]]; then
-            pending+=("$file")
-        fi
-    done
-    
-    total="${#pending[@]}"
-    if [[ "$total" -eq 0 ]]; then
-        echo "Caché al día. No hay miniaturas pendientes."
-        exit 0
-    fi
-    
-    echo "Generando caché de miniaturas (Calidad: ${THUMB_SIZE}px) para $total imágenes..."
-    count=0
-    for file in "${pending[@]}"; do
-        count=$((count+1))
-        echo -e "\e[1A\e[K[$count/$total] Procesando: ${file##*/}"
-        safe_name="${file//\//_}"
-        thumb="$THUMB_DIR/${safe_name}.jpg"
-        vipsthumbnail -s "$THUMB_SIZE" -o "$thumb" "$file" 2>/dev/null
-    done
-    
-    if command -v notify-send &>/dev/null; then
-        notify-send "Caché de Wallpaper" "Generación de miniaturas completada (${THUMB_SIZE}px)." -i image-x-generic -t 2000
-    fi
-    echo "Caché de miniaturas completado."
-    exit 0
+    wp_cache.sh --cache-now
+    exit $?
 fi
 
-# 5. Modo Headless: Limpiar Caché (--clean-cache)
 if [[ "$CLEAN_CACHE" -eq 1 ]]; then
-    root_thumbs="$WP_STATE_DIR/thumbs"
-    [[ ! -d "$root_thumbs" ]] && { echo "Caché vacía. Nada que limpiar." >&2; exit 0; }
-    
-    case "$CLEAN_ARG" in
-        orphans)
-            echo "Buscando miniaturas huérfanas en todas las calidades..."
-            wallpapers_found=$(wp_select.sh -L)
-            
-            declare -A active_walls
-            while IFS= read -r file; do
-                [[ -n "$file" ]] && active_walls["$file"]=1
-            done <<< "$wallpapers_found"
-            
-            declare -A active_safes
-            for w in "${!active_walls[@]}"; do
-                safe="${w//\//_}"
-                active_safes["$safe"]=1
-            done
-            
-            deleted_count=0
-            while IFS= read -r -d '' thumb_file; do
-                [[ -z "$thumb_file" ]] && continue
-                t_name="${thumb_file##*/}"
-                t_name="${t_name%.jpg}"
-                if [[ -z "${active_safes[$t_name]}" ]]; then
-                    rm -f "$thumb_file"
-                    deleted_count=$((deleted_count+1))
-                fi
-            done < <(find "$root_thumbs" -type f -name "*.jpg" -print0 2>/dev/null)
-            
-            echo "Limpieza completada. Borradas $deleted_count miniaturas huérfanas."
-            ;;
-        300|450|600|[0-9]*)
-            size_dir="$root_thumbs/$CLEAN_ARG"
-            if [[ -d "$size_dir" ]]; then
-                rm -rf "$size_dir"
-                echo "Caché de calidad $CLEAN_ARG px eliminada."
-            else
-                echo "No existe caché para la calidad $CLEAN_ARG px."
-            fi
-            ;;
-        keep-active)
-            echo "Eliminando todas las calidades excepto la activa (${THUMB_SIZE}px)..."
-            while IFS= read -r -d '' dir; do
-                [[ -z "$dir" ]] && continue
-                dir_name="${dir##*/}"
-                if [[ "$dir_name" != "$THUMB_SIZE" ]]; then
-                    rm -rf "$dir"
-                    echo "Eliminada calidad residual: ${dir_name}px"
-                fi
-            done < <(find "$root_thumbs" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null)
-            ;;
-        full)
-            echo "Vaciando toda la caché de miniaturas..."
-            rm -rf "$root_thumbs"
-            echo "Caché completa eliminada."
-            ;;
-        *)
-            echo "Opción de limpieza no válida. Opciones: orphans, Baja (300), Media (450), Alta (600), entero, keep-active, full" >&2
-            exit 1
-            ;;
-    esac
-    exit 0
+    wp_cache.sh --clean-cache "$CLEAN_ARG"
+    exit $?
 fi
 
-# 6. Menú Dedicado de Ajustes de Rofi (--manage)
+# 5. Menú Dedicado de Ajustes de Rofi (--manage)
 if [[ "$MANAGE_MODE" -eq 1 ]]; then
     # Cargar variables de visualización de Rofi para configuración
     SEL_BIN="${WP_SEL_BIN:-rofi}"
@@ -216,12 +123,19 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
         [[ -f "$WP_STATE_DIR/bg_generation" ]] && cur_bg_gen=$(<"$WP_STATE_DIR/bg_generation")
         cur_bg_gen="${cur_bg_gen//[[:space:]]/}"
 
+        local cur_matugen_thumb="true"
+        [[ -f "$WP_STATE_DIR/matugen_use_thumb" ]] && cur_matugen_thumb=$(<"$WP_STATE_DIR/matugen_use_thumb")
+        cur_matugen_thumb="${cur_matugen_thumb//[[:space:]]/}"
+
         # Mapeo a etiquetas en español para Rofi
         local mode_lbl="desactivado"
         [[ "$cur_thumb_mode" == "enabled" ]] && mode_lbl="activado"
 
         local bg_lbl="desactivado"
         [[ "$cur_bg_gen" == "true" ]] && bg_lbl="activado"
+
+        local matugen_lbl="desactivado"
+        [[ "$cur_matugen_thumb" == "true" ]] && matugen_lbl="activado"
 
         local fallback_lbl="Usar icono genérico"
         [[ "$cur_no_thumb" == "original" ]] && fallback_lbl="Cargar imagen original"
@@ -244,6 +158,7 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
                 opts+="$PROM_QUALITY: $size_lbl"$'\n'
                 opts+="$PROM_NO_THUMB: $fallback_lbl"$'\n'
                 opts+="$PROM_BG_GEN: $bg_lbl"$'\n'
+                opts+="Generación de color rápida: $matugen_lbl"$'\n'
                 opts+="Generar Caché de Miniaturas Ahora"$'\n'
                 opts+="$PROM_CLEAN"$'\n'
                 opts+="Salir"$'\n'
@@ -286,7 +201,6 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
                     if [[ "$cur_thumb_mode" == "enabled" ]] && [[ "$HAS_VIPS" -eq 0 ]]; then
                         cur_thumb_mode="disabled"
                     fi
-                    # Auto-reproducir cambios para actualizar la vista en caliente
                     mode_lbl="desactivado"
                     [[ "$cur_thumb_mode" == "enabled" ]] && mode_lbl="activado"
                 fi
@@ -389,11 +303,33 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
                     bg_lbl="$selected_bg"
                 fi
 
+            elif [[ "$choice" == "Generación de color rápida"* ]]; then
+                local options_mat="activado"$'\n'"desactivado"
+                local choice_mat_tmp="/dev/shm/wall_menu_mat_${UID}.choice"
+                if [[ "$SEL_BIN" == *"rofi"* ]]; then
+                    eval "\"\$SEL_BIN\" \"\${SEL_ARGS_ARR[@]}\" -p \"Generación de color rápida\" -format 's' <<< \"\$options_mat\"" > "$choice_mat_tmp"
+                else
+                    eval "\"\$SEL_BIN\" \"\${SEL_ARGS_ARR[@]}\" -p \"Generación de color rápida\" <<< \"\$options_mat\"" > "$choice_mat_tmp"
+                fi
+                local selected_mat=""
+                [[ -f "$choice_mat_tmp" ]] && read -r selected_mat < "$choice_mat_tmp"
+                rm -f "$choice_mat_tmp"
+
+                if [[ -n "$selected_mat" ]]; then
+                    if [[ "$selected_mat" == "activado" ]]; then
+                        cur_matugen_thumb="true"
+                    else
+                        cur_matugen_thumb="false"
+                    fi
+                    save_state "matugen_use_thumb" "$cur_matugen_thumb"
+                    matugen_lbl="$selected_mat"
+                fi
+
             elif [[ "$choice" == "Generar Caché de Miniaturas Ahora" ]]; then
                 if command -v notify-send &>/dev/null; then
                     notify-send "Caché de Wallpaper" "Generando miniaturas en background..." -i image-x-generic -t 1500
                 fi
-                "$0" --cache-now &
+                wp_cache.sh --cache-now &
 
             elif [[ "$choice" == "$PROM_CLEAN"* ]]; then
                 local cleans=$'Borrar huérfanos\nActiva actual ('"${cur_thumb_size}"$'px)\nBaja (300px)\nMedia (450px)\nAlta (600px)\nTodo excepto la calidad activa\nToda la caché\nAtrás'
@@ -419,7 +355,7 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
                         "Toda la caché") clean_opt="full" ;;
                     esac
                     
-                    "$0" --clean-cache "$clean_opt"
+                    wp_cache.sh --clean-cache "$clean_opt"
                     if command -v notify-send &>/dev/null; then
                         notify-send "Limpieza de Caché" "Operación completada: $selected_cl" -i system-file-manager -t 2000
                     fi
@@ -432,8 +368,7 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
     exit 0
 fi
 
-# 7. Selector Principal de Wallpapers (Grid de Imágenes o Consola)
-# Buscar wallpapers disponibles llamando al backend
+# 6. Selector Principal de Wallpapers (Grid de Imágenes o Consola)
 wallpapers_found=$(wp_select.sh -L)
 
 if [[ -z "$wallpapers_found" ]]; then
@@ -461,33 +396,33 @@ else
     SEL_ARGS=(${WP_SEL_ARGS:--dmenu -p "Wallpaper" -theme "${ROFI_THEME}"})
     LINE_TMPL="${WP_SEL_LINE_TMPL:-%f\x00icon\x1f%p}"
 
-    # Crear subcarpeta de calidad si no existe
     mkdir -p "$THUMB_DIR"
 
     tmp_rofi_opts=$(mktemp)
     wallpapers_to_gen=""
 
-    # 1. Preparar opciones de Rofi de forma instantánea (en memoria, 0 subprocesos)
+    # Preparar opciones de Rofi de forma instantánea (en memoria, 0 subprocesos)
     while IFS= read -r file; do
         [[ -z "$file" ]] && continue
+        real_file=$(readlink -f "$file")
         
         if [[ "$THUMB_MODE" == "enabled" ]]; then
-            safe_name="${file//\//_}"
+            safe_name="${real_file//\//_}"
             thumb="$THUMB_DIR/${safe_name}.jpg"
             
             # Comparación rápida en filesystem
-            if [[ -f "$thumb" && "$file" -ot "$thumb" ]]; then
+            if [[ -f "$thumb" && "$real_file" -ot "$thumb" ]]; then
                 thumb_to_use="$thumb"
             else
-                wallpapers_to_gen+="$file"$'\n'
+                wallpapers_to_gen+="$real_file"$'\n'
                 if [[ "$NO_THUMB_MODE" == "original" ]]; then
-                    thumb_to_use="$file"
+                    thumb_to_use="$real_file"
                 else
                     thumb_to_use="image-x-generic"
                 fi
             fi
         else
-            thumb_to_use="$file"
+            thumb_to_use="$real_file"
         fi
 
         rel_path="${file#$WALLPAPER_DIR/}"
@@ -498,19 +433,12 @@ else
         printf "%b\n" "$line"
     done <<< "$wallpapers_found" > "$tmp_rofi_opts"
 
-    # 2. Daemon Asíncrono Bajo Demanda (Ejecución Finita)
+    # Daemon Asíncrono Bajo Demanda en background via helper
     if [[ "$THUMB_MODE" == "enabled" ]] && [[ "$BG_GENERATION" == "true" ]] && [[ -n "$wallpapers_to_gen" ]]; then
-        (
-            while IFS= read -r file; do
-                [[ -z "$file" ]] && continue
-                safe_name="${file//\//_}"
-                thumb="$THUMB_DIR/${safe_name}.jpg"
-                nice -n 19 vipsthumbnail -s "$THUMB_SIZE" -o "$thumb" "$file" 2>/dev/null
-            done <<< "$wallpapers_to_gen"
-        ) >/dev/null 2>&1 &
+        wp_cache.sh --bg-gen &
     fi
 
-    # 3. Lanzar Rofi de selección principal
+    # Lanzar Rofi de selección principal
     tmp_choice="/dev/shm/wall_menu_choice_${UID}.choice"
     if [[ "$SEL_BIN" == *"rofi"* ]]; then
         eval "\"\$SEL_BIN\" \"\${SEL_ARGS[@]}\" $WP_SEL_STYLE -format 's' < \"\$tmp_rofi_opts\"" > "$tmp_choice"
@@ -526,9 +454,22 @@ else
     SELECTION="$FINAL_NAME"
 fi
 
-# 4. Invocar Backend para aplicar y guardar estado
+# 7. Invocar Backend y Helpers para aplicar y guardar estado
 if [[ -n "$SELECTION" ]]; then
-    wp_select.sh -C "$SELECTION"
+    FINAL_PATH=""
+    if [[ -f "$SELECTION" ]]; then
+        FINAL_PATH=$(readlink -f "$SELECTION")
+    elif [[ -f "$WALLPAPER_DIR/$SELECTION" ]]; then
+        FINAL_PATH=$(readlink -f "$WALLPAPER_DIR/$SELECTION")
+    else
+        FINAL_PATH="$SELECTION"
+    fi
+    
+    # Actualizar origen de color para Matugen
+    wp_color.sh --update "$FINAL_PATH"
+    
+    # Aplicar wallpaper en pantalla
+    wp_select.sh -C "$FINAL_PATH"
     exit $?
 else
     exit 1

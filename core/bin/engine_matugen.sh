@@ -7,11 +7,12 @@
 # 0. Asegurar que matugen esté en el PATH (especialmente para ejecuciones desde i3/cron)
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 
-# 1. Parseo de argumentos (Modo, Tipo, Indice, Preferencia)
+# 1. Parseo de argumentos (Modo, Tipo, Indice, Preferencia, Imagen)
 H_MODE="dark"
 H_TYPE=""
 H_INDEX="1" # Por defecto 0 (más dominante) para evitar el prompt interactivo
 H_PREFER=""
+H_IMAGE=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -20,15 +21,30 @@ while [[ $# -gt 0 ]]; do
         -T|--type)  H_TYPE="$2"; shift 2 ;;
         -I|--index) H_INDEX="$2"; H_PREFER=""; shift 2 ;; # Index anula Prefer
         -P|--prefer) H_PREFER="$2"; H_INDEX=""; shift 2 ;; # Prefer anula Index
+        -i|--image)  H_IMAGE="$2"; shift 2 ;;
         *) shift ;;
     esac
 done
 
-# 2. Obtener imagen desde el estado del core
-IMG_PATH=$(readlink -f "$CURRENT_WALLPAPER_LINK")
+# 2. Obtener imagen a procesar de forma dinámica
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+STATE_DIR_VAL="${STATE_DIR:-$ROOT_DIR/core/state}"
+CUR_ENV="${CURRENT_ENV:-i3dots}"
+
+WP_STATE_DIR="$STATE_DIR_VAL/$CUR_ENV/wallpaper"
+COLOR_SOURCE="$WP_STATE_DIR/color_source"
+
+if [[ -n "$H_IMAGE" ]]; then
+    IMG_PATH="$H_IMAGE"
+elif [[ -f "$COLOR_SOURCE" ]]; then
+    IMG_PATH=$(readlink -f "$COLOR_SOURCE")
+else
+    IMG_PATH=$(readlink -f "$CURRENT_WALLPAPER_LINK")
+fi
 
 if [[ ! -f "$IMG_PATH" ]]; then
-    echo "Error [engine_matugen]: No hay wallpaper activo en $CURRENT_WALLPAPER_LINK" >&2
+    echo "Error [engine_matugen]: No hay imagen válida a procesar en '$IMG_PATH'" >&2
     exit 1
 fi
 
