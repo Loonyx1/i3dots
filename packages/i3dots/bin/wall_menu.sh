@@ -22,35 +22,19 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# 2. Configurar Directorios y Cargar Estado de forma dinámica
+# 2. Cargar entorno y lógica compartida
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PKG_PARENT="${SCRIPT_DIR%/*}"
-PKG_NAME="${PKG_PARENT##*/}"
-CUR_ENV="${CURRENT_ENV:-$PKG_NAME}"
-ROOT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-STATE_DIR_VAL="${STATE_DIR:-$ROOT_DIR/core/state}"
+source "$SCRIPT_DIR/wp_shared.sh"
 
-WP_STATE_DIR="$STATE_DIR_VAL/$CUR_ENV/wallpaper"
-mkdir -p "$WP_STATE_DIR"
-
-# Cargar configuraciones del estado (optimizando I/O: solo lectura rápida)
-THUMB_MODE="enabled"
-[[ -f "$WP_STATE_DIR/thumbnail_mode" ]] && THUMB_MODE=$(<"$WP_STATE_DIR/thumbnail_mode")
-THUMB_MODE="${THUMB_MODE//[[:space:]]/}"
-
-THUMB_SIZE="450"
-[[ -f "$WP_STATE_DIR/thumbnail_size" ]] && THUMB_SIZE=$(<"$WP_STATE_DIR/thumbnail_size")
-THUMB_SIZE="${THUMB_SIZE//[[:space:]]/}"
-
-NO_THUMB_MODE="original"
-[[ -f "$WP_STATE_DIR/no_thumb_mode" ]] && NO_THUMB_MODE=$(<"$WP_STATE_DIR/no_thumb_mode")
-NO_THUMB_MODE="${NO_THUMB_MODE//[[:space:]]/}"
-
-BG_GENERATION="true"
-[[ -f "$WP_STATE_DIR/bg_generation" ]] && BG_GENERATION=$(<"$WP_STATE_DIR/bg_generation")
-BG_GENERATION="${BG_GENERATION//[[:space:]]/}"
-
-THUMB_DIR="$WP_STATE_DIR/thumbs/$THUMB_SIZE"
+# Si habilitado, pero no hay vips, desactivar
+if [[ "$THUMB_MODE" == "enabled" && "$HAS_VIPS" -eq 0 ]]; then
+    THUMB_MODE="disabled"
+    if command -v notify-send &>/dev/null; then
+        notify-send "Wallpaper" "Advertencia: Instala libvips (vipsthumbnail) para optimización de caché." -i dialog-warning -t 5000
+    else
+        echo "Advertencia: Comando 'vipsthumbnail' no encontrado. Desactivando caché de miniaturas." >&2
+    fi
+fi
 
 # Cargar traducciones e iconos del entorno con fallbacks
 PROM_THUMBS="${WP_PROM_THUMBS:-Miniaturas en caché}"
@@ -58,21 +42,6 @@ PROM_QUALITY="${WP_PROM_QUALITY:-Calidad de Miniaturas}"
 PROM_NO_THUMB="${WP_PROM_NO_THUMB:-Si falta miniatura}"
 PROM_BG_GEN="${WP_PROM_BG_GEN:-Pre-caché}"
 PROM_CLEAN="${WP_PROM_CLEAN:-Limpiar Caché de Miniaturas}"
-
-# 3. Validar Dependencia Crítica
-HAS_VIPS=0
-if command -v vipsthumbnail &>/dev/null; then
-    HAS_VIPS=1
-else
-    if [[ "$THUMB_MODE" == "enabled" ]]; then
-        THUMB_MODE="disabled"
-        if command -v notify-send &>/dev/null; then
-            notify-send "Wallpaper" "Advertencia: Instala libvips (vipsthumbnail) para optimización de caché." -i dialog-warning -t 5000
-        else
-            echo "Advertencia: Comando 'vipsthumbnail' no encontrado. Desactivando caché de miniaturas." >&2
-        fi
-    fi
-fi
 
 # Helpers para persistir estado de forma inteligente (evitando I/O redundantes)
 save_state() {
@@ -106,26 +75,13 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
 
     # Función interna de submenú interactivo (Rofi de texto limpio)
     configure_wallpaper() {
-        # Carga dinámica en RAM del estado actualizado
-        local cur_thumb_mode="enabled"
-        [[ -f "$WP_STATE_DIR/thumbnail_mode" ]] && cur_thumb_mode=$(<"$WP_STATE_DIR/thumbnail_mode")
-        cur_thumb_mode="${cur_thumb_mode//[[:space:]]/}"
-
-        local cur_thumb_size="450"
-        [[ -f "$WP_STATE_DIR/thumbnail_size" ]] && cur_thumb_size=$(<"$WP_STATE_DIR/thumbnail_size")
-        cur_thumb_size="${cur_thumb_size//[[:space:]]/}"
-
-        local cur_no_thumb="original"
-        [[ -f "$WP_STATE_DIR/no_thumb_mode" ]] && cur_no_thumb=$(<"$WP_STATE_DIR/no_thumb_mode")
-        cur_no_thumb="${cur_no_thumb//[[:space:]]/}"
-
-        local cur_bg_gen="true"
-        [[ -f "$WP_STATE_DIR/bg_generation" ]] && cur_bg_gen=$(<"$WP_STATE_DIR/bg_generation")
-        cur_bg_gen="${cur_bg_gen//[[:space:]]/}"
-
-        local cur_matugen_thumb="true"
-        [[ -f "$WP_STATE_DIR/matugen_use_thumb" ]] && cur_matugen_thumb=$(<"$WP_STATE_DIR/matugen_use_thumb")
-        cur_matugen_thumb="${cur_matugen_thumb//[[:space:]]/}"
+        # Carga dinámica en RAM del estado actualizado usando helper compartido
+        load_wp_config
+        local cur_thumb_mode="$THUMB_MODE"
+        local cur_thumb_size="$THUMB_SIZE"
+        local cur_no_thumb="$NO_THUMB_MODE"
+        local cur_bg_gen="$BG_GENERATION"
+        local cur_matugen_thumb="$MATUGEN_USE_THUMB"
 
         # Mapeo a etiquetas en español para Rofi
         local mode_lbl="desactivado"
@@ -369,10 +325,10 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
 fi
 
 # 6. Selector Principal de Wallpapers (Grid de Imágenes o Consola)
-wallpapers_found=$(wp_select.sh -L)
+wallpapers_found=$(list_wallpapers)
 
 if [[ -z "$wallpapers_found" ]]; then
-    echo "Error: No se obtuvieron wallpapers desde wp_select.sh" >&2
+    echo "Error: No se encontraron wallpapers en $WALLPAPER_DIR" >&2
     exit 1
 fi
 
@@ -396,47 +352,83 @@ else
     SEL_ARGS=(${WP_SEL_ARGS:--dmenu -p "Wallpaper" -theme "${ROFI_THEME}"})
     LINE_TMPL="${WP_SEL_LINE_TMPL:-%f\x00icon\x1f%p}"
 
-    mkdir -p "$THUMB_DIR"
+    [[ -d "$THUMB_DIR" ]] || mkdir -p "$THUMB_DIR"
 
     tmp_rofi_opts=$(mktemp)
     wallpapers_to_gen=""
 
-    # Preparar opciones de Rofi de forma instantánea (en memoria, 0 subprocesos)
-    while IFS= read -r file; do
-        [[ -z "$file" ]] && continue
-        real_file=$(readlink -f "$file")
-        
-        if [[ "$THUMB_MODE" == "enabled" ]]; then
-            safe_name="${real_file//\//_}"
-            thumb="$THUMB_DIR/${safe_name}.jpg"
-            
-            # Comparación rápida en filesystem
-            if [[ -f "$thumb" && "$real_file" -ot "$thumb" ]]; then
-                thumb_to_use="$thumb"
+    out=""
+    if [[ "$LINE_TMPL" == '%f\x00icon\x1f%p' ]]; then
+        # Vía rápida: sin sustituciones dinámicas de cadenas ni cálculo de rel_path
+        while IFS= read -r file; do
+            [[ -z "$file" ]] && continue
+            if [[ -L "$file" ]]; then
+                real_file=$(readlink -f "$file")
             else
-                wallpapers_to_gen+="$real_file"$'\n'
-                if [[ "$NO_THUMB_MODE" == "original" ]]; then
-                    thumb_to_use="$real_file"
-                else
-                    thumb_to_use="image-x-generic"
-                fi
+                real_file="$file"
             fi
-        else
-            thumb_to_use="$real_file"
-        fi
+            
+            if [[ "$THUMB_MODE" == "enabled" ]]; then
+                get_thumb_path "$real_file"
+                thumb="$RET_THUMB"
+                if [[ -f "$thumb" && "$real_file" -ot "$thumb" ]]; then
+                    thumb_to_use="$thumb"
+                else
+                    wallpapers_to_gen+="$real_file"$'\n'
+                    if [[ "$NO_THUMB_MODE" == "original" ]]; then
+                        thumb_to_use="$real_file"
+                    else
+                        thumb_to_use="image-x-generic"
+                    fi
+                fi
+            else
+                thumb_to_use="$real_file"
+            fi
+            
+            out+="${file##*/}\x00icon\x1f${thumb_to_use}"$'\n'
+        done <<< "$wallpapers_found"
+    else
+        # Vía genérica compatible con plantillas personalizadas
+        while IFS= read -r file; do
+            [[ -z "$file" ]] && continue
+            if [[ -L "$file" ]]; then
+                real_file=$(readlink -f "$file")
+            else
+                real_file="$file"
+            fi
+            
+            if [[ "$THUMB_MODE" == "enabled" ]]; then
+                get_thumb_path "$real_file"
+                thumb="$RET_THUMB"
+                if [[ -f "$thumb" && "$real_file" -ot "$thumb" ]]; then
+                    thumb_to_use="$thumb"
+                else
+                    wallpapers_to_gen+="$real_file"$'\n'
+                    if [[ "$NO_THUMB_MODE" == "original" ]]; then
+                        thumb_to_use="$real_file"
+                    else
+                        thumb_to_use="image-x-generic"
+                    fi
+                fi
+            else
+                thumb_to_use="$real_file"
+            fi
 
-        rel_path="${file#$WALLPAPER_DIR/}"
-        line="$LINE_TMPL"
-        line="${line//%f/${file##*/}}"
-        line="${line//%r/$rel_path}"
-        line="${line//%p/$thumb_to_use}"
-        printf "%b\n" "$line"
-    done <<< "$wallpapers_found" > "$tmp_rofi_opts"
+            rel_path="${file#$WALLPAPER_DIR/}"
+            line="$LINE_TMPL"
+            line="${line//%f/${file##*/}}"
+            line="${line//%r/$rel_path}"
+            line="${line//%p/$thumb_to_use}"
+            out+="$line"$'\n'
+        done <<< "$wallpapers_found"
+    fi
+    echo -ne "$out" > "$tmp_rofi_opts"
 
     # Daemon Asíncrono Bajo Demanda en background via helper
     if [[ "$THUMB_MODE" == "enabled" ]] && [[ "$BG_GENERATION" == "true" ]] && [[ -n "$wallpapers_to_gen" ]]; then
-        wp_cache.sh --bg-gen &
+        echo -ne "$wallpapers_to_gen" | wp_cache.sh --bg-gen &
     fi
+
 
     # Lanzar Rofi de selección principal
     tmp_choice="/dev/shm/wall_menu_choice_${UID}.choice"
@@ -465,8 +457,13 @@ if [[ -n "$SELECTION" ]]; then
         FINAL_PATH="$SELECTION"
     fi
     
-    # Actualizar origen de color para Matugen
-    wp_color.sh --update "$FINAL_PATH"
+    # Actualizar origen de color para Matugen de forma local (evita fork de wp_color.sh)
+    local color_src="$FINAL_PATH"
+    if [[ "$THUMB_MODE" == "enabled" && "$MATUGEN_USE_THUMB" == "true" ]]; then
+        get_thumb_path "$FINAL_PATH"
+        [[ -f "$RET_THUMB" ]] && color_src="$RET_THUMB"
+    fi
+    ln -sf "$color_src" "$WP_STATE_DIR/color_source"
     
     # Aplicar wallpaper en pantalla
     wp_select.sh -C "$FINAL_PATH"
