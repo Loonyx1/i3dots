@@ -36,14 +36,7 @@ fi
 MATUGEN_CONF="$PACKAGE_DIR/dotfiles/matugen/config.toml"
 [[ ! -f "$MATUGEN_CONF" ]] && MATUGEN_CONF="$PACKAGE_DIR/matugen/config.toml"
 
-# 4. Motor de transición (Opcional, si WP_ENGINE está definido)
-local_engine="$CORE_DIR/engines/${WP_ENGINE}.sh"
-if [[ -f "$local_engine" ]]; then
-    source "$local_engine"
-    engine_init && engine_set "$IMG_PATH"
-fi
-
-# 5. Ejecución de Matugen
+# 4. Ejecución de Matugen
 cmd=("matugen")
 
 # Si existe un config.toml en el paquete, lo priorizamos
@@ -70,4 +63,4 @@ fi
 echo "Matugen: Procesando $IMG_PATH [Modo: $H_MODE, Tipo: ${H_TYPE:-default}]..."
 
 # Ejecución final
-"${cmd[@]}"
+exec "${cmd[@]}"
