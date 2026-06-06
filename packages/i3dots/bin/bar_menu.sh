@@ -1,8 +1,18 @@
 #!/usr/bin/env bash
-# packages/i3dots/hooks/components/bar_menu.sh - Rofi Frontend para engine_bar.sh
+# packages/i3dots/hooks/components/bar_menu.sh - Rofi Frontend para engine_state.sh bar
 
-# 1. Configurar Variables y Directorios
-ENGINE_CMD="$CORE_DIR/bin/engine_bar.sh"
+# 1. Configurar Variables y Directorios de Forma Dinámica
+if [ -z "$PROJECT_ROOT" ]; then
+    SCRIPT_PATH=$(readlink -f "${BASH_SOURCE[0]}")
+    export PROJECT_ROOT=$(cd "$(dirname "$SCRIPT_PATH")/../../.." && pwd)
+fi
+export CORE_DIR="${CORE_DIR:-$PROJECT_ROOT/core}"
+export STATE_DIR="${STATE_DIR:-$PROJECT_ROOT/core/state}"
+export CURRENT_ENV="${CURRENT_ENV:-i3dots}"
+STATE_FILE="$STATE_DIR/$CURRENT_ENV/bar/state.env"
+[ -f "$STATE_FILE" ] && source "$STATE_FILE"
+
+ENGINE_CMD=(bash "$CORE_DIR/bin/engine_state.sh" bar)
 CHOICE_FILE="/dev/shm/bar_menu_${UID}.choice"
 
 # Si se pasó argumentos que no requieren menús (ej: --next, --prev, --set, --get, -L, --list)
@@ -18,7 +28,7 @@ done
 
 if [ "$HEADLESS" -eq 1 ]; then
     # Delegación directa al backend
-    exec "$ENGINE_CMD" "$@"
+    exec "${ENGINE_CMD[@]}" "$@"
 fi
 
 # Cargar configuraciones de visualización
@@ -30,10 +40,8 @@ if [[ "$BAR_SEL_BIN" == *"rofi"* ]] && [ -n "$BAR_SEL_THEME" ] && [[ "${BAR_SEL_
 fi
 
 notify_applied() {
-    local preset_name="$1"
-    if command -v notify-send &>/dev/null; then
-        notify-send "Estilo de Barra" "Aplicando: $preset_name" -i display -t 1500
-    fi
+    # Notificaciones desactivadas para evitar spam visual al cambiar de tema
+    :
 }
 
 # --- Lógica de Menús con Rofi ---
@@ -47,7 +55,7 @@ done
 
 # A. Selector de Presets (--select)
 if [ "$DO_SELECT" -eq 1 ]; then
-    presets=$(bash "$ENGINE_CMD" --list-presets)
+    presets=$("${ENGINE_CMD[@]}" --list-presets)
     if [ -z "$presets" ]; then
         echo "Error: No se encontraron presets de barra." >&2
         exit 1
@@ -58,18 +66,14 @@ if [ "$DO_SELECT" -eq 1 ]; then
     [[ -z "$choice" ]] && exit 0
     
     notify_applied "$choice"
-    exec "$ENGINE_CMD" --apply-preset "$choice"
+    exec "${ENGINE_CMD[@]}" --apply-preset "$choice"
 fi
 
 # B. Configurar opciones (--manage)
 if [ "$DO_MANAGE" -eq 1 ]; then
-    CUR_TYPE=""
-    if [ -f "$STATE_DIR/$CURRENT_ENV/bar/type" ]; then
-        CUR_TYPE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/type" 2>/dev/null | tr -d '[:space:]')
-    fi
-    [[ -z "$CUR_TYPE" ]] && CUR_TYPE="polybar_antigua"
+    CUR_TYPE="${type:-polybar_antigua}"
     
-    opts_raw=$(bash "$ENGINE_CMD" --list-options)
+    opts_raw=$("${ENGINE_CMD[@]}" --list-options)
     
     options=""
     declare -A OPT_LABELS
@@ -81,10 +85,7 @@ if [ "$DO_MANAGE" -eq 1 ]; then
         OPT_LABELS["$opt_key"]="$opt_label"
         OPT_VALUES["$opt_key"]="$opt_vals"
         
-        cur_val=""
-        if [ -f "$STATE_DIR/$CURRENT_ENV/bar/$opt_key" ]; then
-            cur_val=$(cat "$STATE_DIR/$CURRENT_ENV/bar/$opt_key" 2>/dev/null | tr -d '[:space:]')
-        fi
+        cur_val="${!opt_key}"
         [[ -z "$cur_val" ]] && cur_val="${opt_vals%%,*}"
         
         options="$options$opt_label: $cur_val"$'\n'
@@ -110,7 +111,7 @@ if [ "$DO_MANAGE" -eq 1 ]; then
                     IFS= read -r NEW_VAL < "$CHOICE_FILE"
                     [[ -z "$NEW_VAL" ]] && exit 0
                 fi
-                exec "$ENGINE_CMD" --set "$opt_key" "$NEW_VAL"
+                exec "${ENGINE_CMD[@]}" --set "$opt_key" "$NEW_VAL"
             fi
         fi
     done
@@ -119,8 +120,8 @@ fi
 
 # C. Menú interactivo general (sin argumentos)
 # Mostrar lista de temas y opciones en una sola lista
-themes=$(bash "$ENGINE_CMD" --list-themes)
-opts_raw=$(bash "$ENGINE_CMD" --list-options)
+themes=$("${ENGINE_CMD[@]}" --list-themes)
+opts_raw=$("${ENGINE_CMD[@]}" --list-options)
 
 options=""
 if [ -n "$themes" ]; then
@@ -151,7 +152,7 @@ IFS= read -r choice < "$CHOICE_FILE"
 
 if [[ "$choice" == Tema:* ]]; then
     selected_theme="${choice#Tema: }"
-    exec "$ENGINE_CMD" --set type "$selected_theme"
+    exec "${ENGINE_CMD[@]}" --set type "$selected_theme"
 else
     choice_label="${choice%%:*}"
     choice_label="${choice_label##[[:space:]]}"
@@ -167,7 +168,7 @@ else
                 IFS= read -r choice_val < "$CHOICE_FILE"
                 [[ -z "$choice_val" ]] && exit 0
             fi
-            exec "$ENGINE_CMD" --set "$opt_key" "$choice_val"
+            exec "${ENGINE_CMD[@]}" --set "$opt_key" "$choice_val"
         fi
     done
 fi
