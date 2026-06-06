@@ -375,12 +375,14 @@ hook_apply() {
 }
 
 hook_save() {
+    export CURRENT_ENV="${CURRENT_ENV:-i3dots}"
     if [ -z "$DISPLAY_STATE_DIR" ]; then
         local SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-        local BASE_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+        local BASE_DIR="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
         local STATE_DIR="${STATE_DIR:-$BASE_DIR/core/state}"
-        DISPLAY_STATE_DIR="$STATE_DIR/display"
+        DISPLAY_STATE_DIR="$STATE_DIR/$CURRENT_ENV/display"
     fi
+    local STATE_FILE="$DISPLAY_STATE_DIR/state.env"
     
     local I3_OUTPUT_CONF="$HOME/.config/i3/conf.d/output.conf"
     mkdir -p "$(dirname "$I3_OUTPUT_CONF")"
@@ -388,64 +390,62 @@ hook_save() {
     echo "# Configuración de Pantalla Generada Dinámicamente" > "$I3_OUTPUT_CONF"
     echo "# NO EDITAR ESTE ARCHIVO DIRECTAMENTE" >> "$I3_OUTPUT_CONF"
     
-    if [ -d "$DISPLAY_STATE_DIR" ]; then
-        for res_file in "$DISPLAY_STATE_DIR"/*.resolution; do
-            [ -f "$res_file" ] || continue
+    if [ -f "$STATE_FILE" ]; then
+        source "$STATE_FILE"
+        
+        for output in $outputs; do
+            local monitor_clean="${output//-/_}"
+            monitor_clean="${monitor_clean//./_}"
             
-            local filename=$(basename "$res_file")
-            local output="${filename%.resolution}"
+            local res_var="resolution_${monitor_clean}"
+            local resolution="${!res_var}"
+            [ -z "$resolution" ] && continue
             
-            local scale_method=""
-            [ -f "$DISPLAY_STATE_DIR/${output}.scale_method" ] && scale_method=$(cat "$DISPLAY_STATE_DIR/${output}.scale_method" | tr -d '[:space:]')
+            local rate_var="rate_${monitor_clean}"
+            local rate="${!rate_var}"
+            
+            local scale_var="scale_${monitor_clean}"
+            local scale="${!scale_var}"
+            
+            local rot_var="rotation_${monitor_clean}"
+            local rotation="${!rot_var}"
+            
+            local bri_var="brightness_${monitor_clean}"
+            local brightness="${!bri_var}"
+            
+            local filter_var="filter_${monitor_clean}"
+            local filter="${!filter_var}"
+            
+            local scale_method_var="scale_method_${monitor_clean}"
+            local scale_method="${!scale_method_var}"
             scale_method="${scale_method:-${DISP_SCALE_METHOD:-scale}}"
             
-            local resolution=$(cat "$res_file")
-            local rate_file="$DISPLAY_STATE_DIR/${output}.rate"
-            local scale_file="$DISPLAY_STATE_DIR/${output}.scale"
-            local rot_file="$DISPLAY_STATE_DIR/${output}.rotation"
-            local bri_file="$DISPLAY_STATE_DIR/${output}.brightness"
-            local filter_file="$DISPLAY_STATE_DIR/${output}.filter"
-            
             local cmd="xrandr --output $output"
-            if [ -n "$resolution" ]; then
-                cmd="$cmd --mode $resolution"
-            fi
-            if [ -f "$rate_file" ]; then
-                local rate=$(cat "$rate_file")
-                [ -n "$rate" ] && cmd="$cmd --rate $rate"
-            fi
-            local filter=""
-            [ -f "$filter_file" ] && filter=$(cat "$filter_file")
+            cmd="$cmd --mode $resolution"
+            
+            [ -n "$rate" ] && cmd="$cmd --rate $rate"
+            
             local scale_filter="${filter:-${DISP_SCALE_FILTER:-}}"
             if [ "$scale_filter" = "ninguno" ] || [ "$scale_filter" = "none" ]; then
                 scale_filter=""
             fi
-            if [ -f "$scale_file" ]; then
-                local scale=$(cat "$scale_file")
-                if [ -n "$scale" ] && [ "$scale" != "1" ] && [ "$scale" != "1.0" ]; then
-                    local xrandr_scale=$(awk -v z="$scale" 'BEGIN { printf "%.3f", 1/z }')
-                    if [ -n "$scale_filter" ]; then
-                        cmd="$cmd --filter $scale_filter"
-                    fi
-                    if [ "$scale_method" = "transform" ]; then
-                        cmd="$cmd --transform ${xrandr_scale},0,0,0,${xrandr_scale},0,0,0,1"
-                    else
-                        cmd="$cmd --scale ${xrandr_scale}x${xrandr_scale}"
-                    fi
+            
+            if [ -n "$scale" ] && [ "$scale" != "1" ] && [ "$scale" != "1.0" ]; then
+                local xrandr_scale=$(awk -v z="$scale" 'BEGIN { printf "%.3f", 1/z }')
+                if [ -n "$scale_filter" ]; then
+                    cmd="$cmd --filter $scale_filter"
+                fi
+                if [ "$scale_method" = "transform" ]; then
+                    cmd="$cmd --transform ${xrandr_scale},0,0,0,${xrandr_scale},0,0,0,1"
                 else
-                    cmd="$cmd --transform none"
+                    cmd="$cmd --scale ${xrandr_scale}x${xrandr_scale}"
                 fi
             else
                 cmd="$cmd --transform none"
             fi
-            if [ -f "$rot_file" ]; then
-                local rotation=$(cat "$rot_file")
-                [ -n "$rotation" ] && cmd="$cmd --rotate $rotation"
-            fi
-            if [ -f "$bri_file" ]; then
-                local brightness=$(cat "$bri_file")
-                [ -n "$brightness" ] && cmd="$cmd --brightness $brightness"
-            fi
+            
+            [ -n "$rotation" ] && cmd="$cmd --rotate $rotation"
+            [ -n "$brightness" ] && cmd="$cmd --brightness $brightness"
             
             echo "exec_always --no-startup-id $cmd" >> "$I3_OUTPUT_CONF"
         done
@@ -470,7 +470,7 @@ hook_post_apply() {
 
 hook_init() {
     local SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    bash "$SCRIPT_DIR/../../../core/bin/engine_display.sh" --init
+    bash "$SCRIPT_DIR/../../../../core/bin/engine_display.sh" --init
 }
 
 # Ejecución directa si no se está importando (sourced)

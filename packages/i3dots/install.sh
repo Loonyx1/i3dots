@@ -72,16 +72,7 @@ for d in /sys/class/net/*; do
     [ -f "$d/operstate" ] && [ "$(< "$d/operstate")" = "up" ] && { SYS_INTERFACE="${d##*/}"; break; }
 done
 
-HARDWARE_INI="$PACKAGE_DIR/dotfiles/polybar_base/hardware.ini"
-if [ -f "$HARDWARE_INI" ]; then
-    sed -i "s/sys_battery = .*/sys_battery = $SYS_BAT/" "$HARDWARE_INI"
-    sed -i "s/sys_adapter = .*/sys_adapter = $SYS_ADAPTER/" "$HARDWARE_INI"
-    sed -i "s/sys_network_interface = .*/sys_network_interface = $SYS_INTERFACE/" "$HARDWARE_INI"
-    sed -i "s/sys_graphics_card = .*/sys_graphics_card = $SYS_BACKLIGHT/" "$HARDWARE_INI"
-    print_sub_ok "Hardware configurado en hardware.ini ($SYS_BAT, $SYS_ADAPTER, $SYS_INTERFACE, $SYS_BACKLIGHT)"
-else
-    print_sub_warn "No se encontró hardware.ini para actualizar"
-fi
+print_sub_ok "Hardware detectado ($SYS_BAT, $SYS_ADAPTER, $SYS_INTERFACE, $SYS_BACKLIGHT)"
 
 # 3. Instalar dependencias
 if [ -n "$PKG_LIST" ] && [ -z "$SKIP_SYSTEM_PKGS" ]; then
@@ -272,7 +263,7 @@ fi
 # Permisos de ejecución
 print_sub "Asegurando permisos de ejecución en scripts..."
 find "$PACKAGE_DIR/dotfiles/rofi/bin" -type f -name "*.sh" -o -not -name "*.*" -exec chmod +x {} + &>> "$LOG_FILE"
-find "$PACKAGE_DIR/dotfiles/polybar_base/scripts" -type f -name "*.sh" -exec chmod +x {} + &>> "$LOG_FILE"
+chmod +x "$PACKAGE_DIR/dotfiles/polybar_launch.sh" &>> "$LOG_FILE"
 find "$PACKAGE_DIR/dotfiles/polybar_configs" -type f -name "*.sh" -exec chmod +x {} + &>> "$LOG_FILE"
 
 # 9. Inicializar Wallpaper y Matugen
@@ -317,8 +308,8 @@ fi
 
 # 9.5 Inicializar estado de la barra por defecto
 print_step "Inicializando estado de la barra en disco..."
-mkdir -p "$STATE_DIR/bar"
-echo "${BAR_DEFAULT_TYPE:-polybar_antigua}" > "$STATE_DIR/bar/type"
+mkdir -p "$STATE_DIR/i3dots/bar"
+echo "type=\"${BAR_DEFAULT_TYPE:-polybar_antigua}\"" > "$STATE_DIR/i3dots/bar/state.env"
 
 # 10. Aplicar gsettings (GTK)
 if command -v gsettings &> /dev/null; then

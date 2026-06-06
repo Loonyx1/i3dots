@@ -1,35 +1,28 @@
 #!/usr/bin/env bash
-# hooks/components/polybar.sh - Versión Ultra-Optimizada (RAM + Symlinks + Icons)
+# hooks/components/polybar.sh - Hook de enlace y generación de estado para Polybar
 
-# 0. Protocolo de Consulta para el Core
+# 1. Asegurar Variables de Entorno y Directorios de Forma Dinámica
+if [ -z "$PROJECT_ROOT" ]; then
+    SCRIPT_PATH=$(readlink -f "${BASH_SOURCE[0]}")
+    export PROJECT_ROOT=$(cd "$(dirname "$SCRIPT_PATH")/../../../.." && pwd)
+fi
+export BASE_DIR="${BASE_DIR:-$PROJECT_ROOT}"
+export STATE_DIR="${STATE_DIR:-$PROJECT_ROOT/core/state}"
+export CURRENT_ENV="${CURRENT_ENV:-i3dots}"
+BAR_STATE_DIR="$STATE_DIR/$CURRENT_ENV/bar"
+mkdir -p "$BAR_STATE_DIR"
+STATE_FILE="$BAR_STATE_DIR/state.env"
+
+# 0. Protocolo de Consulta para Frontends
 if [ "$1" == "--query" ]; then
-    CUR_TYPE="${2:-$(cat "$STATE_DIR/$CURRENT_ENV/bar/type" 2>/dev/null || echo "polybar_antigua")}"
+    CUR_TYPE="${2:-$(source "$STATE_FILE" 2>/dev/null && echo "$type" || echo "polybar_antigua")}"
     CUR_TYPE=$(echo "$CUR_TYPE" | tr -d '[:space:]')
     THEME_SRC="$PACKAGE_DIR/dotfiles/polybar_configs/$CUR_TYPE"
     
-    # Resolver defaults según entorno
-    DEF_HEIGHT="${BAR_HEIGHT:-15pt}"
-    DEF_STYLE="${BAR_STYLE:-square}"
-    DEF_POS="${BAR_POSITION:-bottom}"
-    DEF_TRANS="${BAR_TRANSPARENCY:-true}"
-    
-    # Formatear opciones con el default al inicio para fallback seguro del motor
-    HEIGHT_OPTS="$DEF_HEIGHT"
-    for h in 13pt 15pt 18pt 20pt; do
-        [[ "$h" != "$DEF_HEIGHT" ]] && HEIGHT_OPTS="$HEIGHT_OPTS,$h"
-    done
-    HEIGHT_OPTS="$HEIGHT_OPTS,custom"
-    
-    [[ "$DEF_STYLE" == "round" ]] && STYLE_OPTS="round,square" || STYLE_OPTS="square,round"
-    [[ "$DEF_POS" == "top" ]] && POS_OPTS="top,bottom" || POS_OPTS="bottom,top"
-    [[ "$DEF_TRANS" == "false" ]] && TRANS_OPTS="false,true" || TRANS_OPTS="true,false"
-    
-    SUPPORTED="height:Height:$HEIGHT_OPTS|style:Style:$STYLE_OPTS|position:Position:$POS_OPTS|transparency:Transparency:$TRANS_OPTS"
+    SUPPORTED=""
+    # Cargar opciones dinámicas del tema
     if [ -f "$THEME_SRC/options.conf" ]; then
-        CUSTOM_OPTS=$(grep -v '^#' "$THEME_SRC/options.conf" | grep -v '^$' | paste -sd '|' -)
-        if [ -n "$CUSTOM_OPTS" ]; then
-            SUPPORTED="$SUPPORTED|$CUSTOM_OPTS"
-        fi
+        SUPPORTED=$(grep -v '^#' "$THEME_SRC/options.conf" | grep -v '^$' | paste -sd '|' -)
     fi
 
     echo "themes_dir=$PACKAGE_DIR/dotfiles/polybar_configs"
@@ -40,105 +33,73 @@ if [ "$1" == "--query" ]; then
     exit 0
 fi
 
-# 1. Leer Estado
-STYLE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/style" 2>/dev/null || echo "square")
-POS=$(cat "$STATE_DIR/$CURRENT_ENV/bar/position" 2>/dev/null || echo "$BAR_POSITION")
-TRANS=$(cat "$STATE_DIR/$CURRENT_ENV/bar/transparency" 2>/dev/null || echo "$BAR_TRANSPARENCY")
-HEIGHT=$(cat "$STATE_DIR/$CURRENT_ENV/bar/height" 2>/dev/null || echo "$BAR_HEIGHT")
-TYPE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/type" 2>/dev/null || echo "${BAR_DEFAULT_TYPE:-polybar_antigua}")
+# 1. Cargar Estado Plano
+STYLE="square"
+POS="bottom"
+TRANS="true"
+HEIGHT="15pt"
+TYPE="polybar_antigua"
+MODE="solid"
+ROFI_STYLE="solid"
+SOLID_LINE="false"
+ICON_PADDING="1"
+
+if [ -f "$STATE_FILE" ]; then
+    source "$STATE_FILE"
+    STYLE="${style:-$STYLE}"
+    POS="${position:-$POS}"
+    TRANS="${transparency:-$TRANS}"
+    HEIGHT="${height:-$HEIGHT}"
+    TYPE="${type:-$TYPE}"
+    MODE="${mode:-$MODE}"
+    ROFI_STYLE="${rofi_style:-$ROFI_STYLE}"
+    SOLID_LINE="${solid_line:-$SOLID_LINE}"
+    ICON_PADDING="${icon_padding:-$ICON_PADDING}"
+fi
 
 TYPE=$(echo "$TYPE" | tr -d '[:space:]')
 THEME_SRC="$PACKAGE_DIR/dotfiles/polybar_configs/$TYPE"
-
-# Forzar valores por defecto para opciones no soportadas por el tema
-if [ -f "$THEME_SRC/options.conf" ] && grep -q '^mode:' "$THEME_SRC/options.conf"; then
-    MODE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/mode" 2>/dev/null || echo "solid")
-else
-    MODE="solid"
-fi
-
-if [ -f "$THEME_SRC/options.conf" ] && grep -q '^rofi_style:' "$THEME_SRC/options.conf"; then
-    ROFI_STYLE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/rofi_style" 2>/dev/null || echo "solid")
-else
-    ROFI_STYLE="solid"
-fi
-
-if [ -f "$THEME_SRC/options.conf" ] && grep -q '^solid_line:' "$THEME_SRC/options.conf"; then
-    SOLID_LINE=$(cat "$STATE_DIR/$CURRENT_ENV/bar/solid_line" 2>/dev/null || echo "true")
-else
-    SOLID_LINE="false"
-fi
-
-if [ -f "$THEME_SRC/options.conf" ] && grep -q '^icon_padding:' "$THEME_SRC/options.conf"; then
-    ICON_PADDING=$(cat "$STATE_DIR/$CURRENT_ENV/bar/icon_padding" 2>/dev/null || echo "1")
-else
-    ICON_PADDING="1"
-fi
-
-# Limpiar espacios
-STYLE=$(echo "$STYLE" | tr -d '[:space:]'); POS=$(echo "$POS" | tr -d '[:space:]')
-TRANS=$(echo "$TRANS" | tr -d '[:space:]'); HEIGHT=$(echo "$HEIGHT" | tr -d '[:space:]')
-MODE=$(echo "$MODE" | tr -d '[:space:]')
-ROFI_STYLE=$(echo "$ROFI_STYLE" | tr -d '[:space:]')
-SOLID_LINE=$(echo "$SOLID_LINE" | tr -d '[:space:]')
-ICON_PADDING=$(echo "$ICON_PADDING" | tr -d '[:space:]')
-[[ -z "$HEIGHT" ]] && HEIGHT="15pt"
-[[ -z "$ICON_PADDING" ]] && ICON_PADDING="1"
-
-# 2. Setup de Directorio con Enlaces Simbólicos
 CONF_DIR="$HOME/.config/polybar"
-THEME_SRC="$PACKAGE_DIR/dotfiles/polybar_configs/$TYPE"
+mkdir -p "$CONF_DIR"
 
-needs_setup=1
-if pgrep -u $UID -x polybar >/dev/null && [ -d "$CONF_DIR/current_theme" ]; then
-    if [ "$(readlink -f "$CONF_DIR/current_theme")" = "$THEME_SRC" ]; then
-        needs_setup=0
-    fi
-fi
-
-if [ "$needs_setup" -eq 1 ]; then
-    [ -f "$CONF_DIR/colors.ini" ] && cp "$CONF_DIR/colors.ini" "/tmp/poly_colors.ini"
-    [ -f "$CONF_DIR/user_configs.ini.bak" ] && cp "$CONF_DIR/user_configs.ini.bak" "/tmp/poly_user_configs.ini"
-
-    # Borrado selectivo para preservar configuraciones propias del usuario
-    rm -f "$CONF_DIR/hardware.ini" "$CONF_DIR/launch.sh" "$CONF_DIR/current_theme" "$CONF_DIR/config.ini" "$CONF_DIR/colors.ini"
-    rm -rf "$CONF_DIR/scripts"
-    mkdir -p "$CONF_DIR"
-
-    if [ -f "/tmp/poly_colors.ini" ]; then
-        mv "/tmp/poly_colors.ini" "$CONF_DIR/colors.ini"
-    else
-        ln -sf "$PACKAGE_DIR/dotfiles/polybar_base/colors.ini" "$CONF_DIR/colors.ini"
-    fi
-
-    if [ -f "/tmp/poly_user_configs.ini" ]; then
-        mv "/tmp/poly_user_configs.ini" "$CONF_DIR/user_configs.ini.bak"
-    fi
-
-    ln -sf "$PACKAGE_DIR/dotfiles/polybar_base/hardware.ini" "$CONF_DIR/hardware.ini"
-    ln -sf "$PACKAGE_DIR/dotfiles/polybar_base/scripts" "$CONF_DIR/scripts"
-
-    if [ -d "$THEME_SRC" ]; then
-        ln -sfT "$THEME_SRC" "$CONF_DIR/current_theme"
-        ln -sf "current_theme/launch.sh" "$CONF_DIR/launch.sh"
-    fi
-fi
-
-# Ejecutar setup.sh específico del tema si existe (evita hardcodeo)
+# 2. Limpieza y Proyección Directa de Enlaces
+# Enlazar todos los archivos de la carpeta del tema a la raíz de ~/.config/polybar/
 if [ -d "$THEME_SRC" ]; then
-    [ -f "$THEME_SRC/setup.sh" ] && source "$THEME_SRC/setup.sh"
+    # Limpiar enlaces del tema anterior en la raíz (evitando borrar system_launch.sh y carpetas)
+    find "$CONF_DIR" -maxdepth 1 -type l ! -name "system_launch.sh" -delete
+    
+    # Proyectar archivos del tema activo
+    for file in "$THEME_SRC"/*; do
+        filename="${file##*/}"
+        # Evitar sobreescribir launch.sh y colors.ini
+        if [ "$filename" != "launch.sh" ] && [ "$filename" != "colors.ini" ]; then
+            ln -sf "$file" "$CONF_DIR/$filename"
+        elif [ "$filename" == "launch.sh" ] && [ -x "$file" ]; then
+            ln -sf "$file" "$CONF_DIR/$filename"
+        fi
+    done
+
+    # Si colors.ini no existe, enlazar el del tema si está disponible
+    if [ ! -f "$CONF_DIR/colors.ini" ] && [ -f "$THEME_SRC/colors.ini" ]; then
+        ln -sf "$THEME_SRC/colors.ini" "$CONF_DIR/colors.ini"
+    fi
 fi
 
+# 3. Lógica Especial de Variantes (Underline / Solid)
+if [ -f "$THEME_SRC/modules_underline.ini" ] && [ -f "$THEME_SRC/modules_solid.ini" ]; then
+    MOD_FILE="modules_${MODE}.ini"
+    [ ! -f "$THEME_SRC/$MOD_FILE" ] && MOD_FILE="modules_underline.ini"
+    ln -sf "$THEME_SRC/$MOD_FILE" "$CONF_DIR/modules.ini"
+fi
 
-# 3. Preparar Variables para RAM (/dev/shm)
+# 4. Cálculo de Variables de Estilo Genéricas
 [ "$STYLE" == "round" ] && RADIUS=10 || RADIUS=0
 [ "$POS" == "top" ] && IS_BOTTOM="false" || IS_BOTTOM="true"
 
-# Fuentes (Matriz de escalado con soporte para Rofi y centrado vertical)
 H_NUM="${HEIGHT//[!0-9]/}"
 [[ -z "$H_NUM" ]] && H_NUM=15
 
-# Cálculo dinámico de fuentes según altura de la barra (para soporte HDPI/Custom completo)
+# Métricas proporcionales a la altura de la barra
 F_TEXT=$(( H_NUM * 3 / 5 + 1 ))
 F_ICON=$(( H_NUM + 1 ))
 F_OFFSET=$(( (H_NUM - 6) / 3 ))
@@ -147,7 +108,6 @@ F_SYM=$(( H_NUM * 4 / 5 + 1 ))
 F_CURV=$(( H_NUM * 14 / 10 + 1 ))
 F_CURV_OFFSET=$(( F_OFFSET + 1 ))
 
-# Valores por defecto para Rofi (font-rofi)
 F_ROFI_SIZE=$(( H_NUM * 4 / 5 + 1 ))
 R_ROFI_OFFSET=$F_OFFSET
 F_ROFI_NAME="Symbols Nerd Font Mono"
@@ -159,21 +119,15 @@ else
     LINE_SIZE=0
 fi
 
-
-
 if [ "$MODE" == "underline" ]; then
     F_SYM=$(( H_NUM * 11 / 20 + 1 ))
     F_ICON=$(( H_NUM * 3 / 4 ))
     F_LARGE_SIZE=$(( F_SYM + 2 ))
-    
     F_OFFSET_TEXT=$(( (H_NUM - LINE_SIZE - F_TEXT) / 2 ))
     [[ $F_OFFSET_TEXT -lt 0 ]] && F_OFFSET_TEXT=0
-    
     F_OFFSET_SYM=$(( (H_NUM - LINE_SIZE - F_SYM) / 2 - LINE_SIZE ))
-    
     F_OFFSET_LARGE=$(( (H_NUM - LINE_SIZE - F_LARGE_SIZE) / 2 ))
     [[ $F_OFFSET_LARGE -lt 0 ]] && F_OFFSET_LARGE=0
-    
     F_CURV_OFFSET=$F_OFFSET_TEXT
     [[ $F_CURV_OFFSET -lt 1 ]] && F_CURV_OFFSET=1
 else
@@ -213,7 +167,6 @@ if [ "$MODE" == "underline" ]; then
         MOD_ROFI_UND=""
         MOD_ROFI_FONT=4
         LAUNCH_ICON=$'\u00a0\u00a0'"${OS_ICON:-󰣆}"$'\u00a0\u00a0'
-        # Rofi solid en barra underline: usar métricas del estilo solid normal
         F_ROFI_SIZE=$(( H_NUM * 13 / 20 + 1 ))
         R_ROFI_OFFSET=$(( (H_NUM - F_ROFI_SIZE) / 2 ))
         [[ $R_ROFI_OFFSET -lt 0 ]] && R_ROFI_OFFSET=0
@@ -224,7 +177,6 @@ else
     MOD_FOC_UND=""
     MOD_PRE_BG="\${colors.primary}"
     MOD_PRE_FG="\${colors.background-solid}"
-    
     MOD_ROFI_BG="\${colors.primary}"
     MOD_ROFI_FG="\${colors.background-solid}"
     MOD_ROFI_UND=""
@@ -232,9 +184,9 @@ else
     LAUNCH_ICON=$'\u00a0\u00a0'"${OS_ICON:-󰣆}"$'\u00a0\u00a0'
 fi
 
-# 4. Escribir en RAM
-RAM_CONFIG="/dev/shm/user_configs.ini"
-cat > "$RAM_CONFIG" <<EOF
+# 5. Generar variables.ini
+VARS_FILE="$CONF_DIR/variables.ini"
+cat > "$VARS_FILE" <<EOF
 [vars]
 height = $HEIGHT
 radius = $RADIUS
@@ -284,22 +236,17 @@ format-background = \${colors.background-alt}
 click-left = ${BASE_DIR:-$PROJECT_ROOT}/dots i3dots show_cheatsheet.sh
 EOF
 
+# Crear enlace en RAM para compatibilidad o velocidad de lectura si es necesario
+ln -sf "$VARS_FILE" "/dev/shm/user_configs.ini"
 
-
-cp "$RAM_CONFIG" "$CONF_DIR/user_configs.ini.bak"
-
-
-# 5. Configuración de entrada única para Polybar
-if [ "$needs_setup" -eq 1 ]; then
-    cat > "$CONF_DIR/config.ini" <<EOF
-[global/wm]
-include-file = \$HOME/.config/polybar/colors.ini
-include-file = /dev/shm/user_configs.ini
-include-file = \$HOME/.config/polybar/current_theme/config.ini
-EOF
+# 6. Enlace de Lanzador e Inicio
+ln -sf "$PACKAGE_DIR/dotfiles/polybar_launch.sh" "$CONF_DIR/system_launch.sh"
+if [ -x "$THEME_SRC/launch.sh" ]; then
+    ln -sf "current_theme/launch.sh" "$CONF_DIR/launch.sh"
+else
+    ln -sf "$CONF_DIR/system_launch.sh" "$CONF_DIR/launch.sh"
 fi
 
-# 6. Lanzar
-if [ -x "$CONF_DIR/launch.sh" ] && [ -n "$DISPLAY" ]; then
+if [ -n "$DISPLAY" ]; then
     bash "$CONF_DIR/launch.sh" >/tmp/polybar.log 2>&1 &
 fi
