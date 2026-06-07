@@ -60,20 +60,18 @@ ask_privileges
 if [ -n "$PKG_LIST" ] && [ -z "$SKIP_SYSTEM_PKGS" ]; then
     print_step "Instalando paquetes y dependencias del sistema..."
     
-    # Paso 3.1: Actualizar repositorios (si aplica)
+    # Combinar actualización e instalación en una sola llamada para evitar múltiples prompts de contraseña
+    FULL_CMD=""
     if [ -n "$PKG_UPDATE_CMD" ]; then
-        print_sub "Actualizando repositorios..."
-        if ! run_elevated --ticker "$PKG_MANAGER" $PKG_UPDATE_CMD; then
-            print_sub_warn "Fallo al actualizar repositorios. Intentando instalar paquetes..."
-        fi
+        FULL_CMD="$PKG_MANAGER $PKG_UPDATE_CMD && "
     fi
-    
-    # Paso 3.2: Instalar paquetes
-    print_sub "Instalando paquetes..."
-    if run_elevated --ticker "$PKG_MANAGER" $PKG_INSTALL_CMD $PKG_LIST; then
+    FULL_CMD+="$PKG_MANAGER $PKG_INSTALL_CMD $PKG_LIST"
+
+    print_sub "Procesando paquetes (actualización e instalación)..."
+    if run_elevated --ticker bash -c "$FULL_CMD"; then
         print_sub_ok "Paquetes de sistema instalados correctamente."
     else
-        print_sub_warn "Fallo en gestor de paquetes. Se omiten dependencias de sistema."
+        print_sub_warn "Fallo en gestor de paquetes o cancelación del usuario. Se omiten dependencias."
     fi
 fi
 
