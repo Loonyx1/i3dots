@@ -256,14 +256,8 @@ WALL_DIR="${CLI_WALL_SRC:-${WALLPAPER_SRC:-$PACKAGE_DIR/dotfiles/wall}}"
 
 mkdir -p "$HOME/wall"
 if [ -d "$WALL_DIR" ]; then
-    # Crear enlaces simbólicos individuales para no duplicar espacio en disco
-    shopt -s nullglob
-    for f in "$WALL_DIR"/*; do
-        if [ -f "$f" ]; then
-            ln -sf "$f" "$HOME/wall/$(basename "$f")"
-        fi
-    done
-    shopt -u nullglob
+    # Crear enlaces simbólicos individuales de forma robusta (soporta espacios y subcarpetas)
+    find "$WALL_DIR" -type f -exec ln -sf {} "$HOME/wall/" \;
 fi
 
 WALLPAPER_FILE="$HOME/wall/$DEFAULT_WALL"
