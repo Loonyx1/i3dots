@@ -424,9 +424,9 @@ else
     fi
     echo -ne "$out" > "$tmp_rofi_opts"
 
-    # Daemon Asíncrono Bajo Demanda en background via helper
+    # Daemon Asíncrono Bajo Demanda en background totalmente desacoplado
     if [[ "$THUMB_MODE" == "enabled" ]] && [[ "$BG_GENERATION" == "true" ]] && [[ -n "$wallpapers_to_gen" ]]; then
-        echo -ne "$wallpapers_to_gen" | wp_cache.sh --bg-gen &
+        (echo -ne "$wallpapers_to_gen" | wp_cache.sh --bg-gen >/dev/null 2>&1) &
     fi
 
 

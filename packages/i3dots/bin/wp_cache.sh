@@ -24,6 +24,14 @@ done
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/wp_shared.sh"
 
+# 2.5 Lock de seguridad para evitar concurrencia
+LOCK_FILE="/dev/shm/wp_cache_${UID}.lock"
+exec 9>"$LOCK_FILE"
+if ! flock -n 9; then
+    # Si ya hay una instancia corriendo, salir en silencio
+    exit 0
+fi
+
 # 3. Modo: Pre-caché en background (--bg-gen)
 if [[ "$BG_GEN" -eq 1 ]]; then
     [[ "$HAS_VIPS" -eq 0 ]] && exit 1
