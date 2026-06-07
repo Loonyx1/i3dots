@@ -197,7 +197,7 @@ case "$ACTION" in
         ;;
         
     --list-presets)
-        COMP_UPPER=$(echo "$COMP" | tr '[:lower:]' '[:upper:]')
+        COMP_UPPER=${COMP^^}
         PRESETS_VAR="${COMP_UPPER}_PRESETS"
         PRESETS_VAL="${!PRESETS_VAR}"
         if [ -n "$PRESETS_VAL" ]; then
@@ -255,7 +255,7 @@ case "$ACTION" in
             echo "Error: --apply-preset requiere nombre" >&2
             exit 1
         fi
-        COMP_UPPER=$(echo "$COMP" | tr '[:lower:]' '[:upper:]')
+        COMP_UPPER=${COMP^^}
         PRESETS_VAR="${COMP_UPPER}_PRESETS"
         PRESETS_VAL="${!PRESETS_VAR}"
         if [ -z "$PRESETS_VAL" ]; then
