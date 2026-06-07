@@ -511,21 +511,21 @@ select_display_interactive() {
                         local cur_outputs=$("${STATE_ENGINE[@]}" --get outputs)
                         if [[ ! " $cur_outputs " == *" $SEL_OUTPUT "* ]]; then
                             local new_outputs="${cur_outputs:+$cur_outputs }$SEL_OUTPUT"
-                            "${STATE_ENGINE[@]}" --set outputs "$new_outputs"
+                            "${STATE_ENGINE[@]}" --no-apply --set outputs "$new_outputs"
                         fi
                         
-                        "${STATE_ENGINE[@]}" --set "resolution_${monitor_clean}" "$SEL_RES"
-                        "${STATE_ENGINE[@]}" --set "rate_${monitor_clean}" "${SEL_RATE:-}"
-                        "${STATE_ENGINE[@]}" --set "scale_${monitor_clean}" "${SEL_SCALE:-}"
-                        "${STATE_ENGINE[@]}" --set "rotation_${monitor_clean}" "${SEL_ROTATION:-}"
-                        "${STATE_ENGINE[@]}" --set "brightness_${monitor_clean}" "${SEL_BRIGHTNESS:-}"
+                        "${STATE_ENGINE[@]}" --no-apply --set "resolution_${monitor_clean}" "$SEL_RES"
+                        "${STATE_ENGINE[@]}" --no-apply --set "rate_${monitor_clean}" "${SEL_RATE:-}"
+                        "${STATE_ENGINE[@]}" --no-apply --set "scale_${monitor_clean}" "${SEL_SCALE:-}"
+                        "${STATE_ENGINE[@]}" --no-apply --set "rotation_${monitor_clean}" "${SEL_ROTATION:-}"
+                        "${STATE_ENGINE[@]}" --no-apply --set "brightness_${monitor_clean}" "${SEL_BRIGHTNESS:-}"
                         
                         if [ -n "$DISPLAY_SUPPORTED_OPTIONS" ]; then
                             for opt in "${OPT_ARRAY[@]}"; do
                                 [ -z "$opt" ] && continue
                                 IFS=':' read -r opt_key opt_label opt_vals <<< "$opt"
                                 local val="${DYNAMIC_VALS[$opt_key]}"
-                                "${STATE_ENGINE[@]}" --set "${opt_key}_${monitor_clean}" "${val:-}"
+                                "${STATE_ENGINE[@]}" --no-apply --set "${opt_key}_${monitor_clean}" "${val:-}"
                             done
                         fi
                         

@@ -12,6 +12,12 @@ fi
 
 [ -z "$CURRENT_ENV" ] && export CURRENT_ENV="i3dots"
 
+NO_APPLY=0
+if [ "$1" = "--no-apply" ]; then
+    NO_APPLY=1
+    shift
+fi
+
 COMP="$1"
 ACTION="$2"
 
@@ -298,6 +304,6 @@ if [ "$STATE_CHANGED" -eq 1 ]; then
 fi
 
 # 4. Despachar cambios ejecutando el despachador
-if [ -f "$BIN_DIR/apply_dots.sh" ]; then
+if [ "$NO_APPLY" -eq 0 ] && [ -f "$BIN_DIR/apply_dots.sh" ]; then
     bash "$BIN_DIR/apply_dots.sh"
 fi
