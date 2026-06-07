@@ -32,7 +32,14 @@ if [ "$1" = "--no-apply" ]; then
 fi
 
 COMP="$1"
-ACTION="$2"
+shift
+
+if [ "$1" = "--no-apply" ]; then
+    NO_APPLY=1
+    shift
+fi
+
+ACTION="$1"
 
 if [ -z "$COMP" ] || [ -z "$ACTION" ]; then
     echo "Uso: $0 <componente> --set <clave> <valor>" >&2
@@ -223,8 +230,8 @@ set_state_value() {
 
 case "$ACTION" in
     --set)
-        KEY="$3"
-        VAL="$4"
+        KEY="$2"
+        VAL="$3"
         if [ -z "$KEY" ]; then
             echo "Error: --set requiere <clave>" >&2
             exit 1
@@ -303,7 +310,7 @@ case "$ACTION" in
         ;;
         
     --apply-preset)
-        PRESET_NAME="$3"
+        PRESET_NAME="$2"
         if [ -z "$PRESET_NAME" ]; then
             echo "Error: --apply-preset requiere nombre" >&2
             exit 1
