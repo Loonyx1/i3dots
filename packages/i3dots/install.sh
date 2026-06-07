@@ -54,6 +54,7 @@ fi
 print_step "Iniciando instalación para variante: ${VARIANT_NAME} (Offline: ${IS_OFFLINE})"
 
 # (Lógica del elevador importada desde utils.sh)
+ask_privileges
 
 # 3. Instalar dependencias
 if [ -n "$PKG_LIST" ] && [ -z "$SKIP_SYSTEM_PKGS" ]; then
@@ -62,14 +63,14 @@ if [ -n "$PKG_LIST" ] && [ -z "$SKIP_SYSTEM_PKGS" ]; then
     # Paso 3.1: Actualizar repositorios (si aplica)
     if [ -n "$PKG_UPDATE_CMD" ]; then
         print_sub "Actualizando repositorios..."
-        if ! run_elevated "$PKG_MANAGER" $PKG_UPDATE_CMD; then
+        if ! run_elevated --ticker "$PKG_MANAGER" $PKG_UPDATE_CMD; then
             print_sub_warn "Fallo al actualizar repositorios. Intentando instalar paquetes..."
         fi
     fi
     
     # Paso 3.2: Instalar paquetes
     print_sub "Instalando paquetes..."
-    if run_elevated "$PKG_MANAGER" $PKG_INSTALL_CMD $PKG_LIST; then
+    if run_elevated --ticker "$PKG_MANAGER" $PKG_INSTALL_CMD $PKG_LIST; then
         print_sub_ok "Paquetes de sistema instalados correctamente."
     else
         print_sub_warn "Fallo en gestor de paquetes. Se omiten dependencias de sistema."
