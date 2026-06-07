@@ -156,7 +156,7 @@ init_display() {
                 IFS=':' read -r opt_key opt_label opt_vals <<< "$opt"
                 local opt_var="${opt_key}_${monitor_clean}"
                 local opt_val="${!opt_var}"
-                extra_args+=("${opt_val:-$(echo "$opt_vals" | cut -d',' -f1)}")
+                extra_args+=("${opt_val:-${opt_vals%%,*}}")
             done
         fi
         
@@ -206,7 +206,7 @@ select_display_interactive() {
             IFS=':' read -r opt_key opt_label opt_vals <<< "$opt"
             local opt_var="${opt_key}_${monitor_clean}"
             local val="${!opt_var}"
-            DYNAMIC_VALS["$opt_key"]="${val:-$(echo "$opt_vals" | cut -d',' -f1)}"
+            DYNAMIC_VALS["$opt_key"]="${val:-${opt_vals%%,*}}"
         done
     fi
     
@@ -289,7 +289,7 @@ select_display_interactive() {
                             IFS=':' read -r opt_key opt_label opt_vals <<< "$opt"
                             local opt_var="${opt_key}_${monitor_clean}"
                             local val="${!opt_var}"
-                            DYNAMIC_VALS["$opt_key"]="${val:-$(echo "$opt_vals" | cut -d',' -f1)}"
+                            DYNAMIC_VALS["$opt_key"]="${val:-${opt_vals%%,*}}"
                         done
                     fi
                 fi
@@ -454,7 +454,7 @@ select_display_interactive() {
                             IFS=':' read -r opt_key opt_label opt_vals <<< "$opt"
                             local opt_var="${opt_key}_${monitor_clean}"
                             local old_val="${!opt_var}"
-                            old_dynamic_vals["$opt_key"]="${old_val:-$(echo "$opt_vals" | cut -d',' -f1)}"
+                            old_dynamic_vals["$opt_key"]="${old_val:-${opt_vals%%,*}}"
                         done
                     fi
                     
@@ -494,7 +494,9 @@ select_display_interactive() {
                     done
                     
                     if [ "$dialog_exited" -eq 1 ]; then
-                        local choice_confirm=$(cat "$tmp_confirm" | tr -d '[:space:]')
+                        local choice_confirm
+                        read -r choice_confirm < "$tmp_confirm"
+                        choice_confirm="${choice_confirm//[[:space:]]/}"
                         if [ "$choice_confirm" = "$VAL_CONFIRM" ]; then
                             confirmed="yes"
                         else

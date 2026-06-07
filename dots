@@ -89,7 +89,9 @@ if [ -z "$PACKAGE_NAME" ]; then
     if [ -n "$CURRENT_ENV" ]; then
         PACKAGE_NAME="$CURRENT_ENV"
     else
-        PACKAGE_NAME=$(echo "${XDG_CURRENT_DESKTOP:-$DESKTOP_SESSION}" | cut -d':' -f1 | tr '[:upper:]' '[:lower:]')
+        PACKAGE_NAME="${XDG_CURRENT_DESKTOP:-$DESKTOP_SESSION}"
+        PACKAGE_NAME="${PACKAGE_NAME%%:*}"
+        PACKAGE_NAME="${PACKAGE_NAME,,}"
     fi
 fi
 export CURRENT_ENV="$PACKAGE_NAME"

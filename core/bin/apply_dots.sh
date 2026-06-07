@@ -14,7 +14,7 @@ done
 
 # 2. Aplicar Componentes (hereda MANAGED_COMPONENTS de .env como string)
 for component in $MANAGED_COMPONENTS; do
-    var_name="COMPONENT_$(echo "$component" | tr '[:lower:]' '[:upper:]')"
+    var_name="COMPONENT_${component^^}"
     value="${!var_name}"
     [[ -z "$value" ]] && continue
     

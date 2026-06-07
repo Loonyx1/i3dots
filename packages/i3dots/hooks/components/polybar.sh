@@ -8,7 +8,7 @@ if [ -z "$PROJECT_ROOT" ]; then
 fi
 export BASE_DIR="${BASE_DIR:-$PROJECT_ROOT}"
 export STATE_DIR="${STATE_DIR:-$PROJECT_ROOT/core/state}"
-export CURRENT_ENV="${CURRENT_ENV:-i3dots}"
+export CURRENT_ENV="${CURRENT_ENV:-$(basename "$(cd "$(dirname "$SCRIPT_PATH")/../.." && pwd)")}"
 BAR_STATE_DIR="$STATE_DIR/$CURRENT_ENV/bar"
 mkdir -p "$BAR_STATE_DIR"
 STATE_FILE="$BAR_STATE_DIR/state.env"
@@ -22,7 +22,10 @@ if [ "$1" == "--query" ]; then
     SUPPORTED=""
     # Cargar opciones dinámicas del tema
     if [ -f "$THEME_SRC/options.conf" ]; then
-        SUPPORTED=$(grep -v '^#' "$THEME_SRC/options.conf" | grep -v '^$' | paste -sd '|' -)
+        while read -r line; do
+            [[ "$line" =~ ^# || -z "$line" ]] && continue
+            SUPPORTED="${SUPPORTED:+$SUPPORTED|}$line"
+        done < "$THEME_SRC/options.conf"
     fi
 
     echo "themes_dir=$PACKAGE_DIR/dotfiles/polybar_configs"
@@ -57,7 +60,7 @@ if [ -f "$STATE_FILE" ]; then
     ICON_PADDING="${icon_padding:-$ICON_PADDING}"
 fi
 
-TYPE=$(echo "$TYPE" | tr -d '[:space:]')
+TYPE="${TYPE//[[:space:]]/}"
 THEME_SRC="$PACKAGE_DIR/dotfiles/polybar_configs/$TYPE"
 CONF_DIR="$HOME/.config/polybar"
 mkdir -p "$CONF_DIR"
