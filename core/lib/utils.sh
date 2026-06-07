@@ -28,12 +28,24 @@ ask_privileges() {
     [ "$EUID" -eq 0 ] && return 0
     [ -z "$ELEVATOR" ] && return 0
     
+    # No preguntar si ya tenemos privilegios sin contraseña (cached)
+    if run_elevated_nopasswd; then
+        return 0
+    fi
+
     print_step "Se requieren privilegios para continuar. Ingresa tu contraseña."
-    if "$ELEVATOR" -v 2>/dev/null; then
-        # Mantener sudo vivo en segundo plano
-        while true; do "$ELEVATOR" -n -v; sleep 60; done 2>/dev/null &
-        SUDO_KEEP_ALIVE_PID=$!
-        trap 'kill $SUDO_KEEP_ALIVE_PID 2>/dev/null' EXIT
+    
+    # sudo usa -v, doas usa true (doas no tiene -v)
+    local check_cmd
+    [[ "$ELEVATOR" == "sudo" ]] && check_cmd="-v" || check_cmd="true"
+
+    if "$ELEVATOR" $check_cmd; then
+        if [[ "$ELEVATOR" == "sudo" ]]; then
+            # Mantener sudo vivo en segundo plano
+            while true; do "$ELEVATOR" -n -v; sleep 60; done 2>/dev/null &
+            SUDO_KEEP_ALIVE_PID=$!
+            trap 'kill $SUDO_KEEP_ALIVE_PID 2>/dev/null' EXIT
+        fi
         print_sub_ok "Privilegios confirmados."
     else
         print_sub_err "No se obtuvieron privilegios. Algunas tareas fallarán."
@@ -51,14 +63,11 @@ run_elevated() {
         local i=0
         local line
         
-        # Ejecutar comando y procesar salida
-        (
-            if [ "$EUID" -ne 0 ] && [ -n "$ELEVATOR" ]; then
-                "$ELEVATOR" "${cmd[@]}" 2>&1
-            else
-                "${cmd[@]}" 2>&1
-            fi
-        ) | while read -r line; do
+        # Ejecutar comando y procesar salida (sin subshell innecesario para el elevador)
+        local runner=""
+        [ "$EUID" -ne 0 ] && [ -n "$ELEVATOR" ] && runner="$ELEVATOR"
+
+        $runner "${cmd[@]}" 2>&1 | while read -r line; do
             # Guardar en log (sin códigos de escape)
             echo "$line" >> "${LOG_FILE:-/dev/null}"
             
@@ -70,7 +79,7 @@ run_elevated() {
             printf "\r  ${GRAY}%s${NC} ${GRAY}Trabajando...${NC} %s\e[K" "$char" "$display_line"
             ((i++))
         done
-        # Limpiar línea al finalizar
+        # Limpiar línea al finalizar y devolver estado real del comando
         printf "\r\e[K"
         return ${PIPESTATUS[0]}
     fi
