@@ -95,97 +95,70 @@ if [ -f "$THEME_SRC/modules_underline.ini" ] && [ -f "$THEME_SRC/modules_solid.i
     ln -sf "$THEME_SRC/$MOD_FILE" "$CONF_DIR/modules.ini"
 fi
 
-# 4. Cálculo de Variables de Estilo Genéricas
-[ "$STYLE" == "round" ] && RADIUS=10 || RADIUS=0
-[ "$POS" == "top" ] && IS_BOTTOM="false" || IS_BOTTOM="true"
+# 4. Cálculo de Variables de Estilo Genéricas (Magia Dinámica)
+RADIUS=$([ "$STYLE" == "round" ] && echo 10 || echo 0)
+IS_BOTTOM=$([ "$POS" == "top" ] && echo "false" || echo "true")
+H_NUM="${HEIGHT//[!0-9]/}"; [[ -z "$H_NUM" ]] && H_NUM=15
 
-H_NUM="${HEIGHT//[!0-9]/}"
-[[ -z "$H_NUM" ]] && H_NUM=15
-
-# Métricas proporcionales a la altura de la barra
+# Coeficientes proporcionales
 F_TEXT=$(( H_NUM * 3 / 5 + 1 ))
 F_ICON=$(( H_NUM + 1 ))
 F_OFFSET=$(( (H_NUM - 6) / 3 ))
 F_EXTRA=$(( H_NUM - 1 ))
-F_SYM=$(( H_NUM * 4 / 5 + 1 ))
+F_SYM=$(( H_NUM * 13 / 20 + 1 ))
 F_CURV=$(( H_NUM * 14 / 10 + 1 ))
 F_CURV_OFFSET=$(( F_OFFSET + 1 ))
+F_OFFSET_TEXT=$(( (H_NUM - F_TEXT) / 2 ))
+F_OFFSET_SYM=$(( (H_NUM - F_SYM) / 2 ))
+F_OFFSET_LARGE=$(( F_OFFSET_TEXT + 2 ))
 
-F_ROFI_SIZE=$(( H_NUM * 4 / 5 + 1 ))
-R_ROFI_OFFSET=$F_OFFSET
-F_ROFI_NAME="Symbols Nerd Font Mono"
-
+# Ajustes específicos para modo Underline
+LINE_SIZE=0
 if [ "$MODE" == "underline" ] || [ "$SOLID_LINE" == "true" ]; then
-    LINE_SIZE=$(( H_NUM / 6 ))
-    [[ $LINE_SIZE -lt 2 ]] && LINE_SIZE=2
-else
-    LINE_SIZE=0
+    LINE_SIZE=$(( H_NUM / 6 )); [[ $LINE_SIZE -lt 2 ]] && LINE_SIZE=2
 fi
 
 if [ "$MODE" == "underline" ]; then
     F_SYM=$(( H_NUM * 11 / 20 + 1 ))
     F_ICON=$(( H_NUM * 3 / 4 ))
-    F_LARGE_SIZE=$(( F_SYM + 2 ))
     F_OFFSET_TEXT=$(( (H_NUM - LINE_SIZE - F_TEXT) / 2 ))
-    [[ $F_OFFSET_TEXT -lt 0 ]] && F_OFFSET_TEXT=0
     F_OFFSET_SYM=$(( (H_NUM - LINE_SIZE - F_SYM) / 2 - LINE_SIZE ))
-    F_OFFSET_LARGE=$(( (H_NUM - LINE_SIZE - F_LARGE_SIZE) / 2 ))
-    [[ $F_OFFSET_LARGE -lt 0 ]] && F_OFFSET_LARGE=0
-    F_CURV_OFFSET=$F_OFFSET_TEXT
-    [[ $F_CURV_OFFSET -lt 1 ]] && F_CURV_OFFSET=1
-else
-    F_SYM=$(( H_NUM * 13 / 20 + 1 ))
-    F_OFFSET_SYM=$(( (H_NUM - F_SYM) / 2 ))
-    [[ $F_OFFSET_SYM -lt 0 ]] && F_OFFSET_SYM=0
-    F_LARGE_SIZE=$(( F_ICON + 4 ))
-    F_OFFSET_TEXT=$(( (H_NUM - LINE_SIZE - F_TEXT) / 2 ))
-    [[ $F_OFFSET_TEXT -lt 0 ]] && F_OFFSET_TEXT=0
-    F_OFFSET_LARGE=$(( F_OFFSET_TEXT + 2 ))
+    F_OFFSET_LARGE=$(( (H_NUM - LINE_SIZE - (F_SYM + 2)) / 2 ))
 fi
 
-if [ "$TRANS" == "false" ]; then
-    BG_COLOR="\${colors.background-solid}"
-    P_TRANS="false"
-else
-    BG_COLOR="#00000000"
-    P_TRANS="true"
-fi
+# Normalización de offsets negativos y mínimos
+[[ $F_OFFSET_TEXT -lt 0 ]] && F_OFFSET_TEXT=0
+[[ $F_OFFSET_SYM -lt 0 ]] && F_OFFSET_SYM=0
+[[ $F_OFFSET_LARGE -lt 0 ]] && F_OFFSET_LARGE=0
+[[ $F_CURV_OFFSET -lt 1 ]] && F_CURV_OFFSET=1
 
+# Colores y Estilos de Módulos
+BG_COLOR=$([ "$TRANS" == "false" ] && echo "\${colors.background-solid}" || echo "#00000000")
+P_TRANS=$([ "$TRANS" == "false" ] && echo "false" || echo "true")
+
+# Definir esquema de resaltado
 if [ "$MODE" == "underline" ]; then
-    MOD_FOC_BG="$BG_COLOR"
-    MOD_FOC_FG="\${colors.primary}"
-    MOD_FOC_UND="\${colors.primary}"
-    MOD_PRE_BG="$BG_COLOR"
-    MOD_PRE_FG="\${colors.primary}"
+    MOD_FOC_BG="$BG_COLOR"; MOD_FOC_FG="\${colors.primary}"; MOD_FOC_UND="\${colors.primary}"
+    MOD_PRE_BG="$BG_COLOR"; MOD_PRE_FG="\${colors.primary}"
     
     if [ "$ROFI_STYLE" == "underline" ]; then
-        MOD_ROFI_BG="$BG_COLOR"
-        MOD_ROFI_FG="\${colors.primary}"
-        MOD_ROFI_UND="\${colors.primary}"
-        MOD_ROFI_FONT=5
-        LAUNCH_ICON=$'\u00a0'"${OS_ICON:-󰣆}"$'\u00a0'
+        MOD_ROFI_BG="$BG_COLOR"; MOD_ROFI_FG="\${colors.primary}"; MOD_ROFI_UND="\${colors.primary}"
+        MOD_ROFI_FONT=5; LAUNCH_ICON=$'\u00a0'"${OS_ICON:-󰣆}"$'\u00a0'
+        F_ROFI_SIZE=$(( H_NUM * 4 / 5 + 1 )); R_ROFI_OFFSET=$F_OFFSET
     else
-        MOD_ROFI_BG="\${colors.primary}"
-        MOD_ROFI_FG="\${colors.background-solid}"
-        MOD_ROFI_UND=""
-        MOD_ROFI_FONT=4
-        LAUNCH_ICON=$'\u00a0\u00a0'"${OS_ICON:-󰣆}"$'\u00a0\u00a0'
-        F_ROFI_SIZE=$(( H_NUM * 13 / 20 + 1 ))
-        R_ROFI_OFFSET=$(( (H_NUM - F_ROFI_SIZE) / 2 ))
-        [[ $R_ROFI_OFFSET -lt 0 ]] && R_ROFI_OFFSET=0
+        MOD_ROFI_BG="\${colors.primary}"; MOD_ROFI_FG="\${colors.background-solid}"; MOD_ROFI_UND=""
+        MOD_ROFI_FONT=4; LAUNCH_ICON=$'\u00a0\u00a0'"${OS_ICON:-󰣆}"$'\u00a0\u00a0'
+        F_ROFI_SIZE=$(( H_NUM * 13 / 20 + 1 )); R_ROFI_OFFSET=$(( (H_NUM - F_ROFI_SIZE) / 2 ))
     fi
 else
-    MOD_FOC_BG="\${colors.primary}"
-    MOD_FOC_FG="\${colors.background-solid}"
-    MOD_FOC_UND=""
-    MOD_PRE_BG="\${colors.primary}"
-    MOD_PRE_FG="\${colors.background-solid}"
-    MOD_ROFI_BG="\${colors.primary}"
-    MOD_ROFI_FG="\${colors.background-solid}"
-    MOD_ROFI_UND=""
-    MOD_ROFI_FONT=5
-    LAUNCH_ICON=$'\u00a0\u00a0'"${OS_ICON:-󰣆}"$'\u00a0\u00a0'
+    MOD_FOC_BG="\${colors.primary}"; MOD_FOC_FG="\${colors.background-solid}"; MOD_FOC_UND=""
+    MOD_PRE_BG="\${colors.primary}"; MOD_PRE_FG="\${colors.background-solid}"
+    MOD_ROFI_BG="\${colors.primary}"; MOD_ROFI_FG="\${colors.background-solid}"; MOD_ROFI_UND=""
+    MOD_ROFI_FONT=5; LAUNCH_ICON=$'\u00a0\u00a0'"${OS_ICON:-󰣆}"$'\u00a0\u00a0'
+    F_ROFI_SIZE=$(( H_NUM * 13 / 20 + 1 )); R_ROFI_OFFSET=$(( (H_NUM - F_ROFI_SIZE) / 2 ))
 fi
+[[ $R_ROFI_OFFSET -lt 0 ]] && R_ROFI_OFFSET=0
+F_ROFI_NAME="Symbols Nerd Font Mono"
 
 # 5. Generar variables.ini
 VARS_FILE="$CONF_DIR/variables.ini"
@@ -204,7 +177,7 @@ font-rofi = "$F_ROFI_NAME:size=$F_ROFI_SIZE;$R_ROFI_OFFSET"
 font-extra = "JetBrainsMono Nerd Font Mono:size=$F_EXTRA;$F_OFFSET_TEXT"
 font-firacode = "FiraCode Nerd Font:size=$F_ICON;$F_OFFSET_TEXT"
 font-symbols = "Symbols Nerd Font Mono:size=$F_SYM;$F_OFFSET_SYM"
-font-large = "JetBrainsMono Nerd Font Mono:size=$F_LARGE_SIZE;$F_OFFSET_LARGE"
+font-large = "JetBrainsMono Nerd Font Mono:size=$((F_SYM + 2));$F_OFFSET_LARGE"
 module-padding = 1
 label-padding = 1
 icon-padding = $ICON_PADDING
@@ -220,6 +193,7 @@ rofi-font = $MOD_ROFI_FONT
 launcher-icon = $LAUNCH_ICON
 launcher-icon-raw = ${OS_ICON:-󰣆}
 dots-cmd = ${BASE_DIR:-$PROJECT_ROOT}/dots
+current-env = $CURRENT_ENV
 
 ; Icon Library
 icon-cpu = 

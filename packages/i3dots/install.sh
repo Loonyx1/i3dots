@@ -169,8 +169,11 @@ export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PROJECT_ROOT:$PATH"
 
 # 7. Escribir configuraciones y variables locales
 print_step "Configurando persistencia de rutas en el sistema..."
+export PROJECT_ROOT="$(cd "$PACKAGE_DIR/../.." && pwd)"
+export CURRENT_ENV="${CURRENT_ENV:-$(basename "$PACKAGE_DIR")}"
 export STATE_DIR="${STATE_DIR:-$PROJECT_ROOT/core/state}"
 echo "set \$dots_cmd $PROJECT_ROOT/dots" > "$PACKAGE_DIR/dotfiles/i3/conf.d/vars.generated"
+echo "set \$current_env $CURRENT_ENV" >> "$PACKAGE_DIR/dotfiles/i3/conf.d/vars.generated"
 
 
 
