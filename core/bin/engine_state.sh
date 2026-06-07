@@ -10,7 +10,20 @@ if [ -z "$BASE_DIR" ]; then
     export STATE_DIR="$CORE_DIR/state"
 fi
 
-[ -z "$CURRENT_ENV" ] && export CURRENT_ENV="i3dots"
+if [ -z "$CURRENT_ENV" ]; then
+    # Intentar detectar el primer paquete disponible en packages/
+    for dir in "$BASE_DIR/packages"/*; do
+        if [ -d "$dir" ] && [ -f "$dir/config.env" ]; then
+            export CURRENT_ENV="${dir##*/}"
+            break
+        fi
+    done
+fi
+
+if [ -z "$CURRENT_ENV" ]; then
+    echo "Error: No se pudo detectar CURRENT_ENV y no hay paquetes válidos en packages/" >&2
+    exit 1
+fi
 
 NO_APPLY=0
 if [ "$1" = "--no-apply" ]; then
@@ -78,6 +91,28 @@ save_state_from_map() {
 
 load_state_to_map
 
+# Obtener metadata de identidad del hook
+PRIMARY_KEY="type"
+VARIANT_KEYS=""
+if [ -n "$COMP_HOOK" ]; then
+    query_output=$(bash "$COMP_HOOK" --query "${STATE_MAP[type]}" 2>/dev/null)
+    while IFS='=' read -r k v; do
+        [[ "$k" == "primary_key" ]] && PRIMARY_KEY="$v"
+        [[ "$k" == "variant_keys" ]] && VARIANT_KEYS="${v//,/ }"
+    done <<< "$query_output"
+fi
+
+get_identity_suffix() {
+    local suffix=""
+    local pk_val="${STATE_MAP[$PRIMARY_KEY]}"
+    [[ -n "$pk_val" ]] && suffix="_$pk_val"
+    for vk in $VARIANT_KEYS; do
+        local vk_val="${STATE_MAP[$vk]}"
+        [[ -n "$vk_val" ]] && suffix="${suffix}_$vk_val"
+    done
+    echo "$suffix"
+}
+
 # Variable para marcar si hubo cambios y requiere guardar en disco
 STATE_CHANGED=0
 
@@ -85,39 +120,46 @@ set_state_value() {
     local KEY="$1"
     local VAL="$2"
     
-    if [ "$KEY" == "type" ] && [ -n "$COMP_HOOK" ]; then
-        local old_type="${STATE_MAP[type]}"
+    # Detectar si la llave es una llave de identidad
+    local is_id_key=0
+    [[ "$KEY" == "$PRIMARY_KEY" ]] && is_id_key=1
+    for vk in $VARIANT_KEYS; do
+        [[ "$KEY" == "$vk" ]] && is_id_key=1
+    done
+
+    if [ "$is_id_key" -eq 1 ] && [ -n "$COMP_HOOK" ]; then
+        local old_suffix=$(get_identity_suffix)
         
-        # 1. Guardar opciones del tema anterior si existía
-        if [ -n "$old_type" ]; then
-            local old_query=$(bash "$COMP_HOOK" --query "$old_type" 2>/dev/null)
-            local old_opts=""
-            while IFS='=' read -r k v; do
-                [ "$k" == "supported_options" ] && old_opts="$v"
-            done <<< "$old_query"
-            
-            if [ -n "$old_opts" ]; then
-                IFS='|' read -ra OPT_ARRAY <<< "$old_opts"
-                for opt in "${OPT_ARRAY[@]}"; do
-                    IFS=':' read -r opt_key opt_label opt_vals <<< "$opt"
-                    local active_val="${STATE_MAP[$opt_key]}"
-                    [[ -z "$active_val" ]] && active_val="${opt_vals%%,*}"
-                    STATE_MAP["${opt_key}_${old_type}"]="$active_val"
-                done
-            fi
+        # 1. Guardar opciones actuales bajo la identidad vieja
+        local query=$(bash "$COMP_HOOK" --query "${STATE_MAP[type]}" 2>/dev/null)
+        local opts=""
+        while IFS='=' read -r k v; do
+            [ "$k" == "supported_options" ] && opts="$v"
+        done <<< "$query"
+        
+        if [ -n "$opts" ]; then
+            IFS='|' read -ra OPT_ARRAY <<< "$opts"
+            for opt in "${OPT_ARRAY[@]}"; do
+                IFS=':' read -r opt_key opt_label opt_vals <<< "$opt"
+                local active_val="${STATE_MAP[$opt_key]}"
+                # No guardar si es la misma llave de identidad que estamos cambiando
+                [[ "$opt_key" == "$KEY" ]] && continue
+                [[ -z "$active_val" ]] && active_val="${opt_vals%%,*}"
+                STATE_MAP["${opt_key}${old_suffix}"]="$active_val"
+            done
         fi
         
-        # 2. Guardar el nuevo tipo
-        STATE_MAP[type]="$VAL"
+        # 2. Aplicar el cambio de identidad
+        STATE_MAP["$KEY"]="$VAL"
+        local new_suffix=$(get_identity_suffix)
         
-        # 3. Cargar opciones del nuevo tema
-        local new_query=$(bash "$COMP_HOOK" --query "$VAL" 2>/dev/null)
+        # 3. Cargar/Restaurar opciones bajo la nueva identidad
+        local new_query=$(bash "$COMP_HOOK" --query "${STATE_MAP[type]}" 2>/dev/null)
         local new_opts=""
         while IFS='=' read -r k v; do
             [ "$k" == "supported_options" ] && new_opts="$v"
         done <<< "$new_query"
         
-        # 4. Restaurar/inicializar opciones del nuevo tema
         declare -A new_keys
         if [ -n "$new_opts" ]; then
             IFS='|' read -ra OPT_ARRAY <<< "$new_opts"
@@ -125,21 +167,28 @@ set_state_value() {
                 IFS=':' read -r opt_key opt_label opt_vals <<< "$opt"
                 new_keys["$opt_key"]=1
                 
-                local saved_key="${opt_key}_${VAL}"
+                # OMITIR si la opción es parte de la identidad (evita sobreescritura recursiva)
+                [[ "$opt_key" == "$PRIMARY_KEY" ]] && continue
+                local is_vk=0
+                for vk in $VARIANT_KEYS; do [[ "$opt_key" == "$vk" ]] && is_vk=1; done
+                [[ "$is_vk" -eq 1 ]] && continue
+                
+                local saved_key="${opt_key}${new_suffix}"
                 local saved_val="${STATE_MAP[$saved_key]}"
                 if [ -n "$saved_val" ]; then
                     STATE_MAP["$opt_key"]="$saved_val"
                 else
                     local default_val="${opt_vals%%,*}"
                     STATE_MAP["$opt_key"]="$default_val"
+                    # Opcional: inicializar persistencia si no existía
                     STATE_MAP["$saved_key"]="$default_val"
                 fi
             done
         fi
         
-        # 5. Eliminar opciones huérfanas en el estado activo
-        if [ -n "$old_type" ] && [ -n "$old_opts" ]; then
-            IFS='|' read -ra OPT_ARRAY <<< "$old_opts"
+        # 4. Limpiar opciones huérfanas en el estado activo
+        if [ -n "$opts" ]; then
+            IFS='|' read -ra OPT_ARRAY <<< "$opts"
             for opt in "${OPT_ARRAY[@]}"; do
                 IFS=':' read -r opt_key opt_label opt_vals <<< "$opt"
                 if [ -z "${new_keys[$opt_key]}" ]; then
@@ -151,17 +200,21 @@ set_state_value() {
         # Actualización de opción normal
         STATE_MAP["$KEY"]="$VAL"
         
-        # Guardar también en la variable del tema actual
-        local active_type="${STATE_MAP[type]}"
-        if [ -n "$active_type" ] && [ -n "$COMP_HOOK" ]; then
-            local query=$(bash "$COMP_HOOK" --query "$active_type" 2>/dev/null)
+        # Persistencia bajo la identidad actual (Omitir si es llave de identidad)
+        local is_id_key=0
+        [[ "$KEY" == "$PRIMARY_KEY" ]] && is_id_key=1
+        for vk in $VARIANT_KEYS; do [[ "$KEY" == "$vk" ]] && is_id_key=1; done
+
+        if [ "$is_id_key" -eq 0 ] && [ -n "$COMP_HOOK" ]; then
+            local suffix=$(get_identity_suffix)
+            local query=$(bash "$COMP_HOOK" --query "${STATE_MAP[type]}" 2>/dev/null)
             local opts=""
             while IFS='=' read -r k v; do
                 [ "$k" == "supported_options" ] && opts="$v"
             done <<< "$query"
             
             if [[ "$opts" == *"${KEY}:"* ]]; then
-                STATE_MAP["${KEY}_${active_type}"]="$VAL"
+                STATE_MAP["${KEY}${suffix}"]="$VAL"
             fi
         fi
     fi

@@ -21,7 +21,20 @@ if [ -z "$HOOK_DIR" ] || [ -z "$STATE_DIR" ]; then
     fi
 fi
 
-[ -z "$CURRENT_ENV" ] && export CURRENT_ENV="i3dots"
+if [ -z "$CURRENT_ENV" ]; then
+    # Intentar detectar el primer paquete disponible en packages/
+    for dir in "$BASE_DIR/packages"/*; do
+        if [ -d "$dir" ] && [ -f "$dir/config.env" ]; then
+            export CURRENT_ENV="${dir##*/}"
+            break
+        fi
+    done
+fi
+
+if [ -z "$CURRENT_ENV" ]; then
+    echo "Error: No se pudo detectar CURRENT_ENV en engine_display.sh" >&2
+    exit 1
+fi
 
 # Ruta del hook de pantalla e importación
 DISPLAY_HOOK="$HOOK_DIR/components/display.sh"
