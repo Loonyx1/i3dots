@@ -24,7 +24,57 @@ ELEVATOR="${ELEVATOR:-$SUDO_CMD}"
     command -v sudo &>/dev/null && ELEVATOR="sudo" || { command -v doas &>/dev/null && ELEVATOR="doas" || ELEVATOR=""; }
 }
 
+ask_privileges() {
+    [ "$EUID" -eq 0 ] && return 0
+    [ -z "$ELEVATOR" ] && return 0
+    
+    print_step "Se requieren privilegios para continuar. Ingresa tu contraseña."
+    if "$ELEVATOR" -v 2>/dev/null; then
+        # Mantener sudo vivo en segundo plano
+        while true; do "$ELEVATOR" -n -v; sleep 60; done 2>/dev/null &
+        SUDO_KEEP_ALIVE_PID=$!
+        trap 'kill $SUDO_KEEP_ALIVE_PID 2>/dev/null' EXIT
+        print_sub_ok "Privilegios confirmados."
+    else
+        print_sub_err "No se obtuvieron privilegios. Algunas tareas fallarán."
+        return 1
+    fi
+}
+
 run_elevated() {
+    local ticker=false
+    if [[ "$1" == "--ticker" ]]; then ticker=true; shift; fi
+
+    if [ "$ticker" = "true" ]; then
+        local cmd=("$@")
+        local spinner="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+        local i=0
+        local line
+        
+        # Ejecutar comando y procesar salida
+        (
+            if [ "$EUID" -ne 0 ] && [ -n "$ELEVATOR" ]; then
+                "$ELEVATOR" "${cmd[@]}" 2>&1
+            else
+                "${cmd[@]}" 2>&1
+            fi
+        ) | while read -r line; do
+            # Guardar en log (sin códigos de escape)
+            echo "$line" >> "${LOG_FILE:-/dev/null}"
+            
+            # Mostrar ticker (spinner + recorte de línea)
+            local char="${spinner:$((i % 10)):1}"
+            local clean_line="${line//[$'\t\r\n']/ }"
+            # Recortar a 60 caracteres para evitar overflow
+            local display_line="${clean_line:0:60}"
+            printf "\r  ${GRAY}%s${NC} ${GRAY}Trabajando...${NC} %s\e[K" "$char" "$display_line"
+            ((i++))
+        done
+        # Limpiar línea al finalizar
+        printf "\r\e[K"
+        return ${PIPESTATUS[0]}
+    fi
+
     if [ "$EUID" -ne 0 ] && [ -n "$ELEVATOR" ]; then
         "$ELEVATOR" "$@" &>> "${LOG_FILE:-/dev/null}"
     else
