@@ -55,25 +55,6 @@ print_step "Iniciando instalación para variante: ${VARIANT_NAME} (Offline: ${IS
 
 # (Lógica del elevador importada desde utils.sh)
 
-# 2. Detección de Hardware
-print_sub "Detectando componentes de hardware..."
-
-bats=(/sys/class/power_supply/BAT*)
-[ -e "${bats[0]}" ] && SYS_BAT="${bats[0]##*/}" || SYS_BAT="BAT0"
-
-adapters=(/sys/class/power_supply/AC* /sys/class/power_supply/AD*)
-[ -e "${adapters[0]}" ] && SYS_ADAPTER="${adapters[0]##*/}" || SYS_ADAPTER="ACAD"
-
-bk=(/sys/class/backlight/*)
-[ -e "${bk[0]}" ] && SYS_BACKLIGHT="${bk[0]##*/}" || SYS_BACKLIGHT="intel_backlight"
-
-SYS_INTERFACE="wlan0"
-for d in /sys/class/net/*; do
-    [ -f "$d/operstate" ] && [ "$(< "$d/operstate")" = "up" ] && { SYS_INTERFACE="${d##*/}"; break; }
-done
-
-print_sub_ok "Hardware detectado ($SYS_BAT, $SYS_ADAPTER, $SYS_INTERFACE, $SYS_BACKLIGHT)"
-
 # 3. Instalar dependencias
 if [ -n "$PKG_LIST" ] && [ -z "$SKIP_SYSTEM_PKGS" ]; then
     print_step "Instalando paquetes y dependencias del sistema..."
