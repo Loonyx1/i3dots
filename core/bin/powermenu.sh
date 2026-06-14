@@ -22,6 +22,9 @@ if [[ -z "$ROFI_LIST_MODE" && $# -eq 0 ]]; then
 
 elif [[ "$ROFI_LIST_MODE" -eq 1 && $# -eq 0 ]]; then
     # Fase 2: Rofi solicita lista (stdout)
+    UPTIME=$(uptime -p)
+    UPTIME=${UPTIME#up }
+    echo -en "\x00prompt\x1fUP - $UPTIME\n"
     echo -e "$L_SUSPEND\n$L_LOGOUT\n$L_REBOOT\n$L_SHUTDOWN"
     exit 0
 else

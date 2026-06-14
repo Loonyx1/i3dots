@@ -22,16 +22,35 @@ window {
 
 mainbox {
     background-color:               @BG;
-    children:                       [ listview ];
-    spacing:                        15px;
+    children:                       [ inputbar, listview ];
+    spacing:                        10px;
     padding:                        15px;
+}
+
+inputbar {
+    enabled:                        true;
+    background-color:               transparent;
+    text-color:                     @FG;
+    expand:                         false;
+    margin:                         0px;
+    padding:                        0px 0px 5px 0px;
+    children:                       [ prompt ];
+}
+
+prompt {
+    enabled:                        true;
+    background-color:               transparent;
+    text-color:                     @FG;
+    font:                           "JetBrains Mono NF 9";
+    horizontal-align:               0.5;
+    vertical-align:                 0.5;
 }
 
 listview {
     background-color:               @BG;
     columns:                        1;
     lines:                          4;
-    spacing:                        15px;
+    spacing:                        18px;
     cycle:                          true;
     dynamic:                        true;
     layout:                         vertical;
@@ -45,8 +64,8 @@ element {
     background-color:               transparent;
     text-color:                     @FG;
     orientation:                    vertical;
-    border-radius:                  10px;
-    padding:                        20px 0px;
+    border-radius:                  8px;
+    padding:                        12px 0px;
     cursor:                         pointer;
 }
 
@@ -71,5 +90,5 @@ element selected.urgent,
 element selected.active {
     background-color:               @SEL;
     text-color:                     @BG;
-    border-radius:                  10px;
+    border-radius:                  8px;
 }
