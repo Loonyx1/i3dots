@@ -82,10 +82,12 @@ else
     fi
     ln -sf "$color_src" "$WP_STATE_DIR/color_source"
 
-    # Aplicar wallpaper y recargar secuencia (silenciar salidas para cerrar Rofi)
-    wp_select.sh -C "$FINAL_PATH" &>/dev/null
-    (polybar-msg cmd hide ; pkill -u $UID -x polybar) &>/dev/null &
-    engine_matugen.sh -D -T scheme-fidelity -P saturation &>/dev/null
-    apply_dots.sh &>/dev/null
+    # Aplicar wallpaper y recargar secuencia en segundo plano (cierre inmediato de Rofi)
+    (
+        wp_select.sh -C "$FINAL_PATH"
+        (polybar-msg cmd hide ; pkill -u $UID -x polybar) &>/dev/null &
+        engine_matugen.sh -D -T scheme-fidelity -P saturation
+        apply_dots.sh
+    ) &>/dev/null &
     exit 0
 fi
