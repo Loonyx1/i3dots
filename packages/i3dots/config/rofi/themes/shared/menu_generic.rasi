@@ -1,8 +1,11 @@
 /**
- * Theme for display change confirmation dialog
+ * shared/menu_generic.rasi
+ * Estilo base unificado para selectores simples (display, bar, confirmaciones)
+ * Recuperado del diseño original de display_selector.rasi
  */
 
-@import "shared/colors.rasi"
+@import "colors.rasi"
+@import "fonts.rasi"
 
 configuration {
     show-icons:                 false;
@@ -13,7 +16,7 @@ window {
     location:                    center;
     anchor:                      center;
     fullscreen:                  false;
-    width:                       400px;
+    width:                       450px;
     enabled:                     true;
     margin:                      0px;
     padding:                     0px;
@@ -30,40 +33,46 @@ mainbox {
     margin:                      0px;
     padding:                     0px;
     background-color:            transparent;
-    children:                    [ "inputbar", "message", "listview" ];
+    children:                    [ "inputbar", "listview" ];
 }
 
 inputbar {
     enabled:                     true;
-    spacing:                     0px;
+    spacing:                     10px;
     margin:                      0px;
-    padding:                     25px 15px;
+    padding:                     20px;
     background-color:            @background-alt;
     text-color:                  @foreground;
-    children:                    [ "prompt" ];
+    children:                    [ "prompt", "entry" ];
 }
 
 prompt {
     enabled:                     true;
     background-color:            transparent;
-    text-color:                  @foreground;
-    font:                        "JetBrainsMono Nerd Font Bold 12";
-    horizontal-align:            0.5;
-    vertical-align:              0.5;
+    text-color:                  @selected;
+}
+
+entry {
+    enabled:                     true;
+    background-color:            transparent;
+    text-color:                  inherit;
+    cursor:                      text;
+    placeholder:                 "Filtrar...";
+    placeholder-color:           @selected;
 }
 
 listview {
     enabled:                     true;
-    columns:                     2;
-    lines:                       1;
+    columns:                     1;
+    lines:                       6;
     cycle:                       true;
-    dynamic:                     false;
+    dynamic:                     true;
     scrollbar:                   false;
     layout:                      vertical;
     reverse:                     false;
     fixed-height:                true;
     fixed-columns:               true;
-    spacing:                     15px;
+    spacing:                     5px;
     margin:                      0px;
     padding:                     15px;
     background-color:            transparent;
@@ -73,11 +82,11 @@ listview {
 
 element {
     enabled:                     true;
-    spacing:                     0px;
+    spacing:                     10px;
     margin:                      0px;
-    padding:                     12px;
+    padding:                     10px;
     border-radius:               8px;
-    background-color:            @background-alt;
+    background-color:            transparent;
     text-color:                  @foreground;
     cursor:                      pointer;
 }
@@ -90,24 +99,7 @@ element selected.normal {
 element-text {
     background-color:            transparent;
     text-color:                  inherit;
-    font:                        "JetBrainsMono Nerd Font Bold 11";
     cursor:                      inherit;
     vertical-align:              0.5;
-    horizontal-align:            0.5;
-}
-
-message {
-    enabled:                     true;
-    margin:                      0px;
-    padding:                     15px 15px 5px 15px;
-    background-color:            transparent;
-    text-color:                  @foreground;
-}
-
-textbox {
-    background-color:            transparent;
-    text-color:                  inherit;
-    font:                        "JetBrainsMono Nerd Font Italic 10";
-    vertical-align:              0.5;
-    horizontal-align:            0.5;
+    horizontal-align:            0.0;
 }

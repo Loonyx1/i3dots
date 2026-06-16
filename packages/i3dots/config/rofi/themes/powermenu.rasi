@@ -5,8 +5,8 @@ configuration {
     location:                       4;
 }
 
-@import "font.rasi"
-@import "~/.config/rofi/themes/shared/colors.rasi"
+@import "shared/fonts.rasi"
+@import "shared/colors.rasi"
 
 window {
     transparency:                   "real";

@@ -17,7 +17,7 @@ STATE_FILE="$BAR_STATE_DIR/state.env"
 if [ "$1" == "--query" ]; then
     CUR_TYPE="${2:-$(source "$STATE_FILE" 2>/dev/null && echo "$type" || echo "polybar_antigua")}"
     CUR_TYPE=$(echo "$CUR_TYPE" | tr -d '[:space:]')
-    THEME_SRC="$PACKAGE_DIR/dotfiles/polybar_configs/$CUR_TYPE"
+    THEME_SRC="$PACKAGE_DIR/config/polybar/$CUR_TYPE"
     
     SUPPORTED=""
     # Cargar opciones dinámicas del tema
@@ -28,7 +28,7 @@ if [ "$1" == "--query" ]; then
         done < "$THEME_SRC/options.conf"
     fi
 
-    echo "themes_dir=$PACKAGE_DIR/dotfiles/polybar_configs"
+    echo "themes_dir=$PACKAGE_DIR/config/polybar"
     echo "default_theme=polybar_antigua"
     echo "primary_key=type"
     echo "variant_keys=mode"
@@ -61,7 +61,7 @@ if [ -f "$STATE_FILE" ]; then
 fi
 
 TYPE="${TYPE//[[:space:]]/}"
-THEME_SRC="$PACKAGE_DIR/dotfiles/polybar_configs/$TYPE"
+THEME_SRC="$PACKAGE_DIR/config/polybar/$TYPE"
 CONF_DIR="$HOME/.config/polybar"
 mkdir -p "$CONF_DIR"
 
@@ -217,7 +217,7 @@ EOF
 ln -sf "$VARS_FILE" "/dev/shm/user_configs.ini"
 
 # 6. Enlace de Lanzador e Inicio
-ln -sf "$PACKAGE_DIR/dotfiles/polybar_launch.sh" "$CONF_DIR/system_launch.sh"
+ln -sf "$PACKAGE_DIR/bin/polybar_launch.sh" "$CONF_DIR/system_launch.sh"
 if [ -x "$THEME_SRC/launch.sh" ]; then
     ln -sf "current_theme/launch.sh" "$CONF_DIR/launch.sh"
 else

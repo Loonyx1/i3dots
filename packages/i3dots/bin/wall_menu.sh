@@ -458,7 +458,7 @@ if [[ -n "$SELECTION" ]]; then
     fi
     
     # Actualizar origen de color para Matugen de forma local (evita fork de wp_color.sh)
-    local color_src="$FINAL_PATH"
+    color_src="$FINAL_PATH"
     if [[ "$THUMB_MODE" == "enabled" && "$MATUGEN_USE_THUMB" == "true" ]]; then
         get_thumb_path "$FINAL_PATH"
         [[ -f "$RET_THUMB" ]] && color_src="$RET_THUMB"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# packages/i3dots/dotfiles/polybar_launch.sh - Lanzador universal de Polybar
+# packages/i3dots/bin/polybar_launch.sh - Lanzador universal de Polybar
 # Copiado a ~/.config/polybar/system_launch.sh durante instalación.
 
 # 1. Resolver Directorios de Estado de Forma Dinámica

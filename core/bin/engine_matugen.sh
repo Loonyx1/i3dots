@@ -63,7 +63,7 @@ if [[ ! -f "$IMG_PATH" ]]; then
 fi
 
 # 3. Localizar configuración de matugen en el paquete
-MATUGEN_CONF="$PACKAGE_DIR/dotfiles/matugen/config.toml"
+MATUGEN_CONF="$PACKAGE_DIR/config/matugen/config.toml"
 [[ ! -f "$MATUGEN_CONF" ]] && MATUGEN_CONF="$PACKAGE_DIR/matugen/config.toml"
 
 # 4. Ejecución de Matugen

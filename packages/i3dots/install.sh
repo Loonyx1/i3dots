@@ -59,8 +59,6 @@ ask_privileges
 # 3. Instalar dependencias
 if [ -n "$PKG_LIST" ] && [ -z "$SKIP_SYSTEM_PKGS" ]; then
     print_step "Instalando paquetes y dependencias del sistema..."
-    
-    # Combinar actualización e instalación en una sola llamada para evitar múltiples prompts de contraseña
     FULL_CMD=""
     if [ -n "$PKG_UPDATE_CMD" ]; then
         FULL_CMD="$PKG_MANAGER $PKG_UPDATE_CMD && "
@@ -163,19 +161,13 @@ else
     rm -rf "$TEMP_MATUGEN"
 fi
 
-# Ajustar rutas en entorno
-export PROJECT_ROOT="$(cd "$PACKAGE_DIR/../.." && pwd)"
-export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PROJECT_ROOT:$PATH"
-
 # 7. Escribir configuraciones y variables locales
 print_step "Configurando persistencia de rutas en el sistema..."
 export PROJECT_ROOT="$(cd "$PACKAGE_DIR/../.." && pwd)"
 export CURRENT_ENV="${CURRENT_ENV:-$(basename "$PACKAGE_DIR")}"
 export STATE_DIR="${STATE_DIR:-$PROJECT_ROOT/core/state}"
-echo "set \$dots_cmd $PROJECT_ROOT/dots" > "$PACKAGE_DIR/dotfiles/i3/conf.d/vars.generated"
-echo "set \$current_env $CURRENT_ENV" >> "$PACKAGE_DIR/dotfiles/i3/conf.d/vars.generated"
-
-
+echo "set \$dots_cmd $PROJECT_ROOT/dots" > "$PACKAGE_DIR/config/i3/conf.d/vars.generated"
+echo "set \$current_env $CURRENT_ENV" >> "$PACKAGE_DIR/config/i3/conf.d/vars.generated"
 
 # Bashrc
 add_rc() {
@@ -186,7 +178,7 @@ add_rc "MAHOGARA_DOTS" $'\n# Mahogara Dots\nexport PATH="'"$PROJECT_ROOT"':$PATH
 add_rc "QT_QPA_PLATFORMTHEME" 'export QT_QPA_PLATFORMTHEME=qt6ct'
 print_sub_ok "Rutas y variables persistidas en ~/.bashrc"
 
-# 8. Crear enlaces simbólicos
+# 8. Crear enlaces simbólicos (Sistema Agnóstico)
 print_step "Enlazando archivos de configuración (symlinks)..."
 
 BACKUP_DIR=""
@@ -222,54 +214,66 @@ safe_link() {
 }
 
 mkdir -p ~/.config
-safe_link "$PACKAGE_DIR/dotfiles/i3" "$HOME/.config/i3"
 
-safe_link "$PACKAGE_DIR/dotfiles/rofi" "$HOME/.config/rofi"
-safe_link "$PACKAGE_DIR/dotfiles/kitty" "$HOME/.config/kitty"
-safe_link "$PACKAGE_DIR/dotfiles/picom" "$HOME/.config/picom"
-safe_link "$PACKAGE_DIR/dotfiles/gtk-3.0" "$HOME/.config/gtk-3.0"
-safe_link "$PACKAGE_DIR/dotfiles/gtk-4.0" "$HOME/.config/gtk-4.0"
-safe_link "$PACKAGE_DIR/dotfiles/qt6ct" "$HOME/.config/qt6ct"
-safe_link "$PACKAGE_DIR/dotfiles/matugen" "$HOME/.config/matugen"
-safe_link "$PACKAGE_DIR/dotfiles/.gtkrc-2.0" "$HOME/.gtkrc-2.0"
+# Enlazar todo lo que esté en config/ hacia ~/.config/
+if [ -d "$PACKAGE_DIR/config" ]; then
+    for item in "$PACKAGE_DIR/config"/*; do
+        [ -e "$item" ] || continue
+        name=$(basename "$item")
+        safe_link "$item" "$HOME/.config/$name"
+    done
+fi
 
-# 8.5 Configurar GTK para root (opcional, si se tienen privilegios sin contraseña)
+# Enlazar todo lo que esté en root/ hacia ~/
+if [ -d "$PACKAGE_DIR/root" ]; then
+    # Usar dotglob para que * incluya archivos ocultos en este loop
+    (
+        shopt -s dotglob
+        for item in "$PACKAGE_DIR/root"/*; do
+            [ -e "$item" ] || continue
+            name=$(basename "$item")
+            [[ "$name" == "." || "$name" == ".." ]] && continue
+            safe_link "$item" "$HOME/$name"
+        done
+    )
+fi
+
+# 8.5 Configurar GTK para root (opcional)
 if run_elevated_nopasswd; then
     print_sub "Configurando tema GTK para root..."
     run_elevated mkdir -p /root/.config /root/.themes
-    run_elevated cp -rf "$PACKAGE_DIR/dotfiles/gtk-3.0" "$PACKAGE_DIR/dotfiles/gtk-4.0" /root/.config/
-    run_elevated cp -f "$PACKAGE_DIR/dotfiles/.gtkrc-2.0" /root/
+    run_elevated cp -rf "$PACKAGE_DIR/config/gtk-3.0" "$PACKAGE_DIR/config/gtk-4.0" /root/.config/
+    [ -f "$PACKAGE_DIR/root/.gtkrc-2.0" ] && run_elevated cp -f "$PACKAGE_DIR/root/.gtkrc-2.0" /root/
     [ -d "$HOME/.themes/adw-gtk3-dark" ] && run_elevated ln -sfn "$HOME/.themes/adw-gtk3-dark" /root/.themes/adw-gtk3-dark
     print_sub_ok "Configuración GTK copiada a /root."
 fi
 
 # Permisos de ejecución
 print_sub "Asegurando permisos de ejecución en scripts..."
-find "$PACKAGE_DIR/dotfiles/rofi/bin" -type f -name "*.sh" -o -not -name "*.*" -exec chmod +x {} + &>> "$LOG_FILE"
-chmod +x "$PACKAGE_DIR/dotfiles/polybar_launch.sh" &>> "$LOG_FILE"
-find "$PACKAGE_DIR/dotfiles/polybar_configs" -type f -name "*.sh" -exec chmod +x {} + &>> "$LOG_FILE"
+chmod +x "$PACKAGE_DIR/bin/polybar_launch.sh" &>> "$LOG_FILE"
+find "$PACKAGE_DIR/config/rofi/bin" -type f -exec chmod +x {} + &>> "$LOG_FILE"
+find "$PACKAGE_DIR/config/polybar" -type f -name "*.sh" -exec chmod +x {} + &>> "$LOG_FILE"
 
 # 9. Inicializar Wallpaper y Matugen
 print_step "Estableciendo wallpaper e inicializando paleta..."
 DEFAULT_WALL="${CLI_WALL:-${DEFAULT_WALLPAPER:-zd.png}}"
-WALL_DIR="${CLI_WALL_SRC:-${WALLPAPER_SRC:-$PACKAGE_DIR/dotfiles/wall}}"
+WALL_DIR="${CLI_WALL_SRC:-${WALLPAPER_SRC:-$PACKAGE_DIR/assets/wall}}"
 
 mkdir -p "$HOME/wall"
 if [ -d "$WALL_DIR" ]; then
-    # Crear enlaces simbólicos individuales de forma robusta (soporta espacios y subcarpetas)
     find "$WALL_DIR" -type f -exec ln -sf {} "$HOME/wall/" \;
 fi
 
 WALLPAPER_FILE="$HOME/wall/$DEFAULT_WALL"
 
 if [ -f "$WALLPAPER_FILE" ]; then
-    # Guardar estado del wallpaper
     mkdir -p "$HOME/.config/i3"
     ln -sf "$WALLPAPER_FILE" "$HOME/.config/i3/current"
     echo "$WALLPAPER_FILE" > "$HOME/.config/i3/wall"
     
     if command -v matugen &> /dev/null; then
-        if matugen image "$WALLPAPER_FILE" --prefer saturation &>> "$LOG_FILE"; then
+        # Pasar la ruta de config de matugen explícitamente
+        if matugen --config "$PACKAGE_DIR/config/matugen/config.toml" image "$WALLPAPER_FILE" --prefer saturation &>> "$LOG_FILE"; then
             print_sub_ok "Paleta de colores Matugen generada ($DEFAULT_WALL)."
         else
             print_sub_err "Fallo al ejecutar Matugen."
@@ -298,7 +302,7 @@ if command -v gsettings &> /dev/null; then
     print_sub_ok "Tema oscuro y cursores establecidos."
 fi
 
-# Resumen de backups realizados (si los hubo)
+# Resumen de backups realizados
 if [ -n "$BACKUP_DIR" ] && [ "${#BACKUPS_MADE[@]}" -gt 0 ]; then
     print_step "Resumen de respaldos realizados..."
     print_sub_warn "Respaldos guardados en: $BACKUP_DIR"

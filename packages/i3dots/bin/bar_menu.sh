@@ -53,6 +53,10 @@ for arg in "$@"; do
     [[ "$arg" == "--manage" ]] && DO_MANAGE=1
 done
 
+if [ $# -eq 0 ]; then
+    DO_SELECT=1
+fi
+
 # A. Selector de Presets (--select)
 if [ "$DO_SELECT" -eq 1 ]; then
     presets=$("${ENGINE_CMD[@]}" --list-presets)

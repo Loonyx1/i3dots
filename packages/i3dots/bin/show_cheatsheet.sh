@@ -10,7 +10,7 @@ fi
 
 # 2. Localizar Imagen
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-IMG_PATH="$SCRIPT_DIR/../dotfiles/cheatsheet.png"
+IMG_PATH="$SCRIPT_DIR/../assets/cheatsheet.png"
 
 
 if [ ! -f "$IMG_PATH" ]; then
