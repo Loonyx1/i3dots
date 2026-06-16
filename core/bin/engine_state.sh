@@ -240,7 +240,7 @@ case "$ACTION" in
         ;;
         
     --get)
-        KEY="$3"
+        KEY="$2"
         if [ -z "$KEY" ]; then
             echo "Error: --get requiere <clave>" >&2
             exit 1

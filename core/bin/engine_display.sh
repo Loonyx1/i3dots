@@ -2,10 +2,11 @@
 # core/bin/engine_display.sh - Motor de gestión de resoluciones universal optimizado
 
 # 1. Resolver Directorios y Fallbacks
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export BASE_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+export CORE_DIR="$BASE_DIR/core"
+
 if [ -z "$HOOK_DIR" ] || [ -z "$STATE_DIR" ]; then
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    export BASE_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
-    export CORE_DIR="$BASE_DIR/core"
     export STATE_DIR="$CORE_DIR/state"
     export PACKAGES_DIR="$BASE_DIR/packages"
     
