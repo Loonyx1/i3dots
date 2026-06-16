@@ -82,10 +82,8 @@ if [ -d "$THEME_SRC" ]; then
         fi
     done
 
-    # Si colors.ini no existe, enlazar el del tema si está disponible
-    if [ ! -f "$CONF_DIR/colors.ini" ] && [ -f "$THEME_SRC/colors.ini" ]; then
-        ln -sf "$THEME_SRC/colors.ini" "$CONF_DIR/colors.ini"
-    fi
+    # Asegurar que colors.ini existe (vía tema o copia del instalador)
+    [ ! -f "$CONF_DIR/colors.ini" ] && [ -f "$THEME_SRC/colors.ini" ] && ln -sf "$THEME_SRC/colors.ini" "$CONF_DIR/colors.ini"
 fi
 
 # 3. Lógica Especial de Variantes (Underline / Solid)

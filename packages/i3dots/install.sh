@@ -215,11 +215,13 @@ safe_link() {
 
 mkdir -p ~/.config
 
-# Enlazar todo lo que esté en config/ hacia ~/.config/
+# Enlazar todo lo que esté en config/ hacia ~/.config/ (Excluyendo Polybar por ser dinámico)
 if [ -d "$PACKAGE_DIR/config" ]; then
     for item in "$PACKAGE_DIR/config"/*; do
         [ -e "$item" ] || continue
         name=$(basename "$item")
+        # Polybar se gestiona vía hook para evitar ensuciar el repo con enlaces dinámicos
+        [ "$name" == "polybar" ] && continue
         safe_link "$item" "$HOME/.config/$name"
     done
 fi
@@ -291,6 +293,18 @@ fi
 print_step "Inicializando estado de la barra en disco..."
 mkdir -p "$STATE_DIR/i3dots/bar"
 echo "type=\"${BAR_DEFAULT_TYPE:-polybar_antigua}\"" > "$STATE_DIR/i3dots/bar/state.env"
+
+# Preparar carpeta real de Polybar y provisión inicial de colores
+mkdir -p ~/.config/polybar
+[ ! -f ~/.config/polybar/colors.ini ] && cp "$PACKAGE_DIR/config/polybar/colors.ini" ~/.config/polybar/colors.ini
+
+# Ejecutar hook de Polybar para generar variables iniciales
+if [ -f "$PACKAGE_DIR/hooks/components/polybar.sh" ]; then
+    print_sub "Ejecutando hook de Polybar..."
+    export PACKAGE_DIR
+    bash "$PACKAGE_DIR/hooks/components/polybar.sh" &>> "$LOG_FILE"
+    print_sub_ok "Configuración de Polybar inicializada."
+fi
 
 # 10. Aplicar gsettings (GTK)
 if command -v gsettings &> /dev/null; then
