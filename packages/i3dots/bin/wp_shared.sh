@@ -58,3 +58,49 @@ list_wallpapers() {
     find -L "$WALLPAPER_DIR" -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.gif" -o -iname "*.webp" \) | sort
 }
 
+# 5. Generador centralizado y optimizado de listas para Rofi
+generate_rofi_list() {
+    local line_tmpl="${1:-%f\x00icon\x1f%p}"
+    local out=""
+    local wallpapers_to_gen=""
+
+    # 1. Obtener rutas reales en bloque (un solo fork inicial)
+    # 2. Bucle de procesamiento (0 forks internos usando builtins de bash)
+    while IFS= read -r file; do
+        [[ -z "$file" ]] && continue
+        
+        local thumb_to_use="$file"
+        if [[ "$THUMB_MODE" == "enabled" ]]; then
+            local safe_name="${file//\//_}"
+            local thumb="$WP_STATE_DIR/thumbs/$THUMB_SIZE/${safe_name}.jpg"
+            
+            # [[ -ot ]] es builtin, no hace fork
+            if [[ -f "$thumb" && "$file" -ot "$thumb" ]]; then
+                thumb_to_use="$thumb"
+            else
+                wallpapers_to_gen+="$file"$'\n'
+                if [[ "$NO_THUMB_MODE" == "original" ]]; then
+                    thumb_to_use="$file"
+                else
+                    thumb_to_use="image-x-generic"
+                fi
+            fi
+        fi
+
+        local rel_path="${file#$WALLPAPER_DIR/}"
+        local line="$line_tmpl"
+        line="${line//%f/${file##*/}}"
+        line="${line//%r/$rel_path}"
+        line="${line//%p/$thumb_to_use}"
+        out+="$line"$'\n'
+    done < <(find -L "$WALLPAPER_DIR" -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.gif" -o -iname "*.webp" \) -print0 | xargs -0 realpath | sort -u)
+
+    # Lanzar pre-caché async de fondo (Totalmente desacoplado para no bloquear Rofi)
+    if [[ "$THUMB_MODE" == "enabled" ]] && [[ "$BG_GENERATION" == "true" ]] && [[ -n "$wallpapers_to_gen" ]]; then
+        wp_cache.sh --bg-gen <<< "$wallpapers_to_gen" >/dev/null 2>&1 &
+        disown $! 2>/dev/null || true
+    fi
+
+    echo -ne "$out"
+}
+
