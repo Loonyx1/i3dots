@@ -42,21 +42,8 @@ packages/i3dots/config/qt6ct/qt6ct.conf
 packages/i3dots/config/i3/current
 packages/i3dots/config/i3/wall
 
-# i3dots: Memoria privada del agente
-.gemini/
-memory/
-MEMORY.md
-
-# i3dots: Archivos dinámicos de colores (Matugen)
-packages/i3dots/config/gtk-3.0/colors.css
-packages/i3dots/config/gtk-4.0/colors.css
-packages/i3dots/config/i3/*.generated
-packages/i3dots/config/kitty/colors.conf
-packages/i3dots/config/qt6ct/colors/matugen.conf
-packages/i3dots/config/rofi/themes/shared/colors.rasi
-packages/i3dots/config/i3/current
-packages/i3dots/config/i3/wall
-packages/i3dots/config/qt6ct/qt6ct.conf
+# i3dots: Configuración de hardware dinámica
+packages/*/config/i3/conf.d/output.conf
 
 # i3dots: Memoria privada del agente
 .gemini/
