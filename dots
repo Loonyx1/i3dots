@@ -19,7 +19,7 @@ PACKAGE_NAME=""
 ACTION_NAME=""
 
 # 2. Parseo de Comandos y Argumentos
-if [[ "$1" == "export" || "$1" == "import" || "$1" == "apply" || "$1" == "install" ]]; then
+if [[ "$1" == "export" || "$1" == "import" || "$1" == "apply" || "$1" == "install" || "$1" == "uninstall" ]]; then
     COMMAND="$1"
     shift
 fi
@@ -35,7 +35,7 @@ while [[ $# -gt 0 ]]; do
             if [ "$CURRENT_TARGET" == "GENERAL" ]; then
                 if [ -z "$PACKAGE_NAME" ] && [[ ! "$1" =~ ^- ]]; then
                     PACKAGE_NAME="$1"
-                elif [ -z "$ACTION_NAME" ] && [[ ! "$1" =~ ^- ]] && [ "$COMMAND" != "install" ]; then
+                elif [ -z "$ACTION_NAME" ] && [[ ! "$1" =~ ^- ]] && [[ "$COMMAND" != "install" && "$COMMAND" != "uninstall" ]]; then
                     ACTION_NAME="$1"
                 else
                     GENERAL_ARGS+=("$1")
@@ -48,7 +48,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# 3. Lógica de Comandos (export/import/install)
+# 3. Lógica de Comandos (export/import/install/uninstall)
 case "$COMMAND" in
     export)
         [ -z "$PACKAGE_NAME" ] && { print_sub_err "Error: especifica paquete a exportar."; exit 1; }
@@ -79,6 +79,17 @@ case "$COMMAND" in
             exit 0
         else
             print_sub_err "Error: el paquete '$PACKAGE_NAME' no tiene script de instalación."
+            exit 1
+        fi
+        ;;
+    uninstall)
+        [ -z "$PACKAGE_NAME" ] && { print_sub_err "Error: especifica paquete a desinstalar."; exit 1; }
+        export PACKAGE_DIR="$PACKAGES_DIR/$PACKAGE_NAME"
+        if [ -x "$PACKAGE_DIR/uninstall.sh" ]; then
+            "$PACKAGE_DIR/uninstall.sh" "${GENERAL_ARGS[@]}"
+            exit 0
+        else
+            print_sub_err "Error: el paquete '$PACKAGE_NAME' no tiene script de desinstalación."
             exit 1
         fi
         ;;
