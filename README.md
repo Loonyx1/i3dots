@@ -53,7 +53,7 @@ cd i3dots
 |<kbd>super</kbd> + <kbd>Q</kbd>| Kill Focused Window
 |<kbd>super</kbd> + <kbd>W</kbd>|  wallpaper Selector
 |<kbd>super</kbd> + <kbd>Tab</kbd>|Powermenu
-|<kbd>Super</kbd> + <kbd> E | nemo
+|<kbd>Super</kbd> + <kbd> E | pcmanfm-qt
 |<kbd>super</kbd> + <kbd>Shift</kbd> + <kbd>R</kbd>| Restart I3
 |<kbd>super</kbd> + <kbd>Shift</kbd> + <kbd>B</kbd>| Abrir el menu para cambiar la polybar
 |<kbd>super</kbd> + <kbd>Shift</kbd> + <kbd>M</kbd>| Abrir el menu para cambiar la polybar de tamaño
