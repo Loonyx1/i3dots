@@ -58,18 +58,44 @@ ask_privileges
 
 # 3. Instalar dependencias
 if [ -n "$PKG_LIST" ] && [ -z "$SKIP_SYSTEM_PKGS" ]; then
-    print_step "Instalando paquetes y dependencias del sistema..."
-    FULL_CMD=""
-    if [ -n "$PKG_UPDATE_CMD" ]; then
-        FULL_CMD="$PKG_MANAGER $PKG_UPDATE_CMD && "
+    print_step "Verificando dependencias del sistema..."
+    
+    # Obtener paquetes instalados localmente de forma agnóstica y veloz
+    INSTALLED_PKGS=""
+    if [ -n "$PKG_QUERY_CMD" ]; then
+        INSTALLED_PKGS=$(eval "$PKG_QUERY_CMD" 2>/dev/null)
     fi
-    FULL_CMD+="$PKG_MANAGER $PKG_INSTALL_CMD $PKG_LIST"
 
-    print_sub "Procesando paquetes (actualización e instalación)..."
-    if run_elevated --ticker bash -c "$FULL_CMD"; then
-        print_sub_ok "Paquetes de sistema instalados correctamente."
+    # Filtrar paquetes de PKG_LIST que no estén instalados (0 forks dentro del bucle)
+    MISSING_PKGS=()
+    # Reemplazar saltos de línea por espacios para búsqueda exacta nativa en Bash
+    INSTALLED_FLAT=" ${INSTALLED_PKGS//$'\n'/ } "
+    for pkg in $PKG_LIST; do
+        if [[ "$INSTALLED_FLAT" =~ " $pkg " ]]; then
+            continue
+        else
+            MISSING_PKGS+=("$pkg")
+        fi
+    done
+
+    if [ ${#MISSING_PKGS[@]} -eq 0 ]; then
+        print_sub_ok "Todas las dependencias ya están instaladas."
     else
-        print_sub_warn "Fallo en gestor de paquetes o cancelación del usuario. Se omiten dependencias."
+        print_sub "Paquetes faltantes a instalar: ${MISSING_PKGS[*]}"
+        
+        # Generar comando de instalación solo con los paquetes faltantes
+        FULL_CMD=""
+        if [ -n "$PKG_UPDATE_CMD" ]; then
+            FULL_CMD="$PKG_MANAGER $PKG_UPDATE_CMD && "
+        fi
+        FULL_CMD+="$PKG_MANAGER $PKG_INSTALL_CMD ${MISSING_PKGS[*]}"
+
+        print_sub "Procesando instalación de paquetes faltantes..."
+        if run_elevated --ticker bash -c "$FULL_CMD"; then
+            print_sub_ok "Paquetes de sistema instalados correctamente."
+        else
+            print_sub_warn "Fallo en gestor de paquetes o cancelación del usuario. Se omiten dependencias."
+        fi
     fi
 fi
 
@@ -77,31 +103,54 @@ fi
 print_step "Instalando tipografías (Nerd Fonts)..."
 mkdir -p ~/.local/share/fonts
 
-install_font() {
-    local name="$1" url="$2"
-    for path in "$HOME/.local/share/fonts/$name" "/usr/share/fonts/$name" "/usr/share/fonts/TTF/$name" "/usr/share/fonts/truetype/$name"; do
-        [ -d "$path" ] && { print_sub_ok "Fuente $name ya instalada."; return 0; }
-    done
-    [ -n "$SKIP_FONTS_DOWNLOAD" ] && { print_sub_ok "Fuente $name (omitida)."; return 0; }
-    
-    print_sub "Instalando tipografía $name..."
-    local temp=$(mktemp -d)
-    if wget -q --show-progress -P "$temp" "$url" &>> "$LOG_FILE" && unzip -q "$temp"/*.zip -d ~/.local/share/fonts/"$name" &>> "$LOG_FILE"; then
-        print_sub_ok "Fuente $name lista."
-    else
-        print_sub_err "Fallo al descargar/extraer $name."
-    fi
-    rm -rf "$temp"
-}
-
 fonts_list=(
     "JetBrainsMonoNerd|https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/JetBrainsMono.zip"
     "FiraCodeNerd|https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/FiraCode.zip"
     "SymbolsNerdFont|https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/NerdFontsSymbolsOnly.zip"
 )
+
+INSTALLED_FONTS=()
+MISSING_FONTS=()
+
+check_font_installed() {
+    local name="$1"
+    for path in "$HOME/.local/share/fonts/$name" "/usr/share/fonts/$name" "/usr/share/fonts/TTF/$name" "/usr/share/fonts/truetype/$name"; do
+        [ -d "$path" ] && return 0
+    done
+    return 1
+}
+
 for f in "${fonts_list[@]}"; do
-    install_font "${f%%|*}" "${f##*|}"
+    name="${f%%|*}"
+    if check_font_installed "$name"; then
+        INSTALLED_FONTS+=("$name")
+    else
+        MISSING_FONTS+=("$f")
+    fi
 done
+
+joined_fonts=$(printf ", %s" "${INSTALLED_FONTS[@]}")
+if [ ${#INSTALLED_FONTS[@]} -gt 0 ] && [ ${#MISSING_FONTS[@]} -eq 0 ]; then
+    print_sub_ok "Tipografías ya instaladas: ${joined_fonts:2}"
+else
+    [ ${#INSTALLED_FONTS[@]} -gt 0 ] && print_sub_ok "Tipografías ya instaladas: ${joined_fonts:2}"
+    for f in "${MISSING_FONTS[@]}"; do
+        name="${f%%|*}"
+        url="${f##*|}"
+        if [ -n "$SKIP_FONTS_DOWNLOAD" ]; then
+            print_sub_ok "Fuente $name (omitida)."
+            continue
+        fi
+        print_sub "Instalando tipografía $name..."
+        temp=$(mktemp -d)
+        if wget -q --show-progress -P "$temp" "$url" &>> "$LOG_FILE" && unzip -q "$temp"/*.zip -d ~/.local/share/fonts/"$name" &>> "$LOG_FILE"; then
+            print_sub_ok "Fuente $name lista."
+        else
+            print_sub_err "Fallo al descargar/extraer $name."
+        fi
+        rm -rf "$temp"
+    done
+fi
 fc-cache -fv &>> "$LOG_FILE"
 
 # 5. Temas (adw-gtk3)
@@ -176,13 +225,21 @@ add_rc() {
 add_rc ".local/bin" 'export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"'
 add_rc "MAHOGARA_DOTS" $'\n# Mahogara Dots\nexport PATH="'"$PROJECT_ROOT"':$PATH"\nexport MAHOGARA_DOTS="'"$PROJECT_ROOT"'"'
 add_rc "QT_QPA_PLATFORMTHEME" 'export QT_QPA_PLATFORMTHEME=qt6ct'
-print_sub_ok "Rutas y variables persistidas en ~/.bashrc"
+
+# Entorno Global (/etc/environment) para soporte de display managers (ej: emptty) y startx
+add_env() {
+    run_elevated bash -c "grep -q '$1' /etc/environment || echo '$2' >> /etc/environment"
+}
+add_env "QT_QPA_PLATFORMTHEME" "QT_QPA_PLATFORMTHEME=qt6ct"
+
+print_sub_ok "Rutas y variables persistidas en ~/.bashrc y /etc/environment"
 
 # 8. Crear enlaces simbólicos (Sistema Agnóstico)
 print_step "Enlazando archivos de configuración (symlinks)..."
 
 BACKUP_DIR=""
 BACKUPS_MADE=()
+LINKS_MADE=()
 
 init_backup_dir() {
     [ -n "$BACKUP_DIR" ] && return
@@ -210,7 +267,7 @@ safe_link() {
     fi
     
     ln -s "$src" "$dst"
-    print_sub_ok "Enlazado: ${dst##*/}"
+    LINKS_MADE+=("${dst##*/}")
 }
 
 mkdir -p ~/.config
@@ -239,6 +296,9 @@ if [ -d "$PACKAGE_DIR/root" ]; then
         done
     )
 fi
+
+joined_links=$(printf ", %s" "${LINKS_MADE[@]}")
+[ ${#LINKS_MADE[@]} -gt 0 ] && print_sub_ok "Configuraciones enlazadas: ${joined_links:2}"
 
 # 8.5 Configurar GTK para root (opcional)
 if run_elevated_nopasswd; then
