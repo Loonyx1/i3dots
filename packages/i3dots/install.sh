@@ -91,10 +91,19 @@ if [ -n "$PKG_LIST" ] && [ -z "$SKIP_SYSTEM_PKGS" ]; then
         FULL_CMD+="$PKG_MANAGER $PKG_INSTALL_CMD ${MISSING_PKGS[*]}"
 
         print_sub "Procesando instalación de paquetes faltantes..."
-        if run_elevated --ticker bash -c "$FULL_CMD"; then
+        run_elevated --ticker bash -c "$FULL_CMD"
+        
+        # Volver a verificar qué paquetes siguen sin estar instalados
+        INSTALLED_FLAT_POST=" $(eval "$PKG_QUERY_CMD" 2>/dev/null | tr '\n' ' ') "
+        STILL_MISSING=()
+        for pkg in "${MISSING_PKGS[@]}"; do
+            [[ ! "$INSTALLED_FLAT_POST" =~ " $pkg " ]] && STILL_MISSING+=("$pkg")
+        done
+        
+        if [ ${#STILL_MISSING[@]} -eq 0 ]; then
             print_sub_ok "Paquetes de sistema instalados correctamente."
         else
-            print_sub_warn "Fallo en gestor de paquetes o cancelación del usuario. Se omiten dependencias."
+            print_sub_err "Error: Paquetes no instalados (no encontrados en repositorio o fallo): ${STILL_MISSING[*]}"
         fi
     fi
 fi
@@ -173,6 +182,20 @@ fi
 
 # 6. Matugen
 print_step "Validando/Instalando Matugen..."
+
+install_matugen_via_cargo() {
+    print_sub_warn "Fallo en binario. Intentando vía Cargo (lento)..."
+    if ! command -v cargo &>/dev/null; then
+        print_sub "Cargo no encontrado. Instalando..."
+        run_elevated --ticker bash -c "$PKG_MANAGER $PKG_INSTALL_CMD cargo"
+    fi
+    if command -v cargo &>/dev/null && cargo install matugen &>> "$LOG_FILE"; then
+        print_sub_ok "Matugen instalado vía Cargo."
+    else
+        print_sub_err "Fallo al instalar Matugen."
+    fi
+}
+
 if command -v matugen &> /dev/null; then
     print_sub_ok "Matugen ya instalado."
 elif [ -n "$SKIP_MATUGEN_DOWNLOAD" ]; then
@@ -181,31 +204,23 @@ else
     print_sub "Buscando última versión de Matugen..."
     TEMP_MATUGEN=$(mktemp -d)
     URL=$(curl -s https://api.github.com/repos/InioX/matugen/releases/latest | grep "browser_download_url.*x86_64.tar.gz" | cut -d '"' -f 4)
-    if [[ -n "$URL" ]]; then
-        print_sub "Descargando binario de Matugen..."
-        if wget -q -P "$TEMP_MATUGEN" "$URL" &>> "$LOG_FILE" && \
-           tar -xzf "$TEMP_MATUGEN"/*.tar.gz -C "$TEMP_MATUGEN" &>> "$LOG_FILE"; then
-            MATUGEN_BIN=$(find "$TEMP_MATUGEN" -type f -executable -name "matugen*" | head -n 1)
-            if [[ -n "$MATUGEN_BIN" ]]; then
-                if [ -w /usr/local/bin ]; then
-                    mv "$MATUGEN_BIN" /usr/local/bin/matugen
-                    chmod +x /usr/local/bin/matugen
-                else
-                    mkdir -p "$HOME/.local/bin"
-                    mv "$MATUGEN_BIN" "$HOME/.local/bin/matugen"
-                    chmod +x "$HOME/.local/bin/matugen"
-                fi
-                print_sub_ok "Matugen instalado correctamente."
-            else
-                print_sub_warn "No se extrajo binario de Matugen. Intentando vía Cargo (lento)..."
-                cargo install matugen &>> "$LOG_FILE" && print_sub_ok "Matugen instalado vía Cargo." || print_sub_err "Fallo en instalación vía Cargo."
-            fi
-        else
-            print_sub_err "Fallo al descargar/extraer Matugen."
+    
+    INSTALLED=false
+    if [[ -n "$URL" ]] && wget -q -P "$TEMP_MATUGEN" "$URL" &>> "$LOG_FILE" && tar -xzf "$TEMP_MATUGEN"/*.tar.gz -C "$TEMP_MATUGEN" &>> "$LOG_FILE"; then
+        MATUGEN_BIN=$(find "$TEMP_MATUGEN" -type f -executable -name "matugen*" | head -n 1)
+        if [[ -n "$MATUGEN_BIN" ]]; then
+            DEST="/usr/local/bin"
+            [ ! -w "$DEST" ] && DEST="$HOME/.local/bin"
+            mkdir -p "$DEST"
+            mv "$MATUGEN_BIN" "$DEST/matugen"
+            chmod +x "$DEST/matugen"
+            print_sub_ok "Matugen instalado correctamente."
+            INSTALLED=true
         fi
-    else
-        print_sub_warn "No se localizó binario. Intentando vía Cargo (lento)..."
-        cargo install matugen &>> "$LOG_FILE" && print_sub_ok "Matugen instalado vía Cargo." || print_sub_err "Fallo en instalación vía Cargo."
+    fi
+    
+    if [ "$INSTALLED" = "false" ]; then
+        install_matugen_via_cargo
     fi
     rm -rf "$TEMP_MATUGEN"
 fi
