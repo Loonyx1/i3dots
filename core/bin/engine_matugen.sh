@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# engine_matugen.sh - Motor de colores Matugen para mahogara-dots
+# engine_matugen.sh - Motor de colores Matugen
 # Origen: core/bin/engine_matugen.sh
 # Uso: engine_matugen.sh [-L|-D] [-T type] [-I index] [-P preference]
 

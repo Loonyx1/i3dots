@@ -235,11 +235,20 @@ echo "set \$current_env $CURRENT_ENV" >> "$PACKAGE_DIR/config/i3/conf.d/vars.gen
 
 # Bashrc
 add_rc() {
-    grep -q "$1" "$HOME/.bashrc" || echo "$2" >> "$HOME/.bashrc"
+    for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
+        [ -f "$rc" ] && ! grep -q "$1" "$rc" && echo "$2" >> "$rc"
+    done
 }
 add_rc ".local/bin" 'export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"'
-add_rc "MAHOGARA_DOTS" $'\n# Mahogara Dots\nexport PATH="'"$PROJECT_ROOT"':$PATH"\nexport MAHOGARA_DOTS="'"$PROJECT_ROOT"'"'
+add_rc "DOTS_PATH" "
+# DOTS_PATH
+export PATH=\"$PROJECT_ROOT:\$PATH\"
+fastfetch() {
+    command fastfetch \$([ -f \"\$HOME/.config/fastfetch/logo.txt\" ] && echo \"--logo \$HOME/.config/fastfetch/logo.txt\") \"\$@\"
+}
+# end DOTS_PATH"
 add_rc "QT_QPA_PLATFORMTHEME" 'export QT_QPA_PLATFORMTHEME=qt6ct'
+
 
 # Entorno Global (/etc/environment) para soporte de display managers (ej: emptty) y startx
 add_env() {
@@ -368,6 +377,9 @@ fi
 print_step "Inicializando estado de la barra en disco..."
 mkdir -p "$STATE_DIR/i3dots/bar"
 echo "type=\"${BAR_DEFAULT_TYPE:-polybar_antigua}\"" > "$STATE_DIR/i3dots/bar/state.env"
+
+# 9.6 Inicializar logo de fastfetch
+[ -n "$OS_LOGO" ] && echo "$OS_LOGO" > "$HOME/.config/fastfetch/logo.txt"
 
 # Preparar carpeta real de Polybar y provisión inicial de colores
 mkdir -p ~/.config/polybar

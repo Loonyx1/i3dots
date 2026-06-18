@@ -39,7 +39,8 @@ packages/i3dots/config/rofi/themes/shared/colors.rasi
 packages/i3dots/config/i3/current
 packages/i3dots/config/i3/wall
 packages/i3dots/config/qt6ct/qt6ct.conf
-
+packages/i3dots/config/fastfetch/config.jsonc
+packages/i3dots/config/fastfetch/logo.txt
 # i3dots: Configuración de hardware dinámica
 packages/*/config/i3/conf.d/output.conf
 

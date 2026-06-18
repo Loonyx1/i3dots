@@ -46,3 +46,8 @@ output_path = "~/.config/i3/colors.generated"
 input_path = "~/.config/i3/bar_colors.template"
 output_path = "~/.config/i3/bar_colors.generated"
 
+[templates.fastfetch]
+input_path = "~/.config/matugen/templates/fastfetch.jsonc"
+output_path = "~/.config/fastfetch/config.jsonc"
+
+

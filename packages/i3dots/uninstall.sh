@@ -36,6 +36,7 @@ targets=(
     "$HOME/.config/gtk-4.0"
     "$HOME/.config/qt6ct"
     "$HOME/.config/matugen"
+    "$HOME/.config/fastfetch"
     "$HOME/.gtkrc-2.0"
 )
 
@@ -77,17 +78,21 @@ for legacy in "${legacy_states[@]}"; do
     fi
 done
 
-# 4. Limpiar entradas en .bashrc (Surgical removal)
-print_step "Limpiando ~/.bashrc..."
-if [ -f "$HOME/.bashrc" ]; then
-    # Eliminar bloques de Mahogara Dots y variables específicas
-    sed -i '/# Mahogara Dots/,/export MAHOGARA_DOTS/d' "$HOME/.bashrc"
-    sed -i '/export PATH=".*\.local\/bin:.*\.cargo\/bin:\$PATH"/d' "$HOME/.bashrc"
-    sed -i '/export QT_QPA_PLATFORMTHEME=qt6ct/d' "$HOME/.bashrc"
-    # Limpiar líneas de PATH que apunten al proyecto
-    sed -i "s|export PATH=\"$PROJECT_ROOT:\$PATH\"||g" "$HOME/.bashrc"
-    print_sub_ok ".bashrc limpio."
-fi
+# 4. Limpiar entradas en configuración de shell (Surgical removal)
+print_step "Limpiando archivos de configuración de shell..."
+for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
+    if [ -f "$rc" ]; then
+        # Eliminar bloques de dotfiles y variables específicas en un solo proceso
+        sed -i \
+            -e '/# DOTS_PATH/,/# end DOTS_PATH/d' \
+            -e '/# dotfiles/,/# end dotfiles/d' \
+            -e '/export PATH=".*\.local\/bin:.*\.cargo\/bin:\$PATH"/d' \
+            -e '/export QT_QPA_PLATFORMTHEME=qt6ct/d' \
+            -e "s|export PATH=\"$PROJECT_ROOT:\$PATH\"||g" \
+            "$rc"
+        print_sub_ok "$(basename "$rc") limpio."
+    fi
+done
 
 # 5. Limpiar root (si se usó)
 if [ "$(id -u)" -eq 0 ] || command -v sudo &>/dev/null; then
