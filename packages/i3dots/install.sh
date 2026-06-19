@@ -240,13 +240,7 @@ add_rc() {
     done
 }
 add_rc ".local/bin" 'export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"'
-add_rc "DOTS_PATH" "
-# DOTS_PATH
-export PATH=\"$PROJECT_ROOT:\$PATH\"
-fastfetch() {
-    command fastfetch \$([ -f \"\$HOME/.config/fastfetch/logo.txt\" ] && echo \"--logo \$HOME/.config/fastfetch/logo.txt\") \"\$@\"
-}
-# end DOTS_PATH"
+add_rc "DOTS_PATH" "export PATH=\"$PROJECT_ROOT:\$PATH\""
 add_rc "QT_QPA_PLATFORMTHEME" 'export QT_QPA_PLATFORMTHEME=qt6ct'
 
 
@@ -379,7 +373,7 @@ mkdir -p "$STATE_DIR/i3dots/bar"
 echo "type=\"${BAR_DEFAULT_TYPE:-polybar_antigua}\"" > "$STATE_DIR/i3dots/bar/state.env"
 
 # 9.6 Inicializar logo de fastfetch
-[ -n "$OS_LOGO" ] && echo "$OS_LOGO" > "$HOME/.config/fastfetch/logo.txt"
+ln -sf "../envs/${VARIANT_NAME}.logo" "$PACKAGE_DIR/config/fastfetch/logo.txt"
 
 # Preparar carpeta real de Polybar y provisión inicial de colores
 mkdir -p ~/.config/polybar
