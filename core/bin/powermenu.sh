@@ -33,16 +33,10 @@ else
     [[ -z "$CHOSEN" ]] && exit 1
 
     case "$CHOSEN" in
-        "$L_SHUTDOWN") eval "${POWERMENU_CMD_SHUTDOWN:-systemctl poweroff}" ;;
-        "$L_REBOOT")   eval "${POWERMENU_CMD_REBOOT:-systemctl reboot}" ;;
-        "$L_SUSPEND")  eval "${POWERMENU_CMD_SUSPEND:-systemctl suspend}" ;;
-        "$L_LOGOUT")
-            if [ -n "$POWERMENU_CMD_LOGOUT" ]; then
-                eval "$POWERMENU_CMD_LOGOUT"
-            else
-                loginctl terminate-session "${XDG_SESSION_ID:-}"
-            fi
-            ;;
+        "$L_SHUTDOWN") [ -n "$POWERMENU_CMD_SHUTDOWN" ] && eval "$POWERMENU_CMD_SHUTDOWN" ;;
+        "$L_REBOOT")   [ -n "$POWERMENU_CMD_REBOOT" ]   && eval "$POWERMENU_CMD_REBOOT" ;;
+        "$L_SUSPEND")  [ -n "$POWERMENU_CMD_SUSPEND" ]  && eval "$POWERMENU_CMD_SUSPEND" ;;
+        "$L_LOGOUT")   [ -n "$POWERMENU_CMD_LOGOUT" ]   && eval "$POWERMENU_CMD_LOGOUT" ;;
     esac
     exit 0
 fi
