@@ -17,8 +17,6 @@
     }
   },
   "modules": [
-    { "type": "title", "keyWidth": 0 },
-    "break",
     { "type": "os", "key": "OS ", "format": "{3} Linux" },
     { "type": "kernel", "key": "KER", "format": "Linux {2}" },
     { "type": "shell", "key": "SH ", "format": "{1} {4}" },

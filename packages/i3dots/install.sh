@@ -232,6 +232,8 @@ export CURRENT_ENV="${CURRENT_ENV:-$(basename "$PACKAGE_DIR")}"
 export STATE_DIR="${STATE_DIR:-$PROJECT_ROOT/core/state}"
 echo "set \$dots_cmd $PROJECT_ROOT/dots" > "$PACKAGE_DIR/config/i3/conf.d/vars.generated"
 echo "set \$current_env $CURRENT_ENV" >> "$PACKAGE_DIR/config/i3/conf.d/vars.generated"
+echo "set \$polkit_agent ${POLKIT_AGENT:-lxpolkit}" >> "$PACKAGE_DIR/config/i3/conf.d/vars.generated"
+echo "set \$i3_font \"${I3_FONT:-JetBrainsMono Nerd Font}\"" >> "$PACKAGE_DIR/config/i3/conf.d/vars.generated"
 
 # Bashrc
 add_rc() {
@@ -373,7 +375,8 @@ mkdir -p "$STATE_DIR/i3dots/bar"
 echo "type=\"${BAR_DEFAULT_TYPE:-polybar_antigua}\"" > "$STATE_DIR/i3dots/bar/state.env"
 
 # 9.6 Inicializar logo de fastfetch
-ln -sf "../envs/${VARIANT_NAME}.logo" "$PACKAGE_DIR/config/fastfetch/logo.txt"
+rm -f "$PACKAGE_DIR/config/fastfetch/logo.txt"
+[ -f "$PACKAGE_DIR/envs/${VARIANT_NAME}.logo" ] && ln -sf "../../envs/${VARIANT_NAME}.logo" "$PACKAGE_DIR/config/fastfetch/logo.txt"
 
 # Preparar carpeta real de Polybar y provisión inicial de colores
 mkdir -p ~/.config/polybar
