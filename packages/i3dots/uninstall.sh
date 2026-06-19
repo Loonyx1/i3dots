@@ -60,7 +60,8 @@ fi
 
 # 3. Limpiar estado y archivos generados
 print_step "Limpiando archivos de estado y generados..."
-rm -f "$PACKAGE_DIR/dotfiles/i3/conf.d/vars.generated"
+rm -f "$PACKAGE_DIR/config/i3/conf.d/vars.generated"
+rm -f "$PACKAGE_DIR/config/fastfetch/logo.txt"
 rm -f "$PACKAGE_DIR/.current_variant"
 
 # Limpiar estado del paquete (nuevo esquema)
