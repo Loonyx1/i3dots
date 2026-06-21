@@ -317,6 +317,10 @@ if [ -d "$PACKAGE_DIR/root" ]; then
     )
 fi
 
+# Enlazar script recolor_folders a binario local en el PATH
+mkdir -p "$HOME/.local/bin"
+safe_link "$PACKAGE_DIR/bin/recolor_folders.sh" "$HOME/.local/bin/recolor_folders"
+
 joined_links=$(printf ", %s" "${LINKS_MADE[@]}")
 [ ${#LINKS_MADE[@]} -gt 0 ] && print_sub_ok "Configuraciones enlazadas: ${joined_links:2}"
 

@@ -48,3 +48,7 @@ packages/*/config/i3/conf.d/output.conf
 .gemini/
 memory/
 MEMORY.md
+
+# i3dots: Cache y estado local del script de iconos
+packages/i3dots/config/i3/last_icon_color
+packages/i3dots/config/i3/icon_theme.base
