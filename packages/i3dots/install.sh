@@ -319,7 +319,8 @@ fi
 
 # Enlazar script recolor_folders a binario local en el PATH
 mkdir -p "$HOME/.local/bin"
-safe_link "$PACKAGE_DIR/bin/recolor_folders.sh" "$HOME/.local/bin/recolor_folders"
+safe_link "$PACKAGE_DIR/bin/recolor_folders.lua" "$HOME/.local/bin/recolor_folders"
+export PATH="$HOME/.local/bin:$PATH"
 
 joined_links=$(printf ", %s" "${LINKS_MADE[@]}")
 [ ${#LINKS_MADE[@]} -gt 0 ] && print_sub_ok "Configuraciones enlazadas: ${joined_links:2}"
@@ -399,7 +400,7 @@ if command -v gsettings &> /dev/null; then
     print_step "Aplicando configuraciones GTK..."
     gsettings set org.gnome.desktop.interface gtk-theme "adw-gtk3-dark" &>> "$LOG_FILE"
     gsettings set org.gnome.desktop.interface color-scheme "prefer-dark" &>> "$LOG_FILE"
-    gsettings set org.gnome.desktop.interface icon-theme "Inverse-pink-dark" 2>/dev/null || true
+    gsettings set org.gnome.desktop.interface icon-theme "Papirus-Dark" 2>/dev/null || true
     gsettings set org.gnome.desktop.interface cursor-theme "Layan-border-cursors" 2>/dev/null || true
     print_sub_ok "Tema oscuro y cursores establecidos."
 fi
