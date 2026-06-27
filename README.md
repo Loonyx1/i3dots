@@ -59,6 +59,7 @@ cd i3dots
 |<kbd>super</kbd> + <kbd>Shift</kbd> + <kbd>M</kbd>| Abrir el menu para cambiar la polybar de tamaño
 |<kbd>super</kbd> + <kbd>Shift</kbd> + <kbd>D</kbd>| Abrir el menu para cambiar la resolucion de pantalla
 |<kbd>super</kbd> + <kbd>H</kbd>| Abrir visor de atajos (Cheatsheet)
+|<kbd>super</kbd> + <kbd>B</kbd>| Alternar bordes de la ventana enfocada
 |<kbd>Super</kbd> | Hold to drag floating windows to the desired position
 # Screenshots keys on clipboard
 

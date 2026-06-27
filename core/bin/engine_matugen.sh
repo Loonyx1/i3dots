@@ -7,22 +7,16 @@
 # 0. Asegurar que matugen esté en el PATH (especialmente para ejecuciones desde i3/cron)
 export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 
-# 1. Parseo de argumentos (Modo, Tipo, Indice, Preferencia, Imagen)
-H_MODE="dark"
-H_TYPE=""
-H_INDEX="1" # Por defecto 0 (más dominante) para evitar el prompt interactivo
-H_PREFER=""
-H_IMAGE=""
+# 1. Parsear únicamente la imagen e identificar si se pide promedio
+ARGS=()
+IMG_PATH=""
+USE_AVERAGE=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        -L|--light) H_MODE="light"; shift ;;
-        -D|--dark)  H_MODE="dark"; shift ;;
-        -T|--type)  H_TYPE="$2"; shift 2 ;;
-        -I|--index) H_INDEX="$2"; H_PREFER=""; shift 2 ;; # Index anula Prefer
-        -P|--prefer) H_PREFER="$2"; H_INDEX=""; shift 2 ;; # Prefer anula Index
-        -i|--image)  H_IMAGE="$2"; shift 2 ;;
-        *) shift ;;
+        -i|--image) IMG_PATH="$2"; shift 2 ;;
+        --average)  USE_AVERAGE=true; shift ;;
+        *) ARGS+=("$1"); shift ;;
     esac
 done
 
@@ -49,12 +43,12 @@ fi
 WP_STATE_DIR="$STATE_DIR_VAL/$CUR_ENV/wallpaper"
 COLOR_SOURCE="$WP_STATE_DIR/color_source"
 
-if [[ -n "$H_IMAGE" ]]; then
-    IMG_PATH="$H_IMAGE"
-elif [[ -f "$COLOR_SOURCE" ]]; then
-    IMG_PATH=$(readlink -f "$COLOR_SOURCE")
-else
-    IMG_PATH=$(readlink -f "$CURRENT_WALLPAPER_LINK")
+if [[ -z "$IMG_PATH" ]]; then
+    if [[ -f "$COLOR_SOURCE" ]]; then
+        IMG_PATH=$(readlink -f "$COLOR_SOURCE")
+    else
+        IMG_PATH=$(readlink -f "$CURRENT_WALLPAPER_LINK")
+    fi
 fi
 
 if [[ ! -f "$IMG_PATH" ]]; then
@@ -74,23 +68,13 @@ if [ -f "$MATUGEN_CONF" ]; then
     cmd+=("--config" "$MATUGEN_CONF")
 fi
 
-cmd+=("image" "$IMG_PATH" "--mode" "$H_MODE")
-
-# Aplicar Tipo de Esquema
-[ -n "$H_TYPE" ] && cmd+=("--type" "$H_TYPE")
-
-# --- EVITAR INTERACTIVIDAD ---
-# Si se especificó un índice (0-4), Matugen no pregunta
-if [ -n "$H_INDEX" ]; then
-    cmd+=("--source-color-index" "$H_INDEX")
-    echo "Matugen: Usando color dominante índice $H_INDEX"
-# Si se especificó una preferencia (saturation, darkness, etc), Matugen no pregunta
-elif [ -n "$H_PREFER" ]; then
-    cmd+=("--prefer" "$H_PREFER")
-    echo "Matugen: Prefiriendo $H_PREFER"
+# 5. Determinar modo de ejecución (Imagen directa o Color promedio)
+if [ "$USE_AVERAGE" = true ] && type magick &>/dev/null; then
+    # Obtener el color promedio en hexadecimal usando ImageMagick
+    COLOR_HEX=$(magick "$IMG_PATH" -scale 1x1! -format "%[hex:u]" info:)
+    echo "Matugen: Procesando color promedio #$COLOR_HEX (extraído de $IMG_PATH) con argumentos: ${ARGS[*]}..."
+    exec "${cmd[@]}" color hex "$COLOR_HEX" "${ARGS[@]}"
+else
+    echo "Matugen: Procesando $IMG_PATH con argumentos: ${ARGS[*]}..."
+    exec "${cmd[@]}" image "$IMG_PATH" "${ARGS[@]}"
 fi
-
-echo "Matugen: Procesando $IMG_PATH [Modo: $H_MODE, Tipo: ${H_TYPE:-default}]..."
-
-# Ejecución final
-exec "${cmd[@]}"

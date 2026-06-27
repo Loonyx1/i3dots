@@ -1,6 +1,10 @@
 [config]
-default_type = "scheme-vibrant"
-contrast = 0.3
+default_type = "scheme-tonal-spot"
+contrast = 0.0
+
+
+
+
 
 
 [templates.polybar]
@@ -55,7 +59,3 @@ output_path = "~/.config/fastfetch/config.jsonc"
 [templates.recolor_folders]
 input_path = "~/.config/matugen/templates/recolor_folders.sh"
 output_path = "~/.cache/matugen/recolor_folders-apply.sh"
-
-
-
-

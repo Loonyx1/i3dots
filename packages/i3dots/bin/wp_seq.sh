@@ -53,7 +53,7 @@ else
     (
         wp_select.sh -C "$FINAL_PATH"
         (polybar-msg cmd hide ; pkill -u $UID -x polybar) &>/dev/null &
-        engine_matugen.sh -D -T scheme-fidelity -I 0
+        engine_matugen.sh -m dark --source-color-index 0
         apply_dots.sh
     ) &>/dev/null &
     exit 0

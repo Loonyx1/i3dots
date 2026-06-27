@@ -378,6 +378,8 @@ fi
 print_step "Inicializando estado de la barra en disco..."
 mkdir -p "$STATE_DIR/i3dots/bar"
 echo "type=\"${BAR_DEFAULT_TYPE:-polybar_antigua}\"" > "$STATE_DIR/i3dots/bar/state.env"
+echo "mode=\"solid\"" >> "$STATE_DIR/i3dots/bar/state.env"
+echo "solid_line=\"false\"" >> "$STATE_DIR/i3dots/bar/state.env"
 
 # 9.6 Inicializar logo de fastfetch
 rm -f "$PACKAGE_DIR/config/fastfetch/logo.txt"
