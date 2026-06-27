@@ -51,6 +51,9 @@ else
     exit 1
 fi
 
+# Cargar configuraciones del paquete
+[ -f "$PACKAGE_DIR/config.env" ] && source "$PACKAGE_DIR/config.env"
+
 print_step "Iniciando instalación para variante: ${VARIANT_NAME} (Offline: ${IS_OFFLINE})"
 
 # (Lógica del elevador importada desde utils.sh)
@@ -380,6 +383,7 @@ mkdir -p "$STATE_DIR/i3dots/bar"
 echo "type=\"${BAR_DEFAULT_TYPE:-polybar_antigua}\"" > "$STATE_DIR/i3dots/bar/state.env"
 echo "mode=\"solid\"" >> "$STATE_DIR/i3dots/bar/state.env"
 echo "solid_line=\"false\"" >> "$STATE_DIR/i3dots/bar/state.env"
+echo "transparency=\"${BAR_TRANSPARENCY:-true}\"" >> "$STATE_DIR/i3dots/bar/state.env"
 
 # 9.6 Inicializar logo de fastfetch
 rm -f "$PACKAGE_DIR/config/fastfetch/logo.txt"
