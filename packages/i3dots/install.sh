@@ -245,7 +245,7 @@ add_rc() {
     done
 }
 add_rc ".local/bin" 'export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"'
-add_rc "DOTS_PATH" "export PATH=\"$PROJECT_ROOT:\$PATH\""
+add_rc "$PROJECT_ROOT" "export PATH=\"$PROJECT_ROOT:\$PATH\""
 add_rc "QT_QPA_PLATFORMTHEME" 'export QT_QPA_PLATFORMTHEME=qt6ct'
 
 
