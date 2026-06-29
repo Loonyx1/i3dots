@@ -52,3 +52,6 @@ MEMORY.md
 # i3dots: Cache y estado local del script de iconos
 packages/i3dots/config/i3/last_icon_color
 packages/i3dots/config/i3/icon_theme.base
+
+# Binarios locales compilados
+packages/i3dots/bin/xic

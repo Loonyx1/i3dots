@@ -323,6 +323,18 @@ fi
 # Enlazar script recolor_folders a binario local en el PATH
 mkdir -p "$HOME/.local/bin"
 safe_link "$PACKAGE_DIR/bin/recolor_folders.lua" "$HOME/.local/bin/recolor_folders"
+
+# Compilar y enlazar binario xic para portapapeles de imágenes
+if [ -f "$PACKAGE_DIR/bin/xic.c" ]; then
+    print_sub "Compilando xic para portapapeles de imágenes..."
+    if gcc -O2 "$PACKAGE_DIR/bin/xic.c" -o "$PACKAGE_DIR/bin/xic" -lX11 &>> "$LOG_FILE"; then
+        safe_link "$PACKAGE_DIR/bin/xic" "$HOME/.local/bin/xic"
+        print_sub_ok "xic compilado y enlazado correctamente."
+    else
+        print_sub_err "Fallo al compilar xic."
+    fi
+fi
+
 export PATH="$HOME/.local/bin:$PATH"
 
 joined_links=$(printf ", %s" "${LINKS_MADE[@]}")
