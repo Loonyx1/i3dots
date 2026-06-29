@@ -202,13 +202,6 @@ icon-disk = 󰋊
 icon-vol = 󰕾
 icon-light = 󰃠
 icon-bat = 󱊣
-
-[module/help-keys]
-type = custom/text
-format = "  Atajos "
-format-foreground = \${colors.primary}
-format-background = \${colors.background-alt}
-click-left = ${BASE_DIR:-$PROJECT_ROOT}/dots i3dots show_cheatsheet.sh
 EOF
 
 # Crear enlace en RAM para compatibilidad o velocidad de lectura si es necesario
