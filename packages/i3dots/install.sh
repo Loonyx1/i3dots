@@ -358,7 +358,7 @@ find "$PACKAGE_DIR/config/polybar" -type f -name "*.sh" -exec chmod +x {} + &>> 
 
 # 9. Inicializar Wallpaper y Matugen
 print_step "Estableciendo wallpaper e inicializando paleta..."
-DEFAULT_WALL="${CLI_WALL:-${DEFAULT_WALLPAPER:-zd.png}}"
+DEFAULT_WALL="${CLI_WALL:-${DEFAULT_WALLPAPER:-zd.jpg}}"
 WALL_DIR="${CLI_WALL_SRC:-${WALLPAPER_SRC:-$PACKAGE_DIR/assets/wall}}"
 
 mkdir -p "$HOME/wall"
