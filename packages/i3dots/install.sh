@@ -264,6 +264,29 @@ BACKUP_DIR=""
 BACKUPS_MADE=()
 LINKS_MADE=()
 
+clean_old_links_in_dir() {
+    local dir="$1"
+    [ -d "$dir" ] || return 0
+    
+    local link target
+    (
+        shopt -s dotglob 2>/dev/null
+        for link in "$dir"/*; do
+            [ -L "$link" ] || continue
+            [[ "$(basename "$link")" == "." || "$(basename "$link")" == ".." ]] && continue
+            target=$(readlink "$link")
+            if [[ "$target" == *"/packages/i3dots/"* ]]; then
+                rm "$link"
+            fi
+        done
+    )
+}
+
+clean_old_links_in_dir "$HOME/.config"
+clean_old_links_in_dir "$HOME"
+clean_old_links_in_dir "$HOME/.local/bin"
+
+
 init_backup_dir() {
     [ -n "$BACKUP_DIR" ] && return
     local t d
