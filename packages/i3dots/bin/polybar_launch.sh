@@ -69,6 +69,31 @@ export POLY_RIGHT="left cpu-temperature right"
 [ -n "$HAS_BATTERY" ] && POLY_RIGHT="$POLY_RIGHT space left battery right"
 export POLY_RIGHT="$POLY_RIGHT space left tray right space"
 
+# Para tema compact
+export POLY_COMPACT_LEFT="rofi space xwindow space filesystem filesystem-value space cpu cpu-value space memory memory-value"
+[ -n "$HWMON_PATH" ] && export POLY_COMPACT_LEFT="$POLY_COMPACT_LEFT space temp temp-value"
+
+export POLY_COMPACT_CENTER="i3"
+
+export POLY_COMPACT_RIGHT=""
+[ -n "$BACKLIGHT_CARD" ] && export POLY_COMPACT_RIGHT="backlight backlight-value"
+
+[ -n "$HAS_AUDIO" ] && {
+    [ -n "$POLY_COMPACT_RIGHT" ] && export POLY_COMPACT_RIGHT="$POLY_COMPACT_RIGHT space"
+    export POLY_COMPACT_RIGHT="$POLY_COMPACT_RIGHT pulseaudio pulseaudio-value"
+}
+
+[ -n "$HAS_BATTERY" ] && {
+    [ -n "$POLY_COMPACT_RIGHT" ] && export POLY_COMPACT_RIGHT="$POLY_COMPACT_RIGHT space"
+    export POLY_COMPACT_RIGHT="$POLY_COMPACT_RIGHT battery battery-value"
+}
+
+if [ -n "$POLY_COMPACT_RIGHT" ]; then
+    export POLY_COMPACT_RIGHT="$POLY_COMPACT_RIGHT space time time-value space tray"
+else
+    export POLY_COMPACT_RIGHT="time time-value space tray"
+fi
+
 # 5. Cargar Estado de Estilo y Exportar a Entorno
 if [ -f "$STATE_FILE" ]; then
     source "$STATE_FILE"
