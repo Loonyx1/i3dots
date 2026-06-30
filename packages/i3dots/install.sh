@@ -398,6 +398,7 @@ echo "solid_line=\"false\"" >> "$STATE_DIR/i3dots/bar/state.env"
 echo "transparency=\"${BAR_TRANSPARENCY:-true}\"" >> "$STATE_DIR/i3dots/bar/state.env"
 
 # 9.6 Inicializar logo de fastfetch
+mkdir -p "$PACKAGE_DIR/config/fastfetch"
 rm -f "$PACKAGE_DIR/config/fastfetch/logo.txt"
 [ -f "$PACKAGE_DIR/envs/${VARIANT_NAME}.logo" ] && ln -sf "../../envs/${VARIANT_NAME}.logo" "$PACKAGE_DIR/config/fastfetch/logo.txt"
 
