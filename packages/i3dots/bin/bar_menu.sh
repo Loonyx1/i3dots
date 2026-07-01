@@ -111,7 +111,7 @@ if [ "$DO_MANAGE" -eq 1 ]; then
             
             if [ -n "$NEW_VAL" ]; then
                 if [ "$NEW_VAL" == "custom" ]; then
-                    "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Valor personalizado para $choice_label" <<< "" > "$CHOICE_FILE"
+                    "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Nuevo $choice_label" <<< "" > "$CHOICE_FILE"
                     IFS= read -r NEW_VAL < "$CHOICE_FILE"
                     [[ -z "$NEW_VAL" ]] && exit 0
                 fi
@@ -168,7 +168,7 @@ else
     for opt_key in "${!OPT_LABELS[@]}"; do
         if [ "${OPT_LABELS[$opt_key]}" == "$choice_label" ]; then
             if [ "$choice_val" == "custom" ]; then
-                "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Valor personalizado para $choice_label" <<< "" > "$CHOICE_FILE"
+                "$BAR_SEL_BIN" "${BAR_ARGS_ARR[@]}" "$BAR_SEL_PROMPT_FLAG" "Nuevo $choice_label" <<< "" > "$CHOICE_FILE"
                 IFS= read -r choice_val < "$CHOICE_FILE"
                 [[ -z "$choice_val" ]] && exit 0
             fi

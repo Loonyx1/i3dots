@@ -22,7 +22,7 @@ if [ "$1" == "--query" ]; then
     SUPPORTED=""
     # Cargar opciones dinámicas del tema
     if [ -f "$THEME_SRC/options.conf" ]; then
-        while read -r line; do
+        while read -r line || [[ -n "$line" ]]; do
             [[ "$line" =~ ^# || -z "$line" ]] && continue
             SUPPORTED="${SUPPORTED:+$SUPPORTED|}$line"
         done < "$THEME_SRC/options.conf"

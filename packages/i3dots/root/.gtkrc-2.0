@@ -1,4 +1,4 @@
 include "/usr/share/themes/adw-gtk3-dark/gtk-2.0/gtkrc"
-gtk-theme-name="adw-gtk3-dark"
-gtk-icon-theme-name="Inverse-pink-dark"
+gtk-theme-name="adw-gtk3-dark-Custom-A"
+gtk-icon-theme-name="Papirus-Dark-Custom-A"
 gtk-cursor-theme-name="Layan-border-cursors"

@@ -2,6 +2,13 @@
 # packages/i3dots/bin/polybar_launch.sh - Lanzador universal de Polybar
 # Copiado a ~/.config/polybar/system_launch.sh durante instalación.
 
+if [ -z "$HOME" ]; then
+    export HOME=$(getent passwd "$(id -u)" | cut -d: -f6)
+fi
+if [ -z "$USER" ]; then
+    export USER=$(id -un)
+fi
+
 # 1. Resolver Directorios de Estado de Forma Dinámica
 if [ -z "$PROJECT_ROOT" ]; then
     SCRIPT_PATH=$(readlink -f "${BASH_SOURCE[0]}")
@@ -106,19 +113,61 @@ if [ -f "$STATE_FILE" ]; then
     export BAR_ROFI_STYLE="${rofi_style:-solid}"
     export BAR_SOLID_LINE="${solid_line:-false}"
     export BAR_ICON_PADDING="${icon_padding:-1}"
+    export BAR_AUTOHIDE="${autohide:-false}"
 fi
 
-# 6. Lanzar barras declaradas en config.ini
+# 6. Generar Script Estático POSIX para Dash
+STATIC_SCRIPT="$HOME/.config/polybar/run_static.sh"
 CONFIG_FILE="$HOME/.config/polybar/config.ini"
+
+BARS=""
 if [ -f "$CONFIG_FILE" ]; then
-    # Leer todos los nombres de barra definidos en config.ini
     BARS=$(grep -oP '^\[bar/\K[^\]]+' "$CONFIG_FILE")
-    
-    if [ -z "$BARS" ]; then
-        BARS="bottom"
-    fi
-    
-    for bar in $BARS; do
-        polybar -q "$bar" -c "$CONFIG_FILE" &
-    done
+fi
+[ -z "$BARS" ] && BARS="bottom"
+
+cat << EOF > "$STATIC_SCRIPT"
+#!/bin/dash
+export BAR_HEIGHT="$BAR_HEIGHT"
+export BAR_POSITION="$BAR_POSITION"
+export BAR_STYLE="$BAR_STYLE"
+export BAR_TRANSPARENCY="$BAR_TRANSPARENCY"
+export BAR_MODE="$BAR_MODE"
+export BAR_ROFI_STYLE="$BAR_ROFI_STYLE"
+export BAR_SOLID_LINE="$BAR_SOLID_LINE"
+export BAR_ICON_PADDING="$BAR_ICON_PADDING"
+export BAR_AUTOHIDE="$BAR_AUTOHIDE"
+
+# Variables de Hardware
+export BACKLIGHT_CARD="$BACKLIGHT_CARD"
+export HAS_BATTERY="$HAS_BATTERY"
+export BAR_BATTERY="$BAR_BATTERY"
+export BAR_ADAPTER="$BAR_ADAPTER"
+export HAS_AUDIO="$HAS_AUDIO"
+export HWMON_PATH="$HWMON_PATH"
+
+# Variables de Modulos
+export POLY_LEFT="$POLY_LEFT"
+export POLY_CENTER="$POLY_CENTER"
+export POLY_RIGHT="$POLY_RIGHT"
+export POLY_COMPACT_LEFT="$POLY_COMPACT_LEFT"
+export POLY_COMPACT_CENTER="$POLY_COMPACT_CENTER"
+export POLY_COMPACT_RIGHT="$POLY_COMPACT_RIGHT"
+EOF
+
+for bar in $BARS; do
+    echo "/usr/bin/polybar -q \"$bar\" -c \"$CONFIG_FILE\" &" >> "$STATIC_SCRIPT"
+done
+
+chmod +x "$STATIC_SCRIPT"
+
+# 7. Matar demonio autohide previo por si acaso
+pkill -f polybar_autohide 2>/dev/null
+
+if [ "$BAR_AUTOHIDE" == "true" ]; then
+    # Lanzar únicamente el demonio de autohide en segundo plano con su delay y método
+    $HOME/.local/bin/polybar_autohide --delay "${autohide_delay:-100}" --position "${BAR_POSITION:-bottom}" --method "${autohide_method:-kill}" &
+else
+    # Lanzar barras usando el script estático de Dash recién creado
+    $STATIC_SCRIPT &
 fi

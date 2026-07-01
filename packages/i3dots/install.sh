@@ -358,6 +358,13 @@ if [ -f "$PACKAGE_DIR/bin/xic.c" ]; then
     fi
 fi
 
+# Compilar y enlazar componentes de autohide de Polybar
+print_sub "Compilando y enlazando autohide..."
+gcc -Os -s -ffunction-sections -fdata-sections -Wl,--gc-sections "$PACKAGE_DIR/bin/polybar_autohide.c" -o "$PACKAGE_DIR/bin/polybar_autohide" -lX11 &>> "$LOG_FILE" && \
+safe_link "$PACKAGE_DIR/bin/polybar_autohide" "$HOME/.local/bin/polybar_autohide" && \
+safe_link "$PACKAGE_DIR/bin/toggle_autohide.sh" "$HOME/.local/bin/toggle_autohide.sh" && \
+print_sub_ok "Autohide instalado correctamente." || print_sub_err "Fallo al instalar autohide."
+
 export PATH="$HOME/.local/bin:$PATH"
 
 joined_links=$(printf ", %s" "${LINKS_MADE[@]}")
@@ -376,6 +383,7 @@ fi
 # Permisos de ejecución
 print_sub "Asegurando permisos de ejecución en scripts..."
 chmod +x "$PACKAGE_DIR/bin/polybar_launch.sh" &>> "$LOG_FILE"
+chmod +x "$PACKAGE_DIR/bin/toggle_autohide.sh" &>> "$LOG_FILE"
 find "$PACKAGE_DIR/config/rofi/bin" -type f -exec chmod +x {} + &>> "$LOG_FILE"
 find "$PACKAGE_DIR/config/polybar" -type f -name "*.sh" -exec chmod +x {} + &>> "$LOG_FILE"
 

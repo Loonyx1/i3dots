@@ -55,3 +55,4 @@ packages/i3dots/config/i3/icon_theme.base
 
 # Binarios locales compilados
 packages/i3dots/bin/xic
+packages/i3dots/bin/polybar_autohide
