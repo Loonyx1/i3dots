@@ -53,6 +53,7 @@ MEMORY.md
 packages/i3dots/config/i3/last_icon_color
 packages/i3dots/config/i3/icon_theme.base
 
-# Binarios locales compilados
+# Los bins precompilados están versionados en distros/*/bins/
+# Los bins locales compilados en bin/ no se trackean
 packages/i3dots/bin/xic
 packages/i3dots/bin/polybar_autohide

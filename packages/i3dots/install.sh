@@ -44,8 +44,8 @@ if [ -n "$VARIANT_ARG" ]; then
 fi
 
 VARIANT_NAME=$(cat "$PACKAGE_DIR/.current_variant" 2>/dev/null || echo "debian")
-if [ -f "$PACKAGE_DIR/envs/${VARIANT_NAME}.env" ]; then
-    source "$PACKAGE_DIR/envs/${VARIANT_NAME}.env"
+if [ -f "$PACKAGE_DIR/distros/${VARIANT_NAME}/env" ]; then
+    source "$PACKAGE_DIR/distros/${VARIANT_NAME}/env"
 else
     print_sub_err "Variante '${VARIANT_NAME}' no soportada."
     exit 1
@@ -347,23 +347,20 @@ fi
 mkdir -p "$HOME/.local/bin"
 safe_link "$PACKAGE_DIR/bin/recolor_folders.lua" "$HOME/.local/bin/recolor_folders"
 
-# Compilar y enlazar binario xic para portapapeles de imágenes
-if [ -f "$PACKAGE_DIR/bin/xic.c" ]; then
-    print_sub "Compilando xic para portapapeles de imágenes..."
-    if gcc -O2 "$PACKAGE_DIR/bin/xic.c" -o "$PACKAGE_DIR/bin/xic" -lX11 &>> "$LOG_FILE"; then
-        safe_link "$PACKAGE_DIR/bin/xic" "$HOME/.local/bin/xic"
-        print_sub_ok "xic compilado y enlazado correctamente."
-    else
-        print_sub_err "Fallo al compilar xic."
+# Binarios precompilados o compilación
+BINS_SRC="$PACKAGE_DIR/distros/${VARIANT_NAME}/bins"
+for b in xic polybar_autohide; do
+    if [ -f "$BINS_SRC/$b" ]; then
+        safe_link "$BINS_SRC/$b" "$HOME/.local/bin/$b"
+    elif [ -f "$PACKAGE_DIR/bin/$b.c" ] && [ -z "$SKIP_SYSTEM_PKGS" ]; then
+        print_sub "Compilando $b..."
+        gcc -Os -s -ffunction-sections -fdata-sections -Wl,--gc-sections \
+            "$PACKAGE_DIR/bin/$b.c" -o /tmp/"$b" -lX11 2>> "$LOG_FILE" && \
+            mv /tmp/"$b" "$HOME/.local/bin/$b" && chmod +x "$HOME/.local/bin/$b" && \
+            print_sub_ok "$b compilado." || print_sub_err "Fallo al compilar $b."
     fi
-fi
-
-# Compilar y enlazar componentes de autohide de Polybar
-print_sub "Compilando y enlazando autohide..."
-gcc -Os -s -ffunction-sections -fdata-sections -Wl,--gc-sections "$PACKAGE_DIR/bin/polybar_autohide.c" -o "$PACKAGE_DIR/bin/polybar_autohide" -lX11 &>> "$LOG_FILE" && \
-safe_link "$PACKAGE_DIR/bin/polybar_autohide" "$HOME/.local/bin/polybar_autohide" && \
-safe_link "$PACKAGE_DIR/bin/toggle_autohide.sh" "$HOME/.local/bin/toggle_autohide.sh" && \
-print_sub_ok "Autohide instalado correctamente." || print_sub_err "Fallo al instalar autohide."
+done
+safe_link "$PACKAGE_DIR/bin/toggle_autohide.sh" "$HOME/.local/bin/toggle_autohide.sh"
 
 export PATH="$HOME/.local/bin:$PATH"
 
@@ -431,7 +428,7 @@ echo "transparency=\"${BAR_TRANSPARENCY:-true}\"" >> "$STATE_DIR/i3dots/bar/stat
 # 9.6 Inicializar logo de fastfetch
 mkdir -p "$PACKAGE_DIR/config/fastfetch"
 rm -f "$PACKAGE_DIR/config/fastfetch/logo.txt"
-[ -f "$PACKAGE_DIR/envs/${VARIANT_NAME}.logo" ] && ln -sf "../../envs/${VARIANT_NAME}.logo" "$PACKAGE_DIR/config/fastfetch/logo.txt"
+[ -f "$PACKAGE_DIR/distros/${VARIANT_NAME}/logo" ] && ln -sf "../../distros/${VARIANT_NAME}/logo" "$PACKAGE_DIR/config/fastfetch/logo.txt"
 
 # Preparar carpeta real de Polybar y provisión inicial de colores
 mkdir -p ~/.config/polybar
