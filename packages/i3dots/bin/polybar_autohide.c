@@ -332,6 +332,8 @@ int main(int argc, char *argv[]) {
                     XFlush(display);
 
                     state = STATE_VISIBLE;
+                    XRaiseWindow(display, polybar_win);
+                    XFlush(display);
                     debug_log("[Autohide] Polybar vinculada (ID:%lu h:%u)\n", polybar_win, pheight);
 
                     // Si el cursor ya salió durante el tiempo de carga, iniciar gracia de inmediato
@@ -388,6 +390,7 @@ int main(int argc, char *argv[]) {
                     if (method == METHOD_HIDE && polybar_win != 0) {
                         debug_log("[Autohide] Gatillo. Mostrando Polybar...\n");
                         XMapWindow(display, polybar_win);
+                        XRaiseWindow(display, polybar_win);
                         XUnmapWindow(display, trigger_win);
                         XFlush(display);
 

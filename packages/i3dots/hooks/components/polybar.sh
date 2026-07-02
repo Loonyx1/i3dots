@@ -46,6 +46,8 @@ MODE="solid"
 ROFI_STYLE="solid"
 SOLID_LINE="false"
 ICON_PADDING="1"
+OVERRIDE_REDIRECT="dock"
+TRANS_TYPE="real"
 
 if [ -f "$STATE_FILE" ]; then
     source "$STATE_FILE"
@@ -58,7 +60,11 @@ if [ -f "$STATE_FILE" ]; then
     ROFI_STYLE="${rofi_style:-$ROFI_STYLE}"
     SOLID_LINE="${solid_line:-$SOLID_LINE}"
     ICON_PADDING="${icon_padding:-$ICON_PADDING}"
+    OVERRIDE_REDIRECT="${override_redirect:-$OVERRIDE_REDIRECT}"
+    TRANS_TYPE="${transparency_type:-$TRANS_TYPE}"
 fi
+
+OR_VAL=$([ "$OVERRIDE_REDIRECT" == "overlay" ] && echo "true" || echo "false")
 
 TYPE="${TYPE//[[:space:]]/}"
 THEME_SRC="$PACKAGE_DIR/config/polybar/$TYPE"
@@ -132,7 +138,11 @@ fi
 
 # Colores y Estilos de Módulos
 BG_COLOR=$([ "$TRANS" == "false" ] && echo "\${colors.background-solid}" || echo "#00000000")
-P_TRANS=$([ "$TRANS" == "false" ] && echo "false" || echo "true")
+if [ "$TRANS" == "false" ]; then
+    P_TRANS="false"
+else
+    P_TRANS=$([ "$TRANS_TYPE" == "pseudo" ] && echo "true" || echo "false")
+fi
 
 # Definir esquema de resaltado
 if [ "$MODE" == "underline" ]; then
@@ -165,6 +175,7 @@ cat > "$VARS_FILE" <<EOF
 height = $HEIGHT
 radius = $RADIUS
 bottom = $IS_BOTTOM
+override-redirect = $OR_VAL
 pseudo-transparency = $P_TRANS
 background = $BG_COLOR
 line-size = ${LINE_SIZE}pt
