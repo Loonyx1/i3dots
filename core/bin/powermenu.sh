@@ -16,15 +16,12 @@ L_LOGOUT="${POWERMENU_LABEL_LOGOUT:-Logout}"
 if [[ -z "$ROFI_LIST_MODE" && $# -eq 0 ]]; then
     # Fase 1: Lanzar Rofi (reemplaza proceso actual)
     export ROFI_LIST_MODE=1
-    UPTIME=$(uptime -p)
-    UPTIME=${UPTIME#up }
-    exec "$BIN" -show " " -modi " :$0" "${ARGS[@]}" -p "UP - $UPTIME"
+    UPTIME=$(uptime -p | sed -E 's/up //; s/ days?/d/g; s/ hours?/h/g; s/ minutes?/m/g; s/,//g; s/  */ /g')
+    exec "$BIN" -show " " -modi " :$0" "${ARGS[@]}" -theme-str 'inputbar { children: [ "textbox-prompt-colon" ]; } textbox-prompt-colon { str: "'"$UPTIME"'"; horizontal-align: 0.5; expand: true; padding: 12px 15px; background-color: transparent; text-color: inherit; }' -p ""
 
 elif [[ "$ROFI_LIST_MODE" -eq 1 && $# -eq 0 ]]; then
     # Fase 2: Rofi solicita lista (stdout)
-    UPTIME=$(uptime -p)
-    UPTIME=${UPTIME#up }
-    echo -en "\x00prompt\x1fUP - $UPTIME\n"
+    UPTIME=$(uptime -p | sed -E 's/up //; s/ days?/d/g; s/ hours?/h/g; s/ minutes?/m/g; s/,//g; s/  */ /g')
     echo -e "$L_SUSPEND\n$L_LOGOUT\n$L_REBOOT\n$L_SHUTDOWN"
     exit 0
 else
