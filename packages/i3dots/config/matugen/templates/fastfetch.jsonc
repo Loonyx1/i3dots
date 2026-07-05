@@ -23,7 +23,7 @@
     { "type": "kernel", "key": "KER", "format": "Linux {2}" },
     { "type": "shell", "key": "SH ", "format": "{1} {4}" },
     { "type": "wm", "key": "WM ", "format": "{1}" },
-    { "type": "packages", "key": "PKG", "format": "{1}" },
+    { "type": "packages", "key": "PKG", "format": "{all}" },
     "break",
     {
       "type": "custom",
