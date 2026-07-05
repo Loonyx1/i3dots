@@ -178,28 +178,20 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
                 fi
 
             elif [[ "$vis_choice" == "Estilo tarjeta (Card)"* ]]; then
-                local states=$'activado\ndesactivado'
-                local selected_state=$(ask_selection "Estilo Tarjeta" "$states")
-                if [[ -n "$selected_state" ]]; then
-                    if [[ "$selected_state" == "activado" ]]; then
-                        cur_card_style="true"
-                    else
-                        cur_card_style="false"
-                    fi
-                    save_state "card_style" "$cur_card_style"
+                if [[ "$cur_card_style" == "true" ]]; then
+                    cur_card_style="false"
+                else
+                    cur_card_style="true"
                 fi
+                save_state "card_style" "$cur_card_style"
 
             elif [[ "$vis_choice" == "Unir texto a tarjeta"* ]]; then
-                local states=$'activado\ndesactivado'
-                local selected_state=$(ask_selection "Unir texto" "$states")
-                if [[ -n "$selected_state" ]]; then
-                    if [[ "$selected_state" == "activado" ]]; then
-                        cur_join_text="true"
-                    else
-                        cur_join_text="false"
-                    fi
-                    save_state "join_text" "$cur_join_text"
+                if [[ "$cur_join_text" == "true" ]]; then
+                    cur_join_text="false"
+                else
+                    cur_join_text="true"
                 fi
+                save_state "join_text" "$cur_join_text"
 
             elif [[ "$vis_choice" == "Personalizar indicador de selección..." ]]; then
                 menu_indicadores
@@ -234,18 +226,14 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
             [[ -z "$thumb_choice" || "$thumb_choice" == "Atrás" ]] && break
 
             if [[ "$thumb_choice" == "$PROM_THUMBS"* ]]; then
-                local modes=$'activado\ndesactivado'
-                local selected_mode=$(ask_selection "$PROM_THUMBS" "$modes")
-                if [[ -n "$selected_mode" ]]; then
-                    if [[ "$selected_mode" == "activado" ]]; then
-                        cur_thumb_mode="enabled"
-                    else
-                        cur_thumb_mode="disabled"
-                    fi
-                    save_state "thumbnail_mode" "$cur_thumb_mode"
-                    if [[ "$cur_thumb_mode" == "enabled" ]] && [[ "$HAS_VIPS" -eq 0 ]]; then
-                        cur_thumb_mode="disabled"
-                    fi
+                if [[ "$cur_thumb_mode" == "enabled" ]]; then
+                    cur_thumb_mode="disabled"
+                else
+                    cur_thumb_mode="enabled"
+                fi
+                save_state "thumbnail_mode" "$cur_thumb_mode"
+                if [[ "$cur_thumb_mode" == "enabled" ]] && [[ "$HAS_VIPS" -eq 0 ]]; then
+                    cur_thumb_mode="disabled"
                 fi
 
             elif [[ "$thumb_choice" == "$PROM_QUALITY"* ]]; then
@@ -314,28 +302,20 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
             [[ -z "$color_choice" || "$color_choice" == "Atrás" ]] && break
 
             if [[ "$color_choice" == "$PROM_BG_GEN"* ]]; then
-                local bgs=$'activado\ndesactivado'
-                local selected_bg=$(ask_selection "$PROM_BG_GEN" "$bgs")
-                if [[ -n "$selected_bg" ]]; then
-                    if [[ "$selected_bg" == "activado" ]]; then
-                        cur_bg_gen="true"
-                    else
-                        cur_bg_gen="false"
-                    fi
-                    save_state "bg_generation" "$cur_bg_gen"
+                if [[ "$cur_bg_gen" == "true" ]]; then
+                    cur_bg_gen="false"
+                else
+                    cur_bg_gen="true"
                 fi
+                save_state "bg_generation" "$cur_bg_gen"
 
             elif [[ "$color_choice" == "Generación de color rápida"* ]]; then
-                local options_mat=$'activado\ndesactivado'
-                local selected_mat=$(ask_selection "Generación Rápida" "$options_mat")
-                if [[ -n "$selected_mat" ]]; then
-                    if [[ "$selected_mat" == "activado" ]]; then
-                        cur_matugen_thumb="true"
-                    else
-                        cur_matugen_thumb="false"
-                    fi
-                    save_state "matugen_use_thumb" "$cur_matugen_thumb"
+                if [[ "$cur_matugen_thumb" == "true" ]]; then
+                    cur_matugen_thumb="false"
+                else
+                    cur_matugen_thumb="true"
                 fi
+                save_state "matugen_use_thumb" "$cur_matugen_thumb"
             fi
         done
     }

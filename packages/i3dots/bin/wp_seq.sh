@@ -13,8 +13,7 @@ L_CENTER="Centro Oscuro"
 # 2. Control de Flujo Rofi
 if [[ $# -eq 0 ]]; then
     # Fase 1: Lanzar Rofi (arranque inicial)
-    active_mode="dark"
-    [[ -f "$WP_STATE_DIR/active_mode" ]] && active_mode=$(<"$WP_STATE_DIR/active_mode")
+    active_mode=$(get_state "active_mode" "dark")
 
     show_mode="$L_DARK"
     [[ "$active_mode" == "light" ]] && show_mode="$L_LIGHT"
