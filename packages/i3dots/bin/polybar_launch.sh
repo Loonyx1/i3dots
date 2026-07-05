@@ -82,24 +82,18 @@ export POLY_COMPACT_LEFT="rofi space xwindow space filesystem filesystem-value s
 
 export POLY_COMPACT_CENTER="i3"
 
-export POLY_COMPACT_RIGHT=""
-[ -n "$BACKLIGHT_CARD" ] && export POLY_COMPACT_RIGHT="backlight backlight-value"
+export POLY_COMPACT_RIGHT="tray"
+[ -n "$BACKLIGHT_CARD" ] && export POLY_COMPACT_RIGHT="$POLY_COMPACT_RIGHT space backlight backlight-value"
 
 [ -n "$HAS_AUDIO" ] && {
-    [ -n "$POLY_COMPACT_RIGHT" ] && export POLY_COMPACT_RIGHT="$POLY_COMPACT_RIGHT space"
-    export POLY_COMPACT_RIGHT="$POLY_COMPACT_RIGHT pulseaudio pulseaudio-value"
+    export POLY_COMPACT_RIGHT="$POLY_COMPACT_RIGHT space pulseaudio pulseaudio-value"
 }
 
 [ -n "$HAS_BATTERY" ] && {
-    [ -n "$POLY_COMPACT_RIGHT" ] && export POLY_COMPACT_RIGHT="$POLY_COMPACT_RIGHT space"
-    export POLY_COMPACT_RIGHT="$POLY_COMPACT_RIGHT battery battery-value"
+    export POLY_COMPACT_RIGHT="$POLY_COMPACT_RIGHT space battery battery-value"
 }
 
-if [ -n "$POLY_COMPACT_RIGHT" ]; then
-    export POLY_COMPACT_RIGHT="$POLY_COMPACT_RIGHT space time time-value space tray"
-else
-    export POLY_COMPACT_RIGHT="time time-value space tray"
-fi
+export POLY_COMPACT_RIGHT="$POLY_COMPACT_RIGHT space time time-value"
 
 # 5. Cargar Estado de Estilo y Exportar a Entorno
 if [ -f "$STATE_FILE" ]; then
