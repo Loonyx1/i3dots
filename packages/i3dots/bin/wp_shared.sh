@@ -14,28 +14,65 @@ WP_STATE_DIR="$STATE_DIR_VAL/$CUR_ENV/wallpaper"
 # Directorio de origen de wallpapers
 WALLPAPER_DIR="${WALLPAPER_DIR:-$HOME/wall}"
 
+# Migración automática de configuración heredada a state.env unificado
+if [[ ! -f "$WP_STATE_DIR/state.env" ]]; then
+    touch "$WP_STATE_DIR/state.env"
+    for var in "show_names_mode" "card_style" "join_text" "ind_text" "ind_block" "ind_border" "ind_underline" "ind_halo" "thumbnail_mode" "thumbnail_size" "no_thumb_mode" "bg_generation" "matugen_use_thumb" "active_mode"; do
+        local legacy_file="$WP_STATE_DIR/$var"
+        if [[ -f "$legacy_file" ]]; then
+            local val=""
+            read -r val < "$legacy_file"
+            val="${val//[[:space:]]/}"
+            if [[ -n "$val" ]]; then
+                echo "${var}=\"${val}\"" >> "$WP_STATE_DIR/state.env"
+            fi
+            rm -f "$legacy_file"
+        fi
+    done
+fi
+
+# Cargar variables de estado unificadas
+[[ -f "$WP_STATE_DIR/state.env" ]] && source "$WP_STATE_DIR/state.env"
+
+# Helper para obtener estados guardados
+get_state() {
+    local key="$1"
+    local default="$2"
+    if [[ -n "${!key+x}" ]]; then
+        echo "${!key}"
+    else
+        echo "$default"
+    fi
+}
+
+# Helper para persistir estados en un único archivo de configuración
+save_state() {
+    local key="$1"
+    local val="$2"
+    local env_file="$WP_STATE_DIR/state.env"
+    
+    [[ -f "$env_file" ]] || touch "$env_file"
+    
+    local cur_val
+    cur_val=$(source "$env_file" 2>/dev/null; echo "${!key}")
+    [[ "$cur_val" == "$val" ]] && return
+    
+    if grep -q "^${key}=" "$env_file"; then
+        sed -i "s|^${key}=.*|${key}=\"${val}\"|" "$env_file"
+    else
+        echo "${key}=\"${val}\"" >> "$env_file"
+    fi
+    
+    printf -v "$key" "%s" "$val"
+}
+
 # 2. Cargar/Recargar variables de configuración
 load_wp_config() {
-    THUMB_MODE="enabled"
-    [[ -f "$WP_STATE_DIR/thumbnail_mode" ]] && THUMB_MODE=$(<"$WP_STATE_DIR/thumbnail_mode")
-    THUMB_MODE="${THUMB_MODE//[[:space:]]/}"
-
-    THUMB_SIZE="450"
-    [[ -f "$WP_STATE_DIR/thumbnail_size" ]] && THUMB_SIZE=$(<"$WP_STATE_DIR/thumbnail_size")
-    THUMB_SIZE="${THUMB_SIZE//[[:space:]]/}"
-
-    NO_THUMB_MODE="original"
-    [[ -f "$WP_STATE_DIR/no_thumb_mode" ]] && NO_THUMB_MODE=$(<"$WP_STATE_DIR/no_thumb_mode")
-    NO_THUMB_MODE="${NO_THUMB_MODE//[[:space:]]/}"
-
-    BG_GENERATION="true"
-    [[ -f "$WP_STATE_DIR/bg_generation" ]] && BG_GENERATION=$(<"$WP_STATE_DIR/bg_generation")
-    BG_GENERATION="${BG_GENERATION//[[:space:]]/}"
-
-    MATUGEN_USE_THUMB="true"
-    [[ -f "$WP_STATE_DIR/matugen_use_thumb" ]] && MATUGEN_USE_THUMB=$(<"$WP_STATE_DIR/matugen_use_thumb")
-    MATUGEN_USE_THUMB="${MATUGEN_USE_THUMB//[[:space:]]/}"
-
+    THUMB_MODE=$(get_state "thumbnail_mode" "enabled")
+    THUMB_SIZE=$(get_state "thumbnail_size" "450")
+    NO_THUMB_MODE=$(get_state "no_thumb_mode" "original")
+    BG_GENERATION=$(get_state "bg_generation" "true")
+    MATUGEN_USE_THUMB=$(get_state "matugen_use_thumb" "true")
     THUMB_DIR="$WP_STATE_DIR/thumbs/$THUMB_SIZE"
 }
 

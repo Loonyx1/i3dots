@@ -20,12 +20,82 @@ if [[ $# -eq 0 ]]; then
     [[ "$active_mode" == "light" ]] && show_mode="$L_LIGHT"
     [[ "$active_mode" == "center" ]] && show_mode="$L_CENTER"
 
+    show_names_mode=$(get_state "show_names_mode" "all")
+    card_style=$(get_state "card_style" "false")
+    join_text=$(get_state "join_text" "false")
+    
+    ind_text=$(get_state "ind_text" "true")
+    ind_block=$(get_state "ind_block" "false")
+    ind_border=$(get_state "ind_border" "false")
+    ind_underline=$(get_state "ind_underline" "false")
+    ind_halo=$(get_state "ind_halo" "false")
+
+    # Mapear los indicadores visuales activos a estilos CSS para Rofi
+    icon_size_css="element-icon{size:450px;}"
+    indicator_css=""
+
+    if [[ "$ind_text" == "true" ]]; then
+        indicator_css+="element selected{text-color:var(selected);} element-text selected{background-color:transparent;text-color:var(selected);} "
+    fi
+    if [[ "$ind_block" == "true" ]]; then
+        indicator_css+="element-text selected{background-color:var(selected);text-color:var(background);border-radius:0px;padding:4px 8px;} "
+    fi
+    # Combinación inteligente de bordes (para evitar colisión de propiedades CSS)
+    border_width=""
+    if [[ "$ind_border" == "true" && "$ind_underline" == "true" ]]; then
+        border_width="3px 3px 6px 3px"
+    elif [[ "$ind_border" == "true" ]]; then
+        border_width="3px"
+    elif [[ "$ind_underline" == "true" ]]; then
+        border_width="0px 0px 6px 0px"
+    fi
+
+    if [[ -n "$border_width" ]]; then
+        indicator_css+="element selected{border:$border_width;border-color:var(selected);"
+        if [[ "$ind_underline" == "true" ]]; then
+            indicator_css+="text-color:var(selected);"
+        fi
+        indicator_css+="} "
+    fi
+
+    if [[ "$ind_halo" == "true" ]]; then
+        indicator_css+="element selected{background-color:var(selected-neutral);text-color:var(selected);} "
+    fi
+
+    names_css=""
+    case "$show_names_mode" in
+        "all")
+            names_css="element-text{enabled:true;text-color:inherit;} "
+            ;;
+        "selected")
+            names_css="element-text{enabled:true;text-color:transparent;} element-text selected{enabled:true;} "
+            ;;
+        "disabled")
+            names_css="element-text{enabled:false;} element-text selected{enabled:false;} "
+            ;;
+    esac
+
+    card_css=""
+    if [[ "$card_style" == "true" ]]; then
+        card_css="element{background-color:rgba(255,255,255,0.02);border:1px;border-color:rgba(255,255,255,0.05);border-radius:12px;padding:12px;} element normal.normal{background-color:rgba(255,255,255,0.02);} element alternate.normal{background-color:rgba(255,255,255,0.02);} element selected{background-color:rgba(255,255,255,0.08);border-radius:12px;} element selected.normal{background-color:rgba(255,255,255,0.08);} "
+    fi
+
+    join_css=""
+    if [[ "$join_text" == "true" ]]; then
+        join_css="element{spacing:0px;padding:0px;} element-text{padding:8px 4px;margin:0px;} "
+        if [[ "$card_style" == "true" ]]; then
+            join_css+="element-text selected{background-color:rgba(255,255,255,0.08);text-color:var(selected);} "
+        else
+            join_css+="element-text selected{background-color:rgba(255,255,255,0.05);text-color:var(selected);} "
+        fi
+    fi
+
     export ROFI_LIST_MODE=1
     # Se usa exec directo sin eval para evitar fallos de parsing de espacios en los nombres
     exec rofi -show "$show_mode" \
         -modi "$L_DARK:$0 --mode-dark,$L_LIGHT:$0 --mode-light,$L_CENTER:$0 --mode-center" \
         -theme "$WALL_SEL_THEME" \
-        -theme-str 'element-icon{size:450px;} element-text{horizontal-align:0.5;}'
+        -theme-str "$icon_size_css element-text{horizontal-align:0.5;} $card_css $join_css $names_css $indicator_css"
 
 elif [[ $# -eq 1 ]]; then
     # Fase 2: Rofi solicita lista (stdout)
@@ -45,7 +115,7 @@ elif [[ $# -eq 2 ]]; then
         "--mode-center") ACTIVE_MODE="center" ;;
         *)               ACTIVE_MODE="dark"   ;;
     esac
-    echo "$ACTIVE_MODE" > "$WP_STATE_DIR/active_mode"
+    save_state "active_mode" "$ACTIVE_MODE"
 
     # Resolver ruta absoluta del wallpaper
     [[ -f "$SELECTION" ]] && FINAL_PATH="$SELECTION" || FINAL_PATH="$WALLPAPER_DIR/$SELECTION"

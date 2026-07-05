@@ -52,7 +52,9 @@ mode-switcher {
 
 button {
     padding:                     12px 30px;
-    border-radius:               8px;
+    border:                      0px;
+    border-color:                transparent;
+    border-radius:               0px;
     background-color:            var(alternate-normal-background);
     text-color:                  var(foreground-colour);
     cursor:                      pointer;
@@ -60,8 +62,10 @@ button {
 }
 
 button selected {
-    background-color:            var(selected-normal-background);
-    text-color:                  var(selected-normal-foreground);
+    border:                      0px;
+    border-color:                transparent;
+    background-color:            var(selected);
+    text-color:                  var(background);
 }
 
 /*****----- Listview -----*****/
@@ -81,19 +85,17 @@ element {
     padding:                     10px;
     border-radius:               0px;
     orientation:                vertical;
-    width:                      120px;
-    horizontal-align:            0.5;
 }
 element normal.normal {
-    background-color:            var(normal-background);
+    background-color:            transparent;
     text-color:                  var(normal-foreground);
 }
 element selected.normal {
-    background-color:            var(selected-normal-background);
-    text-color:                  var(selected-normal-foreground);
+    background-color:            transparent;
+    text-color:                  var(selected-normal-background);
 }
 element alternate.normal {
-    background-color:            var(alternate-normal-background);
+    background-color:            transparent;
     text-color:                  var(alternate-normal-foreground);
 }
 element-icon {
@@ -101,10 +103,15 @@ element-icon {
     size:                        2px;
     cursor:                      inherit;
 }
-/*****----- Elements -----*****/
 element-text {
     enabled:            true;
+    background-color:   transparent;
     horizontal-align:   0.5;
     vertical-align:     0.5;
     text-color:         inherit;
+}
+
+element-text selected {
+    background-color:            transparent;
+    text-color:                  inherit;
 }
