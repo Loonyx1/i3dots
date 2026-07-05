@@ -54,6 +54,15 @@ fi
 # Cargar configuraciones del paquete
 [ -f "$PACKAGE_DIR/config.env" ] && source "$PACKAGE_DIR/config.env"
 
+# Cargar dependencias de compilación si falta algún precompilado
+BINS_SRC="$PACKAGE_DIR/distros/${VARIANT_NAME}/bins"
+if [ -n "$PKG_BUILD" ]; then
+    if { [ ! -f "$BINS_SRC/xic" ] && [ -f "$PACKAGE_DIR/bin/xic.c" ]; } || \
+       { [ ! -f "$BINS_SRC/polybar_autohide" ] && [ -f "$PACKAGE_DIR/bin/polybar_autohide.c" ]; }; then
+        PKG_LIST="$PKG_LIST $PKG_BUILD"
+    fi
+fi
+
 print_step "Iniciando instalación para variante: ${VARIANT_NAME} (Offline: ${IS_OFFLINE})"
 
 # (Lógica del elevador importada desde utils.sh)

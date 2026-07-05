@@ -63,25 +63,22 @@ run_elevated() {
         local i=0
         local line
         
-        # Ejecutar comando y procesar salida (sin subshell innecesario para el elevador)
+        # Ejecutar en segundo plano redirigiendo salida a archivo temporal
         local runner=""
         [ "$EUID" -ne 0 ] && [ -n "$ELEVATOR" ] && runner="$ELEVATOR"
 
-        $runner "${cmd[@]}" 2>&1 | while read -r line; do
-            # Guardar en log (sin códigos de escape)
-            echo "$line" >> "${LOG_FILE:-/dev/null}"
-            
-            # Mostrar ticker (spinner + recorte de línea)
-            local char="${spinner:$((i % 10)):1}"
-            local clean_line="${line//[$'\t\r\n']/ }"
-            # Recortar a 60 caracteres para evitar overflow
-            local display_line="${clean_line:0:60}"
-            printf "\r  ${GRAY}%s${NC} ${GRAY}Trabajando...${NC} %s\e[K" "$char" "$display_line"
-            ((i++))
+        local tmp_log="/tmp/ticker_$$.log"
+        $runner "${cmd[@]}" < /dev/null > "$tmp_log" 2>&1 &
+        local pid=$!
+        while kill -0 $pid 2>/dev/null; do
+            local line=$(tail -n 1 "$tmp_log" 2>/dev/null | tr -d '\r\n')
+            printf "\r  ${GRAY}%s${NC} ${GRAY}Trabajando...${NC} %s\e[K" "${spinner:$((i++ % 10)):1}" "${line:0:60}"
+            sleep 0.1
         done
-        # Limpiar línea al finalizar y devolver estado real del comando
+        wait $pid; local exit_code=$?
+        cat "$tmp_log" >> "${LOG_FILE:-/dev/null}" 2>/dev/null; rm -f "$tmp_log"
         printf "\r\e[K"
-        return ${PIPESTATUS[0]}
+        return $exit_code
     fi
 
     if [ "$EUID" -ne 0 ] && [ -n "$ELEVATOR" ]; then
