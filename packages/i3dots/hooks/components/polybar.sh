@@ -103,6 +103,29 @@ fi
 RADIUS=$([ "$STYLE" == "round" ] && echo 10 || echo 0)
 IS_BOTTOM=$([ "$POS" == "top" ] && echo "false" || echo "true")
 H_NUM="${HEIGHT//[!0-9]/}"; [[ -z "$H_NUM" ]] && H_NUM=15
+if [ "$TYPE" == "polybar_compact" ]; then
+    if [ "$TRANS" == "false" ]; then
+        COMP_HEIGHT="$(( H_NUM + 3 ))pt"
+        COMP_LINE_SIZE="3pt"
+        if [ "$IS_BOTTOM" == "true" ]; then
+            COMP_BORDER_TOP=6
+            COMP_BORDER_BOTTOM=0
+        else
+            COMP_BORDER_TOP=0
+            COMP_BORDER_BOTTOM=6
+        fi
+    else
+        COMP_HEIGHT="${H_NUM}pt"
+        COMP_LINE_SIZE="0pt"
+        COMP_BORDER_TOP=5
+        COMP_BORDER_BOTTOM=5
+    fi
+else
+    COMP_HEIGHT="${H_NUM}pt"
+    COMP_LINE_SIZE="${LINE_SIZE}pt"
+    COMP_BORDER_TOP=5
+    COMP_BORDER_BOTTOM=5
+fi
 
 # Coeficientes proporcionales
 F_TEXT=$(( H_NUM * 3 / 5 + 1 ))
@@ -138,6 +161,7 @@ fi
 
 # Colores y Estilos de Módulos
 BG_COLOR=$([ "$TRANS" == "false" ] && echo "\${colors.background-solid}" || echo "#00000000")
+COMPACT_BG_COLOR=$([ "$TRANS" == "false" ] && echo "\${colors.compact-bar-background}" || echo "#00000000")
 if [ "$TRANS" == "false" ]; then
     P_TRANS="false"
 else
@@ -172,13 +196,16 @@ F_ROFI_NAME="Symbols Nerd Font Mono"
 VARS_FILE="$CONF_DIR/variables.ini"
 cat > "$VARS_FILE" <<EOF
 [vars]
-height = $HEIGHT
+height = $COMP_HEIGHT
 radius = $RADIUS
 bottom = $IS_BOTTOM
 override-redirect = $OR_VAL
 pseudo-transparency = $P_TRANS
 background = $BG_COLOR
-line-size = ${LINE_SIZE}pt
+compact-background = $COMPACT_BG_COLOR
+border-top = ${COMP_BORDER_TOP}pt
+border-bottom = ${COMP_BORDER_BOTTOM}pt
+line-size = $COMP_LINE_SIZE
 font-0 = "JetBrainsMono Nerd Font Mono:style=Bold:size=$F_TEXT;$F_OFFSET_TEXT"
 font-1 = "Symbols Nerd Font:size=$F_CURV;$F_CURV_OFFSET"
 font-2 = "JetBrainsMono Nerd Font Mono:size=$F_TEXT:antialias=false;$F_OFFSET_TEXT"
