@@ -45,6 +45,9 @@ if [[ "$BG_GEN" -eq 1 ]]; then
     
     [[ -d "$THUMB_DIR" ]] || mkdir -p "$THUMB_DIR"
     
+    local vips_args=(-s "$THUMB_SIZE")
+    [[ "$THUMB_CROP_MODE" == "crop" ]] && vips_args=(-s "${THUMB_SIZE}x${THUMB_SIZE}" -m centre)
+    
     # Bucle secuencial de baja prioridad para wallpapers faltantes
     while IFS= read -r file; do
         [[ -z "$file" ]] && continue
@@ -56,7 +59,7 @@ if [[ "$BG_GEN" -eq 1 ]]; then
         get_thumb_path "$real_file"
         thumb="$RET_THUMB"
         if [[ ! -f "$thumb" || "$real_file" -nt "$thumb" ]]; then
-            nice -n 19 vipsthumbnail -s "$THUMB_SIZE" -o "$thumb" "$real_file" 2>/dev/null
+            nice -n 19 vipsthumbnail "${vips_args[@]}" -o "$thumb" "$real_file" 2>/dev/null
         fi
     done <<< "$wallpapers_found"
     exit 0
@@ -94,14 +97,17 @@ if [[ "$CACHE_NOW" -eq 1 ]]; then
         exit 0
     fi
     
-    echo "Generando caché de miniaturas (Calidad: ${THUMB_SIZE}px) para $total imágenes..."
+    local vips_args=(-s "$THUMB_SIZE")
+    [[ "$THUMB_CROP_MODE" == "crop" ]] && vips_args=(-s "${THUMB_SIZE}x${THUMB_SIZE}" -m centre)
+
+    echo "Generando caché de miniaturas (Calidad: ${THUMB_SIZE}px, Recorte: $THUMB_CROP_MODE) para $total imágenes..."
     count=0
     for file in "${pending[@]}"; do
         count=$((count+1))
         echo -e "\e[1A\e[K[$count/$total] Procesando: ${file##*/}"
         get_thumb_path "$file"
         thumb="$RET_THUMB"
-        vipsthumbnail -s "$THUMB_SIZE" -o "$thumb" "$file" 2>/dev/null
+        vipsthumbnail "${vips_args[@]}" -o "$thumb" "$file" 2>/dev/null
     done
     
     if command -v notify-send &>/dev/null; then

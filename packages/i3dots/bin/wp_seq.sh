@@ -81,7 +81,7 @@ if [[ $# -eq 0 ]]; then
 
     join_css=""
     if [[ "$join_text" == "true" ]]; then
-        join_css="element{spacing:0px;padding:0px;} element-text{padding:8px 4px;margin:0px;} "
+        join_css="element{spacing:0px;padding:0px;} element-icon{margin:14px;} element-text{padding:6px 4px;margin:0px;} "
         if [[ "$card_style" == "true" ]]; then
             join_css+="element-text selected{background-color:rgba(255,255,255,0.08);text-color:var(selected);} "
         else
@@ -120,8 +120,58 @@ elif [[ $# -eq 2 ]]; then
     [[ -f "$SELECTION" ]] && FINAL_PATH="$SELECTION" || FINAL_PATH="$WALLPAPER_DIR/$SELECTION"
     FINAL_PATH=$(readlink -f "$FINAL_PATH")
 
-    # Guardar color source (con optimización de miniatura si está activa)
-    [[ "$THUMB_MODE" == "enabled" && "$MATUGEN_USE_THUMB" == "true" ]] && get_thumb_path "$FINAL_PATH" && color_src="$RET_THUMB" || color_src="$FINAL_PATH"
+    # Guardar color source (con optimización de miniatura fit si está activa para evitar cortes de color)
+    color_src="$FINAL_PATH"
+    temp_to_clean=""
+    if [[ "$MATUGEN_USE_THUMB" == "true" ]]; then
+        if [[ "$THUMB_CROP_MODE" == "crop" && "$MATUGEN_USE_FIT" == "true" ]]; then
+            safe_name="${FINAL_PATH//\//_}"
+            get_thumb_path "$FINAL_PATH" "fit"
+            fit_thumb="$RET_THUMB"
+            
+            if [[ -f "$fit_thumb" ]]; then
+                color_src="$fit_thumb"
+            else
+                if [[ "$MATUGEN_CLEAN_TEMP" == "true" ]]; then
+                    color_src="/tmp/matugen_fit_${safe_name}.jpg"
+                    temp_to_clean="$color_src"
+                    vipsthumbnail -s "$THUMB_SIZE" -o "$color_src" "$FINAL_PATH" 2>/dev/null
+                else
+                    fit_dir="$WP_STATE_DIR/thumbs/${THUMB_SIZE}_fit"
+                    [[ -d "$fit_dir" ]] || mkdir -p "$fit_dir"
+                    color_src="$fit_thumb"
+                    vipsthumbnail -s "$THUMB_SIZE" -o "$color_src" "$FINAL_PATH" 2>/dev/null
+                fi
+            fi
+        else
+            safe_name="${FINAL_PATH//\//_}"
+            get_thumb_path "$FINAL_PATH"
+            normal_thumb="$RET_THUMB"
+            
+            if [[ -f "$normal_thumb" ]]; then
+                color_src="$normal_thumb"
+            else
+                if [[ "$MATUGEN_CLEAN_TEMP" == "true" ]]; then
+                    color_src="/tmp/matugen_thumb_${safe_name}.jpg"
+                    temp_to_clean="$color_src"
+                    if [[ "$THUMB_CROP_MODE" == "crop" ]]; then
+                        vipsthumbnail -s "${THUMB_SIZE}x${THUMB_SIZE}" -m centre -o "$color_src" "$FINAL_PATH" 2>/dev/null
+                    else
+                        vipsthumbnail -s "$THUMB_SIZE" -o "$color_src" "$FINAL_PATH" 2>/dev/null
+                    fi
+                else
+                    crop_dir="$WP_STATE_DIR/thumbs/${THUMB_SIZE}_${THUMB_CROP_MODE}"
+                    [[ -d "$crop_dir" ]] || mkdir -p "$crop_dir"
+                    color_src="$normal_thumb"
+                    if [[ "$THUMB_CROP_MODE" == "crop" ]]; then
+                        vipsthumbnail -s "${THUMB_SIZE}x${THUMB_SIZE}" -m centre -o "$color_src" "$FINAL_PATH" 2>/dev/null
+                    else
+                        vipsthumbnail -s "$THUMB_SIZE" -o "$color_src" "$FINAL_PATH" 2>/dev/null
+                    fi
+                fi
+            fi
+        fi
+    fi
     ln -sf "$color_src" "$WP_STATE_DIR/color_source"
 
     # Aplicar wallpaper y recargar secuencia en segundo plano (cierre inmediato de Rofi)
@@ -136,6 +186,9 @@ elif [[ $# -eq 2 ]]; then
         else
             engine_matugen.sh -m dark --source-color-index 0
         fi
+        
+        # Eliminar miniatura temporal si fue generada en /tmp
+        [[ -n "$temp_to_clean" && -f "$temp_to_clean" ]] && rm -f "$temp_to_clean"
         
         apply_dots.sh
     ) &>/dev/null &

@@ -93,6 +93,9 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
     local cur_no_thumb=""
     local cur_bg_gen=""
     local cur_matugen_thumb=""
+    local cur_thumb_crop_mode=""
+    local cur_matugen_clean_temp=""
+    local cur_matugen_use_fit=""
 
     menu_indicadores() {
         while true; do
@@ -214,10 +217,14 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
                 600) size_lbl="Alta (600px)" ;;
             esac
 
+            local crop_lbl="Completo (Fit)"
+            [[ "$cur_thumb_crop_mode" == "crop" ]] && crop_lbl="Cuadrado (Crop)"
+
             local thumb_opts=""
             thumb_opts+="$PROM_THUMBS: $mode_lbl"$'\n'
             if [[ "$cur_thumb_mode" == "enabled" ]]; then
                 thumb_opts+="$PROM_QUALITY: $size_lbl"$'\n'
+                thumb_opts+="Recorte de miniatura: $crop_lbl"$'\n'
                 thumb_opts+="$PROM_NO_THUMB: $fallback_lbl"$'\n'
             fi
             thumb_opts+="Atrás"
@@ -270,6 +277,14 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
                     fi
                 fi
 
+            elif [[ "$thumb_choice" == "Recorte de miniatura"* ]]; then
+                if [[ "$cur_thumb_crop_mode" == "crop" ]]; then
+                    cur_thumb_crop_mode="fit"
+                else
+                    cur_thumb_crop_mode="crop"
+                fi
+                save_state "thumbnail_crop_mode" "$cur_thumb_crop_mode"
+
             elif [[ "$thumb_choice" == "$PROM_NO_THUMB"* ]]; then
                 local fallbacks=$'Cargar imagen original\nUsar icono genérico'
                 local selected_fb=$(ask_selection "$PROM_NO_THUMB" "$fallbacks")
@@ -293,9 +308,19 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
             local matugen_lbl="desactivado"
             [[ "$cur_matugen_thumb" == "true" ]] && matugen_lbl="activado"
 
+            local fit_lbl="desactivado"
+            [[ "$cur_matugen_use_fit" == "true" ]] && fit_lbl="activado"
+
+            local clean_lbl="desactivado"
+            [[ "$cur_matugen_clean_temp" == "true" ]] && clean_lbl="activado"
+
             local color_opts=""
             color_opts+="$PROM_BG_GEN: $bg_lbl"$'\n'
             color_opts+="Generación de color rápida: $matugen_lbl"$'\n'
+            if [[ "$cur_thumb_crop_mode" == "crop" ]]; then
+                color_opts+="Usar imagen completa para color: $fit_lbl"$'\n'
+                color_opts+="Limpieza temporal Matugen: $clean_lbl"$'\n'
+            fi
             color_opts+="Atrás"
 
             local color_choice=$(ask_selection "Colores" "$color_opts")
@@ -316,6 +341,22 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
                     cur_matugen_thumb="true"
                 fi
                 save_state "matugen_use_thumb" "$cur_matugen_thumb"
+
+            elif [[ "$color_choice" == "Usar imagen completa para color"* ]]; then
+                if [[ "$cur_matugen_use_fit" == "true" ]]; then
+                    cur_matugen_use_fit="false"
+                else
+                    cur_matugen_use_fit="true"
+                fi
+                save_state "matugen_use_fit" "$cur_matugen_use_fit"
+
+            elif [[ "$color_choice" == "Limpieza temporal Matugen"* ]]; then
+                if [[ "$cur_matugen_clean_temp" == "true" ]]; then
+                    cur_matugen_clean_temp="false"
+                else
+                    cur_matugen_clean_temp="true"
+                fi
+                save_state "matugen_clean_temp" "$cur_matugen_clean_temp"
             fi
         done
     }
@@ -379,6 +420,9 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
         cur_no_thumb="$NO_THUMB_MODE"
         cur_bg_gen="$BG_GENERATION"
         cur_matugen_thumb="$MATUGEN_USE_THUMB"
+        cur_thumb_crop_mode="$THUMB_CROP_MODE"
+        cur_matugen_clean_temp="$MATUGEN_CLEAN_TEMP"
+        cur_matugen_use_fit="$MATUGEN_USE_FIT"
 
         while true; do
             local main_opts=""

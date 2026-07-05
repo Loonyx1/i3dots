@@ -68,12 +68,18 @@ save_state() {
 
 # 2. Cargar/Recargar variables de configuración
 load_wp_config() {
+    [[ -f "$WP_STATE_DIR/state.env" ]] && source "$WP_STATE_DIR/state.env"
     THUMB_MODE=$(get_state "thumbnail_mode" "enabled")
     THUMB_SIZE=$(get_state "thumbnail_size" "450")
     NO_THUMB_MODE=$(get_state "no_thumb_mode" "original")
     BG_GENERATION=$(get_state "bg_generation" "true")
     MATUGEN_USE_THUMB=$(get_state "matugen_use_thumb" "true")
-    THUMB_DIR="$WP_STATE_DIR/thumbs/$THUMB_SIZE"
+    
+    THUMB_CROP_MODE=$(get_state "thumbnail_crop_mode" "fit")
+    MATUGEN_CLEAN_TEMP=$(get_state "matugen_clean_temp" "true")
+    MATUGEN_USE_FIT=$(get_state "matugen_use_fit" "true")
+    
+    THUMB_DIR="$WP_STATE_DIR/thumbs/${THUMB_SIZE}_${THUMB_CROP_MODE}"
 }
 
 # Inicializar configuración
@@ -87,8 +93,9 @@ command -v vipsthumbnail &>/dev/null && HAS_VIPS=1
 # Retorna en variable global RET_THUMB para evitar subshells $(...)
 get_thumb_path() {
     local real_file="$1"
+    local crop_mode="${2:-$THUMB_CROP_MODE}"
     local safe_name="${real_file//\//_}"
-    RET_THUMB="$WP_STATE_DIR/thumbs/$THUMB_SIZE/${safe_name}.jpg"
+    RET_THUMB="$WP_STATE_DIR/thumbs/${THUMB_SIZE}_${crop_mode}/${safe_name}.jpg"
 }
 
 list_wallpapers() {
@@ -108,8 +115,8 @@ generate_rofi_list() {
         
         local thumb_to_use="$file"
         if [[ "$THUMB_MODE" == "enabled" ]]; then
-            local safe_name="${file//\//_}"
-            local thumb="$WP_STATE_DIR/thumbs/$THUMB_SIZE/${safe_name}.jpg"
+            get_thumb_path "$file"
+            local thumb="$RET_THUMB"
             
             # [[ -ot ]] es builtin, no hace fork
             if [[ -f "$thumb" && "$file" -ot "$thumb" ]]; then
