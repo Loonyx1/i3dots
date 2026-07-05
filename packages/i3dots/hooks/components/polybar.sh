@@ -103,6 +103,13 @@ fi
 RADIUS=$([ "$STYLE" == "round" ] && echo 10 || echo 0)
 IS_BOTTOM=$([ "$POS" == "top" ] && echo "false" || echo "true")
 H_NUM="${HEIGHT//[!0-9]/}"; [[ -z "$H_NUM" ]] && H_NUM=15
+
+# Ajustes específicos para modo Underline
+LINE_SIZE=0
+if [ "$MODE" == "underline" ] || [ "$SOLID_LINE" == "true" ]; then
+    LINE_SIZE=$(( H_NUM / 6 )); [[ $LINE_SIZE -lt 2 ]] && LINE_SIZE=2
+fi
+
 if [ "$TYPE" == "polybar_compact" ]; then
     if [ "$TRANS" == "false" ]; then
         COMP_HEIGHT="$(( H_NUM + 3 ))pt"
@@ -138,12 +145,6 @@ F_CURV_OFFSET=$(( F_OFFSET + 1 ))
 F_OFFSET_TEXT=$(( (H_NUM - F_TEXT) / 2 ))
 F_OFFSET_SYM=$(( (H_NUM - F_SYM) / 2 ))
 F_OFFSET_LARGE=$(( F_OFFSET_TEXT + 2 ))
-
-# Ajustes específicos para modo Underline
-LINE_SIZE=0
-if [ "$MODE" == "underline" ] || [ "$SOLID_LINE" == "true" ]; then
-    LINE_SIZE=$(( H_NUM / 6 )); [[ $LINE_SIZE -lt 2 ]] && LINE_SIZE=2
-fi
 
 if [ "$MODE" == "underline" ]; then
     F_SYM=$(( H_NUM * 11 / 20 + 1 ))
