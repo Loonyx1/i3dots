@@ -1,59 +1,73 @@
 #!/usr/bin/env bash
-# packages/i3dots/bin/wp_seq.sh - Rofi Script Mode sin standby de Bash para Wallpaper y Secuencia
+# packages/i3dots/bin/wp_seq.sh - Selector de Wallpapers con temas integrados y optimizado
 
 # 1. Cargar entorno y lógica compartida
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/wp_shared.sh"
-source "$ROOT_DIR/packages/i3dots/config.env"
 
-# Exportar variables necesarias para el core/bin
-export CURRENT_ENV="$CUR_ENV"
-export PACKAGE_DIR="$ROOT_DIR/packages/$CURRENT_ENV"
-export PATH="$PACKAGE_DIR/bin:$ROOT_DIR/core/bin:$PATH"
-
-# Rofi options
-SEL_BIN="${WP_SEL_BIN:-rofi}"
-LAUNCHER_THEME="$WALL_SEL_THEME"
-SEL_STYLE="$WP_SEL_STYLE"
+# Nombres de las pestañas/botones superiores (Fácil edición aquí)
+L_DARK="Modo Oscuro"
+L_LIGHT="Claro"
+L_CENTER="Centro Oscuro"
 
 # 2. Control de Flujo Rofi
-if [[ -z "$ROFI_LIST_MODE" && $# -eq 0 ]]; then
-    # Fase 1: Lanzar Rofi (reemplaza proceso actual)
-    export ROFI_LIST_MODE=1
-    eval exec "\"$SEL_BIN\"" -show Wallpaper -modi "\"Wallpaper:$SCRIPT_DIR/wp_seq.sh\"" -theme "\"$LAUNCHER_THEME\"" "$SEL_STYLE"
+if [[ $# -eq 0 ]]; then
+    # Fase 1: Lanzar Rofi (arranque inicial)
+    active_mode="dark"
+    [[ -f "$WP_STATE_DIR/active_mode" ]] && active_mode=$(<"$WP_STATE_DIR/active_mode")
 
-elif [[ "$ROFI_LIST_MODE" -eq 1 && $# -eq 0 ]]; then
-    # Fase 2: Rofi solicita lista (stdout) delegada a función centralizada optimizada
+    show_mode="$L_DARK"
+    [[ "$active_mode" == "light" ]] && show_mode="$L_LIGHT"
+    [[ "$active_mode" == "center" ]] && show_mode="$L_CENTER"
+
+    export ROFI_LIST_MODE=1
+    # Se usa exec directo sin eval para evitar fallos de parsing de espacios en los nombres
+    exec rofi -show "$show_mode" \
+        -modi "$L_DARK:$0 --mode-dark,$L_LIGHT:$0 --mode-light,$L_CENTER:$0 --mode-center" \
+        -theme "$WALL_SEL_THEME" \
+        -theme-str 'element-icon{size:450px;} element-text{horizontal-align:0.5;}'
+
+elif [[ $# -eq 1 ]]; then
+    # Fase 2: Rofi solicita lista (stdout)
     generate_rofi_list '%f\x00icon\x1f%p'
     exit 0
-else
-    # Fase 3: Rofi devuelve selección ($1)
-    SELECTION="$1"
+
+elif [[ $# -eq 2 ]]; then
+    # Fase 3: Rofi devuelve selección ($2) y modo ($1)
+    MODE_FLAG="$1"
+    SELECTION="$2"
     [[ -z "$SELECTION" ]] && exit 1
 
-    # Resolver ruta
-    FINAL_PATH=""
-    if [[ -f "$SELECTION" ]]; then
-        FINAL_PATH=$(readlink -f "$SELECTION")
-    elif [[ -f "$WALLPAPER_DIR/$SELECTION" ]]; then
-        FINAL_PATH=$(readlink -f "$WALLPAPER_DIR/$SELECTION")
-    else
-        FINAL_PATH="$SELECTION"
-    fi
+    # Registrar el modo seleccionado
+    case "$MODE_FLAG" in
+        "--mode-dark")   ACTIVE_MODE="dark"   ;;
+        "--mode-light")  ACTIVE_MODE="light"  ;;
+        "--mode-center") ACTIVE_MODE="center" ;;
+        *)               ACTIVE_MODE="dark"   ;;
+    esac
+    echo "$ACTIVE_MODE" > "$WP_STATE_DIR/active_mode"
 
-    # Guardar color source
-    color_src="$FINAL_PATH"
-    if [[ "$THUMB_MODE" == "enabled" && "$MATUGEN_USE_THUMB" == "true" ]]; then
-        get_thumb_path "$FINAL_PATH"
-        [[ -f "$RET_THUMB" ]] && color_src="$RET_THUMB"
-    fi
+    # Resolver ruta absoluta del wallpaper
+    [[ -f "$SELECTION" ]] && FINAL_PATH="$SELECTION" || FINAL_PATH="$WALLPAPER_DIR/$SELECTION"
+    FINAL_PATH=$(readlink -f "$FINAL_PATH")
+
+    # Guardar color source (con optimización de miniatura si está activa)
+    [[ "$THUMB_MODE" == "enabled" && "$MATUGEN_USE_THUMB" == "true" ]] && get_thumb_path "$FINAL_PATH" && color_src="$RET_THUMB" || color_src="$FINAL_PATH"
     ln -sf "$color_src" "$WP_STATE_DIR/color_source"
 
     # Aplicar wallpaper y recargar secuencia en segundo plano (cierre inmediato de Rofi)
     (
         wp_select.sh -C "$FINAL_PATH"
         (polybar-msg cmd hide ; pkill -u $UID -x polybar) &>/dev/null &
-        engine_matugen.sh -m dark --source-color-index 0
+        
+        if [[ "$ACTIVE_MODE" == "light" ]]; then
+            engine_matugen.sh -m light --source-color-index 0
+        elif [[ "$ACTIVE_MODE" == "center" ]]; then
+            engine_matugen.sh -m dark --source-color-index 1
+        else
+            engine_matugen.sh -m dark --source-color-index 0
+        fi
+        
         apply_dots.sh
     ) &>/dev/null &
     exit 0
