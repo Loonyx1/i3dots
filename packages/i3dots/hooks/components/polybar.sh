@@ -183,9 +183,9 @@ if [ "$MODE" == "underline" ]; then
         F_ROFI_SIZE=$(( H_NUM * 13 / 20 + 1 )); R_ROFI_OFFSET=$(( (H_NUM - F_ROFI_SIZE) / 2 ))
     fi
 else
-    MOD_FOC_BG="\${colors.primary}"; MOD_FOC_FG="\${colors.background-solid}"; MOD_FOC_UND=""
-    MOD_PRE_BG="\${colors.primary}"; MOD_PRE_FG="\${colors.background-solid}"
-    MOD_ROFI_BG="\${colors.primary}"; MOD_ROFI_FG="\${colors.background-solid}"; MOD_ROFI_UND=""
+    MOD_FOC_BG="\${colors.primary}"; MOD_FOC_FG="\${colors.surface}"; MOD_FOC_UND=""
+    MOD_PRE_BG="\${colors.primary}"; MOD_PRE_FG="\${colors.surface}"
+    MOD_ROFI_BG="\${colors.primary}"; MOD_ROFI_FG="\${colors.surface}"; MOD_ROFI_UND=""
     MOD_ROFI_FONT=5; LAUNCH_ICON=$'\u00a0\u00a0'"${OS_ICON:-󰣆}"$'\u00a0\u00a0'
     F_ROFI_SIZE=$(( H_NUM * 13 / 20 + 1 )); R_ROFI_OFFSET=$(( (H_NUM - F_ROFI_SIZE) / 2 ))
 fi
