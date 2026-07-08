@@ -80,11 +80,11 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
     }
 
     # Variables de estado compartidas localmente entre las funciones del submenú
-    local cur_show_names_mode="all"
+    local cur_show_names_mode="selected-invisible"
     local cur_card_style="false"
     local cur_join_text="false"
-    local cur_ind_text="true"
-    local cur_ind_block="false"
+    local cur_ind_text="false"
+    local cur_ind_block="true"
     local cur_ind_border="false"
     local cur_ind_underline="false"
     local cur_ind_halo="false"
@@ -150,6 +150,7 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
             local mode_lbl="Todos"
             case "$cur_show_names_mode" in
                 "selected") mode_lbl="Solo en seleccionada" ;;
+                "selected-invisible") mode_lbl="Solo en seleccionada (Invisible)" ;;
                 "disabled") mode_lbl="Desactivados" ;;
             esac
             
@@ -169,12 +170,13 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
             [[ -z "$vis_choice" || "$vis_choice" == "Atrás" ]] && break
 
             if [[ "$vis_choice" == "Nombres de wallpapers"* ]]; then
-                local modes=$'Todos\nSolo en seleccionada\nDesactivados'
+                local modes=$'Todos\nSolo en seleccionada\nSolo en seleccionada (Invisible)\nDesactivados'
                 local selected_mode=$(ask_selection "Nombres" "$modes")
                 if [[ -n "$selected_mode" ]]; then
                     case "$selected_mode" in
                         "Todos") cur_show_names_mode="all" ;;
                         "Solo en seleccionada") cur_show_names_mode="selected" ;;
+                        "Solo en seleccionada (Invisible)") cur_show_names_mode="selected-invisible" ;;
                         "Desactivados") cur_show_names_mode="disabled" ;;
                     esac
                     save_state "show_names_mode" "$cur_show_names_mode"
@@ -405,12 +407,12 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
     configure_wallpaper() {
         # Carga dinámica en RAM del estado actualizado usando helper compartido
         load_wp_config
-        cur_show_names_mode=$(get_state "show_names_mode" "all")
+        cur_show_names_mode=$(get_state "show_names_mode" "selected-invisible")
         cur_card_style=$(get_state "card_style" "false")
         cur_join_text=$(get_state "join_text" "false")
         
-        cur_ind_text=$(get_state "ind_text" "true")
-        cur_ind_block=$(get_state "ind_block" "false")
+        cur_ind_text=$(get_state "ind_text" "false")
+        cur_ind_block=$(get_state "ind_block" "true")
         cur_ind_border=$(get_state "ind_border" "false")
         cur_ind_underline=$(get_state "ind_underline" "false")
         cur_ind_halo=$(get_state "ind_halo" "false")

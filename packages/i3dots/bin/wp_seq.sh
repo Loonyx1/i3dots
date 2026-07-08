@@ -19,12 +19,12 @@ if [[ $# -eq 0 ]]; then
     [[ "$active_mode" == "light" ]] && show_mode="$L_LIGHT"
     [[ "$active_mode" == "center" ]] && show_mode="$L_CENTER"
 
-    show_names_mode=$(get_state "show_names_mode" "all")
+    show_names_mode=$(get_state "show_names_mode" "selected-invisible")
     card_style=$(get_state "card_style" "false")
     join_text=$(get_state "join_text" "false")
     
-    ind_text=$(get_state "ind_text" "true")
-    ind_block=$(get_state "ind_block" "false")
+    ind_text=$(get_state "ind_text" "false")
+    ind_block=$(get_state "ind_block" "true")
     ind_border=$(get_state "ind_border" "false")
     ind_underline=$(get_state "ind_underline" "false")
     ind_halo=$(get_state "ind_halo" "false")
@@ -69,6 +69,9 @@ if [[ $# -eq 0 ]]; then
         "selected")
             names_css="element-text{enabled:true;text-color:transparent;} element-text selected{enabled:true;} "
             ;;
+        "selected-invisible")
+            names_css="element-text{enabled:true;text-color:transparent;} element-text selected{enabled:true;text-color:transparent;} "
+            ;;
         "disabled")
             names_css="element-text{enabled:false;} element-text selected{enabled:false;} "
             ;;
@@ -89,12 +92,17 @@ if [[ $# -eq 0 ]]; then
         fi
     fi
 
+    extra_invisible_css=""
+    if [[ "$show_names_mode" == "selected-invisible" ]]; then
+        extra_invisible_css="element-text selected{text-color:transparent;} element-text{text-color:transparent;} "
+    fi
+
     export ROFI_LIST_MODE=1
     # Se usa exec directo sin eval para evitar fallos de parsing de espacios en los nombres
     exec rofi -show "$show_mode" \
         -modi "$L_DARK:$0 --mode-dark,$L_LIGHT:$0 --mode-light,$L_CENTER:$0 --mode-center" \
         -theme "$WALL_SEL_THEME" \
-        -theme-str "$icon_size_css element-text{horizontal-align:0.5;} $card_css $join_css $names_css $indicator_css"
+        -theme-str "$icon_size_css element-text{horizontal-align:0.5;} $card_css $join_css $names_css $indicator_css $extra_invisible_css"
 
 elif [[ $# -eq 1 ]]; then
     # Fase 2: Rofi solicita lista (stdout)
