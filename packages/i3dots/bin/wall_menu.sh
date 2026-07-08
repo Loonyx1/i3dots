@@ -81,7 +81,8 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
 
     # Variables de estado compartidas localmente entre las funciones del submenú
     local cur_show_names_mode="selected-invisible"
-    local cur_card_style="false"
+    local cur_card_style="true"
+    local cur_card_round_border="false"
     local cur_join_text="false"
     local cur_ind_text="false"
     local cur_ind_block="true"
@@ -158,10 +159,15 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
             [[ "$cur_card_style" == "true" ]] && card_lbl="activado"
             local join_lbl="desactivado"
             [[ "$cur_join_text" == "true" ]] && join_lbl="activado"
+            local round_lbl="desactivado"
+            [[ "$cur_card_round_border" == "true" ]] && round_lbl="activado"
             
             local vis_opts=""
             vis_opts+="Nombres de wallpapers: $mode_lbl"$'\n'
             vis_opts+="Estilo tarjeta (Card): $card_lbl"$'\n'
+            if [[ "$cur_card_style" == "true" ]]; then
+                vis_opts+="Bordes redondos en tarjeta: $round_lbl"$'\n'
+            fi
             vis_opts+="Unir texto a tarjeta: $join_lbl"$'\n'
             vis_opts+="Personalizar indicador de selección..."$'\n'
             vis_opts+="Atrás"
@@ -189,6 +195,14 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
                     cur_card_style="true"
                 fi
                 save_state "card_style" "$cur_card_style"
+
+            elif [[ "$vis_choice" == "Bordes redondos en tarjeta"* ]]; then
+                if [[ "$cur_card_round_border" == "true" ]]; then
+                    cur_card_round_border="false"
+                else
+                    cur_card_round_border="true"
+                fi
+                save_state "card_round_border" "$cur_card_round_border"
 
             elif [[ "$vis_choice" == "Unir texto a tarjeta"* ]]; then
                 if [[ "$cur_join_text" == "true" ]]; then
@@ -408,7 +422,8 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
         # Carga dinámica en RAM del estado actualizado usando helper compartido
         load_wp_config
         cur_show_names_mode=$(get_state "show_names_mode" "selected-invisible")
-        cur_card_style=$(get_state "card_style" "false")
+        cur_card_style=$(get_state "card_style" "true")
+        cur_card_round_border=$(get_state "card_round_border" "false")
         cur_join_text=$(get_state "join_text" "false")
         
         cur_ind_text=$(get_state "ind_text" "false")

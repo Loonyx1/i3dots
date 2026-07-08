@@ -20,8 +20,9 @@ if [[ $# -eq 0 ]]; then
     [[ "$active_mode" == "center" ]] && show_mode="$L_CENTER"
 
     show_names_mode=$(get_state "show_names_mode" "selected-invisible")
-    card_style=$(get_state "card_style" "false")
+    card_style=$(get_state "card_style" "true")
     join_text=$(get_state "join_text" "false")
+    card_round_border=$(get_state "card_round_border" "false")
     
     ind_text=$(get_state "ind_text" "false")
     ind_block=$(get_state "ind_block" "true")
@@ -79,7 +80,9 @@ if [[ $# -eq 0 ]]; then
 
     card_css=""
     if [[ "$card_style" == "true" ]]; then
-        card_css="element{background-color:rgba(255,255,255,0.02);border:1px;border-color:rgba(255,255,255,0.05);border-radius:12px;padding:12px;} element normal.normal{background-color:rgba(255,255,255,0.02);} element alternate.normal{background-color:rgba(255,255,255,0.02);} element selected{background-color:rgba(255,255,255,0.08);border-radius:12px;} element selected.normal{background-color:rgba(255,255,255,0.08);} "
+        card_radius="0px"
+        [[ "$card_round_border" == "true" ]] && card_radius="${WP_CARD_BORDER_RADIUS:-12px}"
+        card_css="element{background-color:rgba(255,255,255,0.02);border:1px;border-color:rgba(255,255,255,0.05);border-radius:$card_radius;padding:12px;} element normal.normal{background-color:rgba(255,255,255,0.02);} element alternate.normal{background-color:rgba(255,255,255,0.02);} element selected{background-color:rgba(255,255,255,0.08);border-radius:$card_radius;} element selected.normal{background-color:rgba(255,255,255,0.08);} "
     fi
 
     join_css=""
