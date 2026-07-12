@@ -5,10 +5,9 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/wp_shared.sh"
 
-# Nombres de las pestañas/botones superiores (Fácil edición aquí)
+# Nombres de las pestañas/botones superiores
 L_DARK="Modo Oscuro"
 L_LIGHT="Claro"
-L_CENTER="Centro Oscuro"
 
 # 2. Control de Flujo Rofi
 if [[ $# -eq 0 ]]; then
@@ -17,7 +16,6 @@ if [[ $# -eq 0 ]]; then
 
     show_mode="$L_DARK"
     [[ "$active_mode" == "light" ]] && show_mode="$L_LIGHT"
-    [[ "$active_mode" == "center" ]] && show_mode="$L_CENTER"
 
     show_names_mode=$(get_state "show_names_mode" "selected-invisible")
     card_style=$(get_state "card_style" "true")
@@ -30,7 +28,6 @@ if [[ $# -eq 0 ]]; then
     ind_underline=$(get_state "ind_underline" "false")
     ind_halo=$(get_state "ind_halo" "false")
 
-    # Mapear los indicadores visuales activos a estilos CSS para Rofi
     icon_size_css="element-icon{size:450px;}"
     indicator_css=""
 
@@ -40,7 +37,7 @@ if [[ $# -eq 0 ]]; then
     if [[ "$ind_block" == "true" ]]; then
         indicator_css+="element-text selected{background-color:var(selected);text-color:var(background);border-radius:0px;padding:4px 8px;} "
     fi
-    # Combinación inteligente de bordes (para evitar colisión de propiedades CSS)
+    
     border_width=""
     if [[ "$ind_border" == "true" && "$ind_underline" == "true" ]]; then
         border_width="3px 3px 6px 3px"
@@ -101,9 +98,8 @@ if [[ $# -eq 0 ]]; then
     fi
 
     export ROFI_LIST_MODE=1
-    # Se usa exec directo sin eval para evitar fallos de parsing de espacios en los nombres
     exec rofi -show "$show_mode" \
-        -modi "$L_DARK:$0 --mode-dark,$L_LIGHT:$0 --mode-light,$L_CENTER:$0 --mode-center" \
+        -modi "$L_DARK:$0 --mode-dark,$L_LIGHT:$0 --mode-light" \
         -theme "$WALL_SEL_THEME" \
         -theme-str "$icon_size_css element-text{horizontal-align:0.5;} $card_css $join_css $names_css $indicator_css $extra_invisible_css"
 
@@ -122,16 +118,13 @@ elif [[ $# -eq 2 ]]; then
     case "$MODE_FLAG" in
         "--mode-dark")   ACTIVE_MODE="dark"   ;;
         "--mode-light")  ACTIVE_MODE="light"  ;;
-        "--mode-center") ACTIVE_MODE="center" ;;
         *)               ACTIVE_MODE="dark"   ;;
     esac
     save_state "active_mode" "$ACTIVE_MODE"
 
-    # Resolver ruta absoluta del wallpaper
     [[ -f "$SELECTION" ]] && FINAL_PATH="$SELECTION" || FINAL_PATH="$WALLPAPER_DIR/$SELECTION"
     FINAL_PATH=$(readlink -f "$FINAL_PATH")
 
-    # Guardar color source (con optimización de miniatura fit si está activa para evitar cortes de color)
     color_src="$FINAL_PATH"
     temp_to_clean=""
     if [[ "$MATUGEN_USE_THUMB" == "true" ]]; then
@@ -185,22 +178,17 @@ elif [[ $# -eq 2 ]]; then
     fi
     ln -sf "$color_src" "$WP_STATE_DIR/color_source"
 
-    # Aplicar wallpaper y recargar secuencia en segundo plano (cierre inmediato de Rofi)
     (
         wp_select.sh -C "$FINAL_PATH"
         (polybar-msg cmd hide ; pkill -u $UID -x polybar) &>/dev/null &
         
         if [[ "$ACTIVE_MODE" == "light" ]]; then
-            engine_matugen.sh -m light --source-color-index 0
-        elif [[ "$ACTIVE_MODE" == "center" ]]; then
-            engine_matugen.sh -m dark --source-color-index 1
+            engine_matugen.sh -m light
         else
-            engine_matugen.sh -m dark --source-color-index 0
+            engine_matugen.sh -m dark
         fi
         
-        # Eliminar miniatura temporal si fue generada en /tmp
         [[ -n "$temp_to_clean" && -f "$temp_to_clean" ]] && rm -f "$temp_to_clean"
-        
         apply_dots.sh
     ) &>/dev/null &
     exit 0

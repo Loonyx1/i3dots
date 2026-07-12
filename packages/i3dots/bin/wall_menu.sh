@@ -8,6 +8,8 @@ CLEAN_CACHE=0
 CLEAN_ARG=""
 MANAGE_MODE=0
 
+PRESETS_ONLY=0
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -CT) USE_CLI=1; shift ;;
@@ -18,6 +20,7 @@ while [[ $# -gt 0 ]]; do
             shift; [[ $# -gt 0 ]] && shift
             ;;
         -M|--manage) MANAGE_MODE=1; shift ;;
+        -P|--presets-only) PRESETS_ONLY=1; MANAGE_MODE=1; shift ;;
         *) shift ;;
     esac
 done
@@ -79,70 +82,127 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
         echo "$choice"
     }
 
-    # Variables de estado compartidas localmente entre las funciones del submenú
-    local cur_show_names_mode="selected-invisible"
-    local cur_card_style="true"
-    local cur_card_round_border="false"
-    local cur_join_text="false"
-    local cur_ind_text="false"
-    local cur_ind_block="true"
-    local cur_ind_border="false"
-    local cur_ind_underline="false"
-    local cur_ind_halo="false"
-    local cur_thumb_mode=""
-    local cur_thumb_size=""
-    local cur_no_thumb=""
-    local cur_bg_gen=""
-    local cur_matugen_thumb=""
-    local cur_thumb_crop_mode=""
-    local cur_matugen_clean_temp=""
-    local cur_matugen_use_fit=""
+
+    toggle_state_val() {
+        local state_key="$1"
+        local cur_val_var_name="$2"
+        local new_val="true"
+        [[ "${!cur_val_var_name}" == "true" ]] && new_val="false"
+        save_state "$state_key" "$new_val"
+        printf -v "$cur_val_var_name" "%s" "$new_val"
+    }
+
+    ask_and_apply_loop() {
+        local prompt="$1"
+        local options="$2"
+        local state_key="$3"
+        local var_name="$4"
+        local prefix="$5"
+
+        while true; do
+            local sel=$(ask_selection "$prompt" "$options")
+            [[ -z "$sel" || "$sel" == "Atrás" ]] && break
+
+            local val="$sel"
+            if [[ "$val" == "Ninguna (Por defecto)" ]]; then
+                val="default"
+            elif [[ "$state_key" == "matugen_resize_filter" || "$state_key" == "matugen_lightness_dark" ]]; then
+                val="${sel%% *}"
+            elif [[ "$state_key" == "matugen_source_color_index" ]]; then
+                val="${sel:0:1}"
+            elif [[ "$state_key" == "show_names_mode" ]]; then
+                case "$sel" in
+                    "Todos") val="all" ;;
+                    "Solo en seleccionada") val="selected" ;;
+                    "Solo en seleccionada (Invisible)") val="selected-invisible" ;;
+                    "Desactivados") val="disabled" ;;
+                esac
+            elif [[ "$state_key" == "thumb_size" ]]; then
+                val="${sel#*\(}"
+                val="${val%px\)}"
+            elif [[ "$state_key" == "thumb_crop_mode" ]]; then
+                case "$sel" in
+                    "Cuadrado (Crop)") val="crop" ;;
+                    "Completo (Fit)") val="fit" ;;
+                esac
+            elif [[ "$state_key" == "no_thumb" ]]; then
+                case "$sel" in
+                    "Cargar imagen original") val="original" ;;
+                    "Usar icono genérico") val="icon" ;;
+                esac
+            fi
+
+            local final_val="${prefix}${val}"
+            save_state "$state_key" "$final_val"
+            printf -v "$var_name" "%s" "$final_val"
+
+            if [[ "$state_key" == matugen_* || "$state_key" == "bg_generation" ]]; then
+                reload_matugen_preview
+            fi
+        done
+    }
+
+    lbl_bool() {
+        [[ "$1" == "true" || "$1" == "enabled" ]] && echo "activado" || echo "desactivado"
+    }
+
+    get_wp_rule_key() {
+        local cur_wall
+        cur_wall=$(cat "$HOME/.config/i3/wall" 2>/dev/null)
+        [[ -f "$cur_wall" ]] || return 1
+        local wp_base=$(basename "$cur_wall")
+        local wp_safe="${wp_base//[^a-zA-Z0-9]/_}"
+        local mode=$(get_state "active_mode" "dark")
+        [[ "$mode" == "settings" ]] && mode=$(get_state "active_mode_real" "dark")
+        echo "${wp_safe}.${mode}"
+    }
+
+    # Carga e inicialización unificada de variables locales del estado
+    load_wp_config
+    local cur_show_names_mode=$(get_state "show_names_mode" "selected-invisible")
+    local cur_card_style=$(get_state "card_style" "true")
+    local cur_card_round_border=$(get_state "card_round_border" "false")
+    local cur_join_text=$(get_state "join_text" "false")
+    local cur_ind_text=$(get_state "ind_text" "false")
+    local cur_ind_block=$(get_state "ind_block" "true")
+    local cur_ind_border=$(get_state "ind_border" "false")
+    local cur_ind_underline=$(get_state "ind_underline" "false")
+    local cur_ind_halo=$(get_state "ind_halo" "false")
+    local cur_thumb_mode="$THUMB_MODE"
+    local cur_thumb_size="$THUMB_SIZE"
+    local cur_no_thumb="$NO_THUMB_MODE"
+    local cur_bg_gen="$BG_GENERATION"
+    local cur_matugen_thumb="$MATUGEN_USE_THUMB"
+    local cur_thumb_crop_mode="$THUMB_CROP_MODE"
+    local cur_matugen_clean_temp="$MATUGEN_CLEAN_TEMP"
+    local cur_matugen_use_fit="$MATUGEN_USE_FIT"
+    local cur_matugen_scheme=$(get_state "matugen_scheme_type" "scheme-tonal-spot")
+    local cur_matugen_contrast=$(get_state "matugen_contrast" "0.0")
+    local cur_matugen_prefer=$(get_state "matugen_prefer" "saturation")
+    local cur_source_color_index=$(get_state "matugen_source_color_index" "0")
+    local cur_matugen_lightness_dark=$(get_state "matugen_lightness_dark" "0.0")
+    local cur_matugen_resize_filter=$(get_state "matugen_resize_filter" "gaussian")
 
     menu_indicadores() {
         while true; do
-            local ind_text_lbl="desactivado"
-            [[ "$cur_ind_text" == "true" ]] && ind_text_lbl="activado"
-            local ind_block_lbl="desactivado"
-            [[ "$cur_ind_block" == "true" ]] && ind_block_lbl="activado"
-            local ind_border_lbl="desactivado"
-            [[ "$cur_ind_border" == "true" ]] && ind_border_lbl="activado"
-            local ind_under_lbl="desactivado"
-            [[ "$cur_ind_underline" == "true" ]] && ind_under_lbl="activado"
-            local ind_halo_lbl="desactivado"
-            [[ "$cur_ind_halo" == "true" ]] && ind_halo_lbl="activado"
-
             local sub_opts=""
-            sub_opts+="Texto coloreado: $ind_text_lbl"$'\n'
-            sub_opts+="Bloque de texto: $ind_block_lbl"$'\n'
-            sub_opts+="Borde de imagen: $ind_border_lbl"$'\n'
-            sub_opts+="Subrayado de imagen: $ind_under_lbl"$'\n'
-            sub_opts+="Halo de fondo: $ind_halo_lbl"$'\n'
+            sub_opts+="Texto coloreado: $(lbl_bool "$cur_ind_text")"$'\n'
+            sub_opts+="Bloque de texto: $(lbl_bool "$cur_ind_block")"$'\n'
+            sub_opts+="Borde de imagen: $(lbl_bool "$cur_ind_border")"$'\n'
+            sub_opts+="Subrayado de imagen: $(lbl_bool "$cur_ind_underline")"$'\n'
+            sub_opts+="Halo de fondo: $(lbl_bool "$cur_ind_halo")"$'\n'
             sub_opts+="Atrás"
 
             local sub_choice=$(ask_selection "Indicadores" "$sub_opts")
             [[ -z "$sub_choice" || "$sub_choice" == "Atrás" ]] && break
 
-            local key=""
-            local val=""
             case "$sub_choice" in
-                "Texto coloreado"*) key="ind_text"; val="$cur_ind_text" ;;
-                "Bloque de texto"*) key="ind_block"; val="$cur_ind_block" ;;
-                "Borde de imagen"*) key="ind_border"; val="$cur_ind_border" ;;
-                "Subrayado de imagen"*) key="ind_underline"; val="$cur_ind_underline" ;;
-                "Halo de fondo"*) key="ind_halo"; val="$cur_ind_halo" ;;
+                "Texto coloreado"*)     toggle_state_val "ind_text" "cur_ind_text" ;;
+                "Bloque de texto"*)     toggle_state_val "ind_block" "cur_ind_block" ;;
+                "Borde de imagen"*)     toggle_state_val "ind_border" "cur_ind_border" ;;
+                "Subrayado de imagen"*) toggle_state_val "ind_underline" "cur_ind_underline" ;;
+                "Halo de fondo"*)       toggle_state_val "ind_halo" "cur_ind_halo" ;;
             esac
-
-            if [[ -n "$key" ]]; then
-                if [[ "$val" == "true" ]]; then val="false"; else val="true"; fi
-                save_state "$key" "$val"
-                case "$key" in
-                    "ind_text") cur_ind_text="$val" ;;
-                    "ind_block") cur_ind_block="$val" ;;
-                    "ind_border") cur_ind_border="$val" ;;
-                    "ind_underline") cur_ind_underline="$val" ;;
-                    "ind_halo") cur_ind_halo="$val" ;;
-                esac
-            fi
         done
     }
 
@@ -150,25 +210,19 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
         while true; do
             local mode_lbl="Todos"
             case "$cur_show_names_mode" in
+                "all") mode_lbl="Todos" ;;
                 "selected") mode_lbl="Solo en seleccionada" ;;
                 "selected-invisible") mode_lbl="Solo en seleccionada (Invisible)" ;;
                 "disabled") mode_lbl="Desactivados" ;;
             esac
             
-            local card_lbl="desactivado"
-            [[ "$cur_card_style" == "true" ]] && card_lbl="activado"
-            local join_lbl="desactivado"
-            [[ "$cur_join_text" == "true" ]] && join_lbl="activado"
-            local round_lbl="desactivado"
-            [[ "$cur_card_round_border" == "true" ]] && round_lbl="activado"
-            
             local vis_opts=""
             vis_opts+="Nombres de wallpapers: $mode_lbl"$'\n'
-            vis_opts+="Estilo tarjeta (Card): $card_lbl"$'\n'
+            vis_opts+="Estilo tarjeta (Card): $(lbl_bool "$cur_card_style")"$'\n'
             if [[ "$cur_card_style" == "true" ]]; then
-                vis_opts+="Bordes redondos en tarjeta: $round_lbl"$'\n'
+                vis_opts+="Bordes redondos en tarjeta: $(lbl_bool "$cur_card_round_border")"$'\n'
             fi
-            vis_opts+="Unir texto a tarjeta: $join_lbl"$'\n'
+            vis_opts+="Unir texto a tarjeta: $(lbl_bool "$cur_join_text")"$'\n'
             vis_opts+="Personalizar indicador de selección..."$'\n'
             vis_opts+="Atrás"
 
@@ -176,41 +230,17 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
             [[ -z "$vis_choice" || "$vis_choice" == "Atrás" ]] && break
 
             if [[ "$vis_choice" == "Nombres de wallpapers"* ]]; then
-                local modes=$'Todos\nSolo en seleccionada\nSolo en seleccionada (Invisible)\nDesactivados'
-                local selected_mode=$(ask_selection "Nombres" "$modes")
-                if [[ -n "$selected_mode" ]]; then
-                    case "$selected_mode" in
-                        "Todos") cur_show_names_mode="all" ;;
-                        "Solo en seleccionada") cur_show_names_mode="selected" ;;
-                        "Solo en seleccionada (Invisible)") cur_show_names_mode="selected-invisible" ;;
-                        "Desactivados") cur_show_names_mode="disabled" ;;
-                    esac
-                    save_state "show_names_mode" "$cur_show_names_mode"
-                fi
+                local modes=$'Todos\nSolo en seleccionada\nSolo en seleccionada (Invisible)\nDesactivados\nAtrás'
+                ask_and_apply_loop "Nombres" "$modes" "show_names_mode" "cur_show_names_mode" ""
 
             elif [[ "$vis_choice" == "Estilo tarjeta (Card)"* ]]; then
-                if [[ "$cur_card_style" == "true" ]]; then
-                    cur_card_style="false"
-                else
-                    cur_card_style="true"
-                fi
-                save_state "card_style" "$cur_card_style"
+                toggle_state_val "card_style" "cur_card_style"
 
             elif [[ "$vis_choice" == "Bordes redondos en tarjeta"* ]]; then
-                if [[ "$cur_card_round_border" == "true" ]]; then
-                    cur_card_round_border="false"
-                else
-                    cur_card_round_border="true"
-                fi
-                save_state "card_round_border" "$cur_card_round_border"
+                toggle_state_val "card_round_border" "cur_card_round_border"
 
             elif [[ "$vis_choice" == "Unir texto a tarjeta"* ]]; then
-                if [[ "$cur_join_text" == "true" ]]; then
-                    cur_join_text="false"
-                else
-                    cur_join_text="true"
-                fi
-                save_state "join_text" "$cur_join_text"
+                toggle_state_val "join_text" "cur_join_text"
 
             elif [[ "$vis_choice" == "Personalizar indicador de selección..." ]]; then
                 menu_indicadores
@@ -249,12 +279,10 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
             [[ -z "$thumb_choice" || "$thumb_choice" == "Atrás" ]] && break
 
             if [[ "$thumb_choice" == "$PROM_THUMBS"* ]]; then
-                if [[ "$cur_thumb_mode" == "enabled" ]]; then
-                    cur_thumb_mode="disabled"
-                else
-                    cur_thumb_mode="enabled"
-                fi
-                save_state "thumbnail_mode" "$cur_thumb_mode"
+                local next_mode="enabled"
+                [[ "$cur_thumb_mode" == "enabled" ]] && next_mode="disabled"
+                save_state "thumbnail_mode" "$next_mode"
+                cur_thumb_mode="$next_mode"
                 if [[ "$cur_thumb_mode" == "enabled" ]] && [[ "$HAS_VIPS" -eq 0 ]]; then
                     cur_thumb_mode="disabled"
                 fi
@@ -271,9 +299,12 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
                     done < "$custom_sizes_file"
                 fi
                 sizes+=$'\n'"Nueva calidad personalizada..."
+                sizes+=$'\n'"Atrás"
 
-                local selected_sz=$(ask_selection "$PROM_QUALITY" "$sizes")
-                if [[ -n "$selected_sz" ]]; then
+                while true; do
+                    local selected_sz=$(ask_selection "$PROM_QUALITY" "$sizes")
+                    [[ -z "$selected_sz" || "$selected_sz" == "Atrás" ]] && break
+
                     if [[ "$selected_sz" == "Nueva calidad personalizada..." ]]; then
                         local custom_sz=$(ask_selection "Resolución (px)" "")
                         custom_sz="${custom_sz//[[:space:]]/}"
@@ -284,95 +315,365 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
                             mapfile -t history < <(sort -u "$custom_sizes_file" 2>/dev/null)
                             printf "%s\n" "${history[@]}" > "$custom_sizes_file"
                         fi
+                        break
                     else
                         local size_num="${selected_sz//[!0-9]/}"
                         if [[ -n "$size_num" ]]; then
                             cur_thumb_size="$size_num"
                             save_state "thumbnail_size" "$cur_thumb_size"
                         fi
+                        break
                     fi
-                fi
+                done
 
             elif [[ "$thumb_choice" == "Recorte de miniatura"* ]]; then
-                if [[ "$cur_thumb_crop_mode" == "crop" ]]; then
-                    cur_thumb_crop_mode="fit"
-                else
-                    cur_thumb_crop_mode="crop"
-                fi
-                save_state "thumbnail_crop_mode" "$cur_thumb_crop_mode"
+                local crops=$'Cuadrado (Crop)\nCompleto (Fit)\nAtrás'
+                ask_and_apply_loop "Recorte de Miniatura" "$crops" "thumbnail_crop_mode" "cur_thumb_crop_mode" ""
 
             elif [[ "$thumb_choice" == "$PROM_NO_THUMB"* ]]; then
-                local fallbacks=$'Cargar imagen original\nUsar icono genérico'
-                local selected_fb=$(ask_selection "$PROM_NO_THUMB" "$fallbacks")
-                if [[ -n "$selected_fb" ]]; then
-                    if [[ "$selected_fb" == "Cargar imagen original" ]]; then
-                        cur_no_thumb="original"
-                    else
-                        cur_no_thumb="generic"
-                    fi
-                    save_state "no_thumb_mode" "$cur_no_thumb"
+                local fallbacks=$'Cargar imagen original\nUsar icono genérico\nAtrás'
+                ask_and_apply_loop "$PROM_NO_THUMB" "$fallbacks" "no_thumb" "cur_no_thumb" ""
+            fi
+        done
+    }
+
+    write_preset_file() {
+        local path="$1"
+        cat <<EOF > "$path"
+matugen_scheme_type="$2"
+matugen_contrast="$3"
+matugen_prefer="$4"
+matugen_source_color_index="$5"
+matugen_lightness_dark="$6"
+matugen_resize_filter="$7"
+EOF
+    }
+
+    menu_presets() {
+        local standalone="$1"
+        local presets_dir="$WP_STATE_DIR/presets"
+        mkdir -p "$presets_dir"
+
+        if [[ ! -f "$presets_dir/Default (Tonal Spot).env" ]]; then
+            local defaults=(
+                "Default (Tonal Spot)|scheme-tonal-spot|0.0|saturation|0|0.0|gaussian"
+                "Centro Oscuro (Acento)|scheme-tonal-spot|0.0|saturation|1|0.0|gaussian"
+                "Alto Contraste|scheme-fidelity|0.5|saturation|0|0.0|gaussian"
+                "Monocromático|scheme-monochrome|0.0|default|0|0.0|gaussian"
+                "Muted (Suave)|scheme-neutral|-0.3|less-saturation|0|0.0|gaussian"
+                "Amoled (Negro Puro)|scheme-tonal-spot|0.0|saturation|0|-0.5|gaussian"
+                "Píxel Puro (Vivos)|scheme-fidelity|0.3|saturation|0|0.0|nearest"
+            )
+            for p in "${defaults[@]}"; do
+                IFS='|' read -r name type contrast prefer index ldark rfilter <<< "$p"
+                write_preset_file "$presets_dir/$name.env" "$type" "$contrast" "$prefer" "$index" "$ldark" "$rfilter"
+            done
+        fi
+
+        while true; do
+            local opts=""
+            for f in "$presets_dir"/*.env; do
+                if [[ -f "$f" ]]; then
+                    local name
+                    name=$(basename "$f" .env)
+                    opts+="$name"$'\n'
                 fi
+            done
+            opts+="Guardar Preset Actual..."$'\n'
+            opts+="Eliminar Preset..."$'\n'
+            
+            if [[ "$standalone" -ne 1 ]]; then
+                opts+="Atrás"
+            fi
+
+            local choice
+            choice=$(ask_selection "Presets" "$opts")
+            [[ -z "$choice" || "$choice" == "Atrás" ]] && break
+
+            if [[ "$choice" == "Guardar Preset Actual..." ]]; then
+                local name
+                name=$(rofi -dmenu -p "Nombre Preset" -theme "${BAR_SEL_THEME:-$HOME/.config/rofi/themes/shared/menu_generic.rasi}")
+                name=$(echo "$name" | xargs)
+                if [[ -n "$name" ]]; then
+                    local cur_type=$(get_state "matugen_scheme_type" "scheme-tonal-spot")
+                    local cur_contrast=$(get_state "matugen_contrast" "0.0")
+                    local cur_prefer=$(get_state "matugen_prefer" "saturation")
+                    local cur_index=$(get_state "matugen_source_color_index" "0")
+                    local cur_ldark=$(get_state "matugen_lightness_dark" "0.0")
+                    local cur_rfilter=$(get_state "matugen_resize_filter" "gaussian")
+
+                    write_preset_file "$presets_dir/$name.env" "$cur_type" "$cur_contrast" "$cur_prefer" "$cur_index" "$cur_ldark" "$cur_rfilter"
+                    if command -v notify-send &>/dev/null; then
+                        notify-send "Presets de Matugen" "Preset '$name' guardado" -i check -t 2000
+                    fi
+                fi
+
+            elif [[ "$choice" == "Eliminar Preset..." ]]; then
+                local del_opts=""
+                for f in "$presets_dir"/*.env; do
+                    if [[ -f "$f" ]]; then
+                        local name
+                        name=$(basename "$f" .env)
+                        del_opts+="$name"$'\n'
+                    fi
+                done
+                del_opts+="Atrás"
+
+                local del_choice
+                del_choice=$(ask_selection "Eliminar Preset" "$del_opts")
+                if [[ -n "$del_choice" && "$del_choice" != "Atrás" ]]; then
+                    rm -f "$presets_dir/$del_choice.env"
+                    if command -v notify-send &>/dev/null; then
+                        notify-send "Presets de Matugen" "Preset '$del_choice' eliminado" -i edit-delete -t 2000
+                    fi
+                fi
+
+            else
+                local preset_file="$presets_dir/$choice.env"
+                if [[ -f "$preset_file" ]]; then
+                    source "$preset_file"
+                    save_state "matugen_scheme_type" "$matugen_scheme_type"
+                    save_state "matugen_contrast" "$matugen_contrast"
+                    save_state "matugen_prefer" "$matugen_prefer"
+                    save_state "matugen_source_color_index" "$matugen_source_color_index"
+                    save_state "matugen_lightness_dark" "$matugen_lightness_dark"
+                    save_state "matugen_resize_filter" "$matugen_resize_filter"
+
+                    cur_matugen_scheme="$matugen_scheme_type"
+                    cur_matugen_contrast="$matugen_contrast"
+                    cur_matugen_prefer="$matugen_prefer"
+                    cur_source_color_index="$matugen_source_color_index"
+                    cur_matugen_lightness_dark="$matugen_lightness_dark"
+                    cur_matugen_resize_filter="$matugen_resize_filter"
+
+                    local cur_wall
+                    cur_wall=$(cat "$HOME/.config/i3/wall" 2>/dev/null)
+                    if [[ -f "$cur_wall" ]]; then
+                        local cur_active_mode
+                        cur_active_mode=$(get_state "active_mode" "dark")
+                        if [[ "$cur_active_mode" == "light" ]]; then
+                            engine_matugen.sh -m light
+                        else
+                            engine_matugen.sh -m dark
+                        fi
+                        apply_dots.sh
+                    fi
+
+                    if command -v notify-send &>/dev/null; then
+                        notify-send "Presets de Matugen" "Preset '$choice' aplicado" -i preferences-desktop-color -t 2000
+                    fi
+
+                    if [[ "$standalone" -eq 1 ]]; then
+                        exit 0
+                    fi
+                fi
+            fi
+        done
+    }
+
+    reload_matugen_preview() {
+        local cur_wall
+        cur_wall=$(cat "$HOME/.config/i3/wall" 2>/dev/null)
+        if [[ -f "$cur_wall" ]]; then
+            local cur_active_mode
+            cur_active_mode=$(get_state "active_mode" "dark")
+            [[ "$cur_active_mode" == "settings" ]] && cur_active_mode=$(get_state "active_mode_real" "dark")
+
+            engine_matugen.sh -m "$cur_active_mode"
+            apply_dots.sh
+        fi
+    }
+
+    ask_and_apply_loop() {
+        local prompt="$1"
+        local options="$2"
+        local state_key="$3"
+        local prefix="$4"
+
+        while true; do
+            local sel=$(ask_selection "$prompt" "$options")
+            [[ -z "$sel" || "$sel" == "Atrás" ]] && break
+
+            local val="$sel"
+            if [[ "$val" == "Ninguna (Por defecto)" ]]; then
+                val="default"
+            elif [[ "$state_key" == "matugen_resize_filter" || "$state_key" == "matugen_lightness_dark" ]]; then
+                val="${sel%% *}"
+            elif [[ "$state_key" == "matugen_source_color_index" ]]; then
+                val="${sel:0:1}"
+            fi
+
+            local final_val="${prefix}${val}"
+            save_state "$state_key" "$final_val"
+
+            case "$state_key" in
+                "matugen_scheme_type")       cur_matugen_scheme="$final_val" ;;
+                "matugen_source_color_index") cur_source_color_index="$final_val" ;;
+                "matugen_contrast")           cur_matugen_contrast="$final_val" ;;
+                "matugen_lightness_dark")     cur_matugen_lightness_dark="$final_val" ;;
+                "matugen_prefer")             cur_matugen_prefer="$final_val" ;;
+                "matugen_resize_filter")      cur_matugen_resize_filter="$final_val" ;;
+            esac
+
+            reload_matugen_preview
+        done
+    }
+
+    menu_color_advanced() {
+        while true; do
+            local adv_opts=""
+            adv_opts+="Preferencia: $cur_matugen_prefer"$'\n'
+            adv_opts+="Filtro de redimensión: $cur_matugen_resize_filter"$'\n'
+            if [[ "$cur_thumb_crop_mode" == "crop" ]]; then
+                adv_opts+="Usar imagen completa: $(lbl_bool "$cur_matugen_use_fit")"$'\n'
+            fi
+            adv_opts+="Atrás"
+
+            local adv_choice=$(ask_selection "Color Avanzado" "$adv_opts")
+            [[ -z "$adv_choice" || "$adv_choice" == "Atrás" ]] && break
+
+            local trigger_reload=0
+
+            if [[ "$adv_choice" == "Preferencia:"* ]]; then
+                local prefers=$'Ninguna (Por defecto)\nsaturation\nless-saturation\ndarkness\nlightness\nvalue\nclosest-to-fallback\nAtrás'
+                ask_and_apply_loop "Preferencias" "$prefers" "matugen_prefer" ""
+
+            elif [[ "$adv_choice" == "Filtro de redimensión:"* ]]; then
+                local filters=$'gaussian (Suave)\nnearest (Pixel Puro)\nlanczos3 (Detalle alto)\ntriangle (Medio)\ncatmull-rom\nAtrás'
+                ask_and_apply_loop "Filtro de Redimensión" "$filters" "matugen_resize_filter" ""
+
+            elif [[ "$adv_choice" == "Usar imagen completa:"* ]]; then
+                toggle_state_val "matugen_use_fit" "cur_matugen_use_fit"
+                trigger_reload=1
+            fi
+
+            if [[ "$trigger_reload" -eq 1 ]]; then
+                reload_matugen_preview
+            fi
+        done
+    }
+
+    menu_color_engine() {
+        while true; do
+            local eng_opts=""
+            eng_opts+="$PROM_BG_GEN: $(lbl_bool "$cur_bg_gen")"$'\n'
+            eng_opts+="Generación rápida (Thumb): $(lbl_bool "$cur_matugen_thumb")"$'\n'
+            if [[ "$cur_thumb_crop_mode" == "crop" ]]; then
+                eng_opts+="Limpieza de temporales: $(lbl_bool "$cur_matugen_clean_temp")"$'\n'
+            fi
+            eng_opts+="Atrás"
+
+            local eng_choice=$(ask_selection "Ajustes del Motor" "$eng_opts")
+            [[ -z "$eng_choice" || "$eng_choice" == "Atrás" ]] && break
+
+            local trigger_reload=0
+
+            if [[ "$eng_choice" == "$PROM_BG_GEN"* ]]; then
+                toggle_state_val "bg_generation" "cur_bg_gen"
+                trigger_reload=1
+
+            elif [[ "$eng_choice" == "Generación rápida"* ]]; then
+                toggle_state_val "matugen_use_thumb" "cur_matugen_thumb"
+                trigger_reload=1
+
+            elif [[ "$eng_choice" == "Limpieza de temporales"* ]]; then
+                toggle_state_val "matugen_clean_temp" "cur_matugen_clean_temp"
+                trigger_reload=1
+            fi
+
+            if [[ "$trigger_reload" -eq 1 ]]; then
+                reload_matugen_preview
             fi
         done
     }
 
     menu_color() {
         while true; do
-            local bg_lbl="desactivado"
-            [[ "$cur_bg_gen" == "true" ]] && bg_lbl="activado"
-
-            local matugen_lbl="desactivado"
-            [[ "$cur_matugen_thumb" == "true" ]] && matugen_lbl="activado"
-
-            local fit_lbl="desactivado"
-            [[ "$cur_matugen_use_fit" == "true" ]] && fit_lbl="activado"
-
-            local clean_lbl="desactivado"
-            [[ "$cur_matugen_clean_temp" == "true" ]] && clean_lbl="activado"
+            local scheme_display="${cur_matugen_scheme#scheme-}"
 
             local color_opts=""
-            color_opts+="$PROM_BG_GEN: $bg_lbl"$'\n'
-            color_opts+="Generación de color rápida: $matugen_lbl"$'\n'
-            if [[ "$cur_thumb_crop_mode" == "crop" ]]; then
-                color_opts+="Usar imagen completa para color: $fit_lbl"$'\n'
-                color_opts+="Limpieza temporal Matugen: $clean_lbl"$'\n'
+            color_opts+="Presets de Matugen..."$'\n'
+            color_opts+="Esquema: $scheme_display"$'\n'
+            color_opts+="Índice de color base: $cur_source_color_index"$'\n'
+            color_opts+="Contraste: $cur_matugen_contrast"$'\n'
+            color_opts+="Luminosidad (Oscuro): $cur_matugen_lightness_dark"$'\n'
+            color_opts+="Ajustes de color avanzados..."$'\n'
+            color_opts+="Ajustes técnicos del motor..."$'\n'
+
+            local has_rule=0
+            local rule_key
+            rule_key=$(get_wp_rule_key)
+            if [[ -n "$rule_key" ]]; then
+                local rules_file="$WP_STATE_DIR/rules.env"
+                [[ -f "$rules_file" ]] && grep -q "^${rule_key}=" "$rules_file" && has_rule=1
+            fi
+
+            color_opts+="Fijar para este wallpaper"$'\n'
+            if [[ "$has_rule" -eq 1 ]]; then
+                color_opts+="Desfijar de este wallpaper"$'\n'
             fi
             color_opts+="Atrás"
 
             local color_choice=$(ask_selection "Colores" "$color_opts")
             [[ -z "$color_choice" || "$color_choice" == "Atrás" ]] && break
 
-            if [[ "$color_choice" == "$PROM_BG_GEN"* ]]; then
-                if [[ "$cur_bg_gen" == "true" ]]; then
-                    cur_bg_gen="false"
-                else
-                    cur_bg_gen="true"
-                fi
-                save_state "bg_generation" "$cur_bg_gen"
+            local trigger_reload=0
 
-            elif [[ "$color_choice" == "Generación de color rápida"* ]]; then
-                if [[ "$cur_matugen_thumb" == "true" ]]; then
-                    cur_matugen_thumb="false"
-                else
-                    cur_matugen_thumb="true"
-                fi
-                save_state "matugen_use_thumb" "$cur_matugen_thumb"
+            if [[ "$color_choice" == "Presets de Matugen..." ]]; then
+                menu_presets
 
-            elif [[ "$color_choice" == "Usar imagen completa para color"* ]]; then
-                if [[ "$cur_matugen_use_fit" == "true" ]]; then
-                    cur_matugen_use_fit="false"
-                else
-                    cur_matugen_use_fit="true"
-                fi
-                save_state "matugen_use_fit" "$cur_matugen_use_fit"
+            elif [[ "$color_choice" == "Esquema:"* ]]; then
+                local schemes=$'tonal-spot\nfidelity\ncontent\nneutral\nmonochrome\nexpressive\nAtrás'
+                ask_and_apply_loop "Esquemas" "$schemes" "matugen_scheme_type" "scheme-"
 
-            elif [[ "$color_choice" == "Limpieza temporal Matugen"* ]]; then
-                if [[ "$cur_matugen_clean_temp" == "true" ]]; then
-                    cur_matugen_clean_temp="false"
-                else
-                    cur_matugen_clean_temp="true"
+            elif [[ "$color_choice" == "Índice de color base:"* ]]; then
+                local indices=$'0 (Dominante)\n1 (Secundario/Centro)\n2 (Terciario)\n3\n4\nAtrás'
+                ask_and_apply_loop "Índice de Color" "$indices" "matugen_source_color_index" ""
+
+            elif [[ "$color_choice" == "Contraste:"* ]]; then
+                local contrasts=$'0.0\n0.3\n0.5\n-0.3\nAtrás'
+                ask_and_apply_loop "Contraste" "$contrasts" "matugen_contrast" ""
+
+            elif [[ "$color_choice" == "Luminosidad (Oscuro):"* ]]; then
+                local lightnesses=$'0.0 (Predeterminado)\n-0.5 (Amoled)\n-0.3 (Ultra Oscuro)\n-0.1 (Oscuro suave)\n0.2 (Gris claro)\n0.5 (Gris muy claro)\nAtrás'
+                ask_and_apply_loop "Luminosidad" "$lightnesses" "matugen_lightness_dark" ""
+
+            elif [[ "$color_choice" == "Ajustes de color avanzados..." ]]; then
+                menu_color_advanced
+
+            elif [[ "$color_choice" == "Ajustes técnicos del motor..." ]]; then
+                menu_color_engine
+
+            elif [[ "$color_choice" == "Fijar para este wallpaper" ]]; then
+                if [[ -n "$rule_key" ]]; then
+                    local rule_val="${cur_matugen_scheme}|${cur_matugen_contrast}|${cur_matugen_prefer}|${cur_source_color_index}|${cur_matugen_lightness_dark}|${cur_matugen_resize_filter}"
+                    local rules_file="$WP_STATE_DIR/rules.env"
+                    touch "$rules_file"
+                    if grep -q "^${rule_key}=" "$rules_file"; then
+                        sed -i "s|^${rule_key}=.*|${rule_key}=\"${rule_val}\"|" "$rules_file"
+                    else
+                        echo "${rule_key}=\"${rule_val}\"" >> "$rules_file"
+                    fi
+                    if command -v notify-send &>/dev/null; then
+                        notify-send "Matugen" "Configuración fijada para este wallpaper" -i check -t 2500
+                    fi
                 fi
-                save_state "matugen_clean_temp" "$cur_matugen_clean_temp"
+
+            elif [[ "$color_choice" == "Desfijar de este wallpaper" ]]; then
+                if [[ -n "$rule_key" ]]; then
+                    local rules_file="$WP_STATE_DIR/rules.env"
+                    if [[ -f "$rules_file" ]]; then
+                        sed -i "/^${rule_key}=/d" "$rules_file"
+                    fi
+                    if command -v notify-send &>/dev/null; then
+                        notify-send "Matugen" "Configuración liberada para este wallpaper" -i edit-clear -t 2500
+                    fi
+                    trigger_reload=1
+                fi
+            fi
+
+            if [[ "$trigger_reload" -eq 1 ]]; then
+                reload_matugen_preview
             fi
         done
     }
@@ -417,30 +718,7 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
         done
     }
 
-    # Función interna de submenú interactivo (Rofi de texto limpio)
     configure_wallpaper() {
-        # Carga dinámica en RAM del estado actualizado usando helper compartido
-        load_wp_config
-        cur_show_names_mode=$(get_state "show_names_mode" "selected-invisible")
-        cur_card_style=$(get_state "card_style" "true")
-        cur_card_round_border=$(get_state "card_round_border" "false")
-        cur_join_text=$(get_state "join_text" "false")
-        
-        cur_ind_text=$(get_state "ind_text" "false")
-        cur_ind_block=$(get_state "ind_block" "true")
-        cur_ind_border=$(get_state "ind_border" "false")
-        cur_ind_underline=$(get_state "ind_underline" "false")
-        cur_ind_halo=$(get_state "ind_halo" "false")
-
-        cur_thumb_mode="$THUMB_MODE"
-        cur_thumb_size="$THUMB_SIZE"
-        cur_no_thumb="$NO_THUMB_MODE"
-        cur_bg_gen="$BG_GENERATION"
-        cur_matugen_thumb="$MATUGEN_USE_THUMB"
-        cur_thumb_crop_mode="$THUMB_CROP_MODE"
-        cur_matugen_clean_temp="$MATUGEN_CLEAN_TEMP"
-        cur_matugen_use_fit="$MATUGEN_USE_FIT"
-
         while true; do
             local main_opts=""
             main_opts+="Personalizar visualización..."$'\n'
@@ -461,7 +739,11 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
         done
     }
 
-    configure_wallpaper
+    if [[ "$PRESETS_ONLY" -eq 1 ]]; then
+        menu_presets 1
+    else
+        configure_wallpaper
+    fi
     exit 0
 fi
 
