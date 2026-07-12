@@ -10,3 +10,9 @@ export POLKIT_AGENT="lxpolkit"
 export I3_FONT="JetBrainsMono Nerd Font"
 export OS_ICON=""
 
+# Mapeo de paquetes de servicios opcionales
+export PKG_SERVICE_POLKIT="lxsession"
+export PKG_SERVICE_XSETTINGSD="xsettingsd"
+export PKG_SERVICE_DEX="dex"
+
+

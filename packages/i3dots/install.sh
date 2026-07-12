@@ -18,11 +18,13 @@ IS_OFFLINE=false
 CLI_WALL=""
 CLI_WALL_SRC=""
 
+EXCLUDE_SERVICES="${EXCLUDE_SERVICES:-}"
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --offline) IS_OFFLINE=true; shift ;;
         --wallpaper) CLI_WALL="$2"; shift 2 ;;
         --wallpaper-src) CLI_WALL_SRC="$2"; shift 2 ;;
+        --exclude|-e) EXCLUDE_SERVICES="$2"; shift 2 ;;
         -*) shift ;;
         *) [ -z "$VARIANT_ARG" ] && VARIANT_ARG="$1"; shift ;;
     esac
@@ -53,6 +55,33 @@ fi
 
 # Cargar configuraciones del paquete
 [ -f "$PACKAGE_DIR/config.env" ] && source "$PACKAGE_DIR/config.env"
+
+# Procesar exclusión de servicios
+polkit_enabled="true"
+xsettingsd_enabled="true"
+dex_enabled="true"
+
+if [ -n "$EXCLUDE_SERVICES" ]; then
+    IFS=',' read -ra ADDR <<< "$EXCLUDE_SERVICES"
+    for svc in "${ADDR[@]}"; do
+        case "$svc" in
+            polkit) polkit_enabled="false" ;;
+            xsettingsd) xsettingsd_enabled="false" ;;
+            dex) dex_enabled="false" ;;
+        esac
+    done
+fi
+
+if [ "$polkit_enabled" = "false" ] && [ -n "$PKG_SERVICE_POLKIT" ]; then
+    PKG_LIST=$(echo " $PKG_LIST " | sed "s/ $PKG_SERVICE_POLKIT / /g" | sed 's/^ *//;s/ *$//')
+fi
+if [ "$xsettingsd_enabled" = "false" ] && [ -n "$PKG_SERVICE_XSETTINGSD" ]; then
+    PKG_LIST=$(echo " $PKG_LIST " | sed "s/ $PKG_SERVICE_XSETTINGSD / /g" | sed 's/^ *//;s/ *$//')
+fi
+if [ "$dex_enabled" = "false" ] && [ -n "$PKG_SERVICE_DEX" ]; then
+    PKG_LIST=$(echo " $PKG_LIST " | sed "s/ $PKG_SERVICE_DEX / /g" | sed 's/^ *//;s/ *$//')
+fi
+
 
 # Cargar dependencias de compilación si falta algún precompilado
 BINS_SRC="$PACKAGE_DIR/distros/${VARIANT_NAME}/bins"
@@ -434,6 +463,13 @@ echo "mode=\"solid\"" >> "$STATE_DIR/i3dots/bar/state.env"
 echo "solid_line=\"false\"" >> "$STATE_DIR/i3dots/bar/state.env"
 echo "transparency=\"${BAR_TRANSPARENCY:-true}\"" >> "$STATE_DIR/i3dots/bar/state.env"
 
+# 9.5.5 Inicializar estado de servicios
+print_step "Inicializando estado de servicios en disco..."
+mkdir -p "$STATE_DIR/i3dots/services"
+echo "polkit=\"$polkit_enabled\"" > "$STATE_DIR/i3dots/services/state.env"
+echo "xsettingsd=\"$xsettingsd_enabled\"" >> "$STATE_DIR/i3dots/services/state.env"
+echo "dex=\"$dex_enabled\"" >> "$STATE_DIR/i3dots/services/state.env"
+
 # 9.6 Inicializar logo de fastfetch
 mkdir -p "$PACKAGE_DIR/config/fastfetch"
 rm -f "$PACKAGE_DIR/config/fastfetch/logo.txt"
@@ -450,6 +486,16 @@ if [ -f "$PACKAGE_DIR/hooks/components/polybar.sh" ]; then
     bash "$PACKAGE_DIR/hooks/components/polybar.sh" &>> "$LOG_FILE"
     print_sub_ok "Configuración de Polybar inicializada."
 fi
+
+# Ejecutar hook de i3 para generar autostart inicial
+if [ -f "$PACKAGE_DIR/hooks/components/i3.sh" ]; then
+    print_sub "Ejecutando hook de i3..."
+    export PACKAGE_DIR
+    export STATE_DIR
+    bash "$PACKAGE_DIR/hooks/components/i3.sh" &>> "$LOG_FILE"
+    print_sub_ok "Configuración de i3 (autostart) inicializada."
+fi
+
 
 # 10. Aplicar gsettings (GTK)
 if command -v gsettings &> /dev/null; then
