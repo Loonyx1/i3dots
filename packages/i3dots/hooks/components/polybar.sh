@@ -115,17 +115,22 @@ if [ "$TYPE" == "polybar_compact" ]; then
         COMP_HEIGHT="$(( H_NUM + 3 ))pt"
         COMP_LINE_SIZE="3pt"
         if [ "$IS_BOTTOM" == "true" ]; then
-            COMP_BORDER_TOP=6
-            COMP_BORDER_BOTTOM=0
-        else
             COMP_BORDER_TOP=0
             COMP_BORDER_BOTTOM=6
+        else
+            COMP_BORDER_TOP=6
+            COMP_BORDER_BOTTOM=0
         fi
     else
         COMP_HEIGHT="${H_NUM}pt"
         COMP_LINE_SIZE="0pt"
-        COMP_BORDER_TOP=5
-        COMP_BORDER_BOTTOM=5
+        if [ "$IS_BOTTOM" == "true" ]; then
+            COMP_BORDER_TOP=0
+            COMP_BORDER_BOTTOM=5
+        else
+            COMP_BORDER_TOP=5
+            COMP_BORDER_BOTTOM=0
+        fi
     fi
 else
     COMP_HEIGHT="${H_NUM}pt"
