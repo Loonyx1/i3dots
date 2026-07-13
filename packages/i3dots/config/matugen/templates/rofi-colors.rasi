@@ -13,6 +13,9 @@
     BDR:            {{colors.outline.default.hex}}FF;
     ON:             {{colors.secondary.default.hex}}FF;
     OFF:            {{colors.error.default.hex}}FF;
+    card-background: {{colors.on_surface.default.hex}}05;
+    card-border:     {{colors.on_surface.default.hex}}0D;
+    card-selected:   {{colors.on_surface.default.hex}}14;
 }
 
 element selected.normal {

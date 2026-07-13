@@ -159,29 +159,29 @@ if [[ "$MANAGE_MODE" -eq 1 ]]; then
 
     # Carga e inicialización unificada de variables locales del estado
     load_wp_config
-    local cur_show_names_mode=$(get_state "show_names_mode" "selected-invisible")
-    local cur_card_style=$(get_state "card_style" "true")
-    local cur_card_round_border=$(get_state "card_round_border" "false")
-    local cur_join_text=$(get_state "join_text" "false")
-    local cur_ind_text=$(get_state "ind_text" "false")
-    local cur_ind_block=$(get_state "ind_block" "true")
-    local cur_ind_border=$(get_state "ind_border" "false")
-    local cur_ind_underline=$(get_state "ind_underline" "false")
-    local cur_ind_halo=$(get_state "ind_halo" "false")
-    local cur_thumb_mode="$THUMB_MODE"
-    local cur_thumb_size="$THUMB_SIZE"
-    local cur_no_thumb="$NO_THUMB_MODE"
-    local cur_bg_gen="$BG_GENERATION"
-    local cur_matugen_thumb="$MATUGEN_USE_THUMB"
-    local cur_thumb_crop_mode="$THUMB_CROP_MODE"
-    local cur_matugen_clean_temp="$MATUGEN_CLEAN_TEMP"
-    local cur_matugen_use_fit="$MATUGEN_USE_FIT"
-    local cur_matugen_scheme=$(get_state "matugen_scheme_type" "scheme-tonal-spot")
-    local cur_matugen_contrast=$(get_state "matugen_contrast" "0.0")
-    local cur_matugen_prefer=$(get_state "matugen_prefer" "saturation")
-    local cur_source_color_index=$(get_state "matugen_source_color_index" "0")
-    local cur_matugen_lightness_dark=$(get_state "matugen_lightness_dark" "0.0")
-    local cur_matugen_resize_filter=$(get_state "matugen_resize_filter" "gaussian")
+    cur_show_names_mode=$(get_state "show_names_mode" "selected-invisible")
+    cur_card_style=$(get_state "card_style" "true")
+    cur_card_round_border=$(get_state "card_round_border" "false")
+    cur_join_text=$(get_state "join_text" "false")
+    cur_ind_text=$(get_state "ind_text" "false")
+    cur_ind_block=$(get_state "ind_block" "true")
+    cur_ind_border=$(get_state "ind_border" "false")
+    cur_ind_underline=$(get_state "ind_underline" "false")
+    cur_ind_halo=$(get_state "ind_halo" "false")
+    cur_thumb_mode="$THUMB_MODE"
+    cur_thumb_size="$THUMB_SIZE"
+    cur_no_thumb="$NO_THUMB_MODE"
+    cur_bg_gen="$BG_GENERATION"
+    cur_matugen_thumb="$MATUGEN_USE_THUMB"
+    cur_thumb_crop_mode="$THUMB_CROP_MODE"
+    cur_matugen_clean_temp="$MATUGEN_CLEAN_TEMP"
+    cur_matugen_use_fit="$MATUGEN_USE_FIT"
+    cur_matugen_scheme=$(get_state "matugen_scheme_type" "scheme-tonal-spot")
+    cur_matugen_contrast=$(get_state "matugen_contrast" "0.0")
+    cur_matugen_prefer=$(get_state "matugen_prefer" "saturation")
+    cur_source_color_index=$(get_state "matugen_source_color_index" "0")
+    cur_matugen_lightness_dark=$(get_state "matugen_lightness_dark" "0.0")
+    cur_matugen_resize_filter=$(get_state "matugen_resize_filter" "gaussian")
 
     menu_indicadores() {
         while true; do
@@ -536,11 +536,11 @@ EOF
 
             if [[ "$adv_choice" == "Preferencia:"* ]]; then
                 local prefers=$'Ninguna (Por defecto)\nsaturation\nless-saturation\ndarkness\nlightness\nvalue\nclosest-to-fallback\nAtrás'
-                ask_and_apply_loop "Preferencias" "$prefers" "matugen_prefer" ""
+                ask_and_apply_loop "Preferencias" "$prefers" "matugen_prefer" "cur_matugen_prefer" ""
 
             elif [[ "$adv_choice" == "Filtro de redimensión:"* ]]; then
                 local filters=$'gaussian (Suave)\nnearest (Pixel Puro)\nlanczos3 (Detalle alto)\ntriangle (Medio)\ncatmull-rom\nAtrás'
-                ask_and_apply_loop "Filtro de Redimensión" "$filters" "matugen_resize_filter" ""
+                ask_and_apply_loop "Filtro de Redimensión" "$filters" "matugen_resize_filter" "cur_matugen_resize_filter" ""
 
             elif [[ "$adv_choice" == "Usar imagen completa:"* ]]; then
                 toggle_state_val "matugen_use_fit" "cur_matugen_use_fit"
@@ -624,19 +624,19 @@ EOF
 
             elif [[ "$color_choice" == "Esquema:"* ]]; then
                 local schemes=$'tonal-spot\nfidelity\ncontent\nneutral\nmonochrome\nexpressive\nAtrás'
-                ask_and_apply_loop "Esquemas" "$schemes" "matugen_scheme_type" "scheme-"
+                ask_and_apply_loop "Esquemas" "$schemes" "matugen_scheme_type" "cur_matugen_scheme" "scheme-"
 
             elif [[ "$color_choice" == "Índice de color base:"* ]]; then
                 local indices=$'0 (Dominante)\n1 (Secundario/Centro)\n2 (Terciario)\n3\n4\nAtrás'
-                ask_and_apply_loop "Índice de Color" "$indices" "matugen_source_color_index" ""
+                ask_and_apply_loop "Índice de Color" "$indices" "matugen_source_color_index" "cur_source_color_index" ""
 
             elif [[ "$color_choice" == "Contraste:"* ]]; then
                 local contrasts=$'0.0\n0.3\n0.5\n-0.3\nAtrás'
-                ask_and_apply_loop "Contraste" "$contrasts" "matugen_contrast" ""
+                ask_and_apply_loop "Contraste" "$contrasts" "matugen_contrast" "cur_matugen_contrast" ""
 
             elif [[ "$color_choice" == "Luminosidad (Oscuro):"* ]]; then
                 local lightnesses=$'0.0 (Predeterminado)\n-0.5 (Amoled)\n-0.3 (Ultra Oscuro)\n-0.1 (Oscuro suave)\n0.2 (Gris claro)\n0.5 (Gris muy claro)\nAtrás'
-                ask_and_apply_loop "Luminosidad" "$lightnesses" "matugen_lightness_dark" ""
+                ask_and_apply_loop "Luminosidad" "$lightnesses" "matugen_lightness_dark" "cur_matugen_lightness_dark" ""
 
             elif [[ "$color_choice" == "Ajustes de color avanzados..." ]]; then
                 menu_color_advanced

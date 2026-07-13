@@ -79,16 +79,16 @@ if [[ $# -eq 0 ]]; then
     if [[ "$card_style" == "true" ]]; then
         card_radius="0px"
         [[ "$card_round_border" == "true" ]] && card_radius="${WP_CARD_BORDER_RADIUS:-12px}"
-        card_css="element{background-color:rgba(255,255,255,0.02);border:1px;border-color:rgba(255,255,255,0.05);border-radius:$card_radius;padding:12px;} element normal.normal{background-color:rgba(255,255,255,0.02);} element alternate.normal{background-color:rgba(255,255,255,0.02);} element selected{background-color:rgba(255,255,255,0.08);border-radius:$card_radius;} element selected.normal{background-color:rgba(255,255,255,0.08);} "
+        card_css="element{background-color:var(card-background);border:1px;border-color:var(card-border);border-radius:$card_radius;padding:12px;} element normal.normal{background-color:var(card-background);} element alternate.normal{background-color:var(card-background);} element selected{background-color:var(card-selected);border-radius:$card_radius;} element selected.normal{background-color:var(card-selected);} "
     fi
 
     join_css=""
     if [[ "$join_text" == "true" ]]; then
         join_css="element{spacing:0px;padding:0px;} element-icon{margin:14px;} element-text{padding:6px 4px;margin:0px;} "
         if [[ "$card_style" == "true" ]]; then
-            join_css+="element-text selected{background-color:rgba(255,255,255,0.08);text-color:var(selected);} "
+            join_css+="element-text selected{background-color:var(card-selected);text-color:var(selected);} "
         else
-            join_css+="element-text selected{background-color:rgba(255,255,255,0.05);text-color:var(selected);} "
+            join_css+="element-text selected{background-color:var(card-background);text-color:var(selected);} "
         fi
     fi
 
