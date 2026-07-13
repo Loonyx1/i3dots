@@ -48,6 +48,7 @@ SOLID_LINE="false"
 ICON_PADDING="1"
 OVERRIDE_REDIRECT="dock"
 TRANS_TYPE="real"
+MARGIN_TYPE="floating"
 
 if [ -f "$STATE_FILE" ]; then
     source "$STATE_FILE"
@@ -62,6 +63,7 @@ if [ -f "$STATE_FILE" ]; then
     ICON_PADDING="${icon_padding:-$ICON_PADDING}"
     OVERRIDE_REDIRECT="${override_redirect:-$OVERRIDE_REDIRECT}"
     TRANS_TYPE="${transparency_type:-$TRANS_TYPE}"
+    MARGIN_TYPE="${margin_type:-$MARGIN_TYPE}"
 fi
 
 OR_VAL=$([ "$OVERRIDE_REDIRECT" == "overlay" ] && echo "true" || echo "false")
@@ -111,25 +113,38 @@ if [ "$MODE" == "underline" ] || [ "$SOLID_LINE" == "true" ]; then
 fi
 
 if [ "$TYPE" == "polybar_compact" ]; then
-    if [ "$TRANS" == "false" ]; then
-        COMP_HEIGHT="$(( H_NUM + 3 ))pt"
-        COMP_LINE_SIZE="3pt"
-        if [ "$IS_BOTTOM" == "true" ]; then
-            COMP_BORDER_TOP=0
-            COMP_BORDER_BOTTOM=6
+    if [ "$MARGIN_TYPE" == "pinned" ]; then
+        COMP_BORDER_TOP=0
+        COMP_BORDER_BOTTOM=0
+        if [ "$TRANS" == "false" ]; then
+            COMP_HEIGHT="$(( H_NUM + 3 ))pt"
+            COMP_LINE_SIZE="3pt"
         else
-            COMP_BORDER_TOP=6
-            COMP_BORDER_BOTTOM=0
+            COMP_HEIGHT="${H_NUM}pt"
+            COMP_LINE_SIZE="0pt"
         fi
     else
-        COMP_HEIGHT="${H_NUM}pt"
-        COMP_LINE_SIZE="0pt"
-        if [ "$IS_BOTTOM" == "true" ]; then
-            COMP_BORDER_TOP=0
-            COMP_BORDER_BOTTOM=5
+        # Modo floating (flotante)
+        if [ "$TRANS" == "false" ]; then
+            COMP_HEIGHT="$(( H_NUM + 3 ))pt"
+            COMP_LINE_SIZE="3pt"
+            if [ "$IS_BOTTOM" == "true" ]; then
+                COMP_BORDER_TOP=0
+                COMP_BORDER_BOTTOM=6
+            else
+                COMP_BORDER_TOP=6
+                COMP_BORDER_BOTTOM=0
+            fi
         else
-            COMP_BORDER_TOP=5
-            COMP_BORDER_BOTTOM=0
+            COMP_HEIGHT="${H_NUM}pt"
+            COMP_LINE_SIZE="0pt"
+            if [ "$IS_BOTTOM" == "true" ]; then
+                COMP_BORDER_TOP=0
+                COMP_BORDER_BOTTOM=5
+            else
+                COMP_BORDER_TOP=5
+                COMP_BORDER_BOTTOM=0
+            fi
         fi
     fi
 else
