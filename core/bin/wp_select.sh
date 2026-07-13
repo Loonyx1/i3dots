@@ -55,9 +55,9 @@ if [[ -n "$W_PATH" ]]; then
 
     # Aplicar motor de wallpaper
     if [[ -z "$CORE_DIR" ]]; then
-        SCRIPT_PATH="${BASH_SOURCE[0]}"
-        SCRIPT_DIR="${SCRIPT_PATH%/*}"
-        CORE_DIR="${SCRIPT_DIR%/*}"
+        local real_script=$(readlink -f "${BASH_SOURCE[0]}")
+        local script_dir=$(dirname "$real_script")
+        CORE_DIR=$(dirname "$script_dir")
     fi
     local_engine="$CORE_DIR/engines/${WP_ENGINE}.sh"
     if [[ -f "$local_engine" ]]; then

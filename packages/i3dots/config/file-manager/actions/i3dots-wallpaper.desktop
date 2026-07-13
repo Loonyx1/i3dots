@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Action
+Name=Establecer como Wallpaper (i3dots)
+Icon=background
+Profiles=profile-zero;
+
+[X-Action-Profile profile-zero]
+MimeTypes=image/png;image/jpeg;image/webp;image/gif;image/bmp;
+Exec=@PACKAGE_DIR@/bin/wp_context_menu.sh %f

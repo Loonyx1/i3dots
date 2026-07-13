@@ -19,12 +19,14 @@ CLI_WALL=""
 CLI_WALL_SRC=""
 
 EXCLUDE_SERVICES="${EXCLUDE_SERVICES:-}"
+INTEGRATE_FM="none"
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --offline) IS_OFFLINE=true; shift ;;
         --wallpaper) CLI_WALL="$2"; shift 2 ;;
         --wallpaper-src) CLI_WALL_SRC="$2"; shift 2 ;;
         --exclude|-e) EXCLUDE_SERVICES="$2"; shift 2 ;;
+        --file-manager|-fm) INTEGRATE_FM="$2"; shift 2 ;;
         -*) shift ;;
         *) [ -z "$VARIANT_ARG" ] && VARIANT_ARG="$1"; shift ;;
     esac
@@ -275,6 +277,13 @@ echo "set \$dots_cmd $PROJECT_ROOT/dots" > "$PACKAGE_DIR/config/i3/conf.d/vars.g
 echo "set \$current_env $CURRENT_ENV" >> "$PACKAGE_DIR/config/i3/conf.d/vars.generated"
 echo "set \$polkit_agent ${POLKIT_AGENT:-lxpolkit}" >> "$PACKAGE_DIR/config/i3/conf.d/vars.generated"
 echo "set \$i3_font \"${I3_FONT:-JetBrainsMono Nerd Font}\"" >> "$PACKAGE_DIR/config/i3/conf.d/vars.generated"
+DEFAULT_FM="pcmanfm"
+if [ "$INTEGRATE_FM" = "thunar" ]; then
+    DEFAULT_FM="thunar"
+elif [ "$INTEGRATE_FM" = "pcmanfm-qt" ]; then
+    DEFAULT_FM="pcmanfm-qt"
+fi
+echo "set \$file_manager $DEFAULT_FM" >> "$PACKAGE_DIR/config/i3/conf.d/vars.generated"
 
 # Bashrc
 add_rc() {
@@ -418,6 +427,7 @@ fi
 # Permisos de ejecución
 print_sub "Asegurando permisos de ejecución en scripts..."
 chmod +x "$PACKAGE_DIR/bin/polybar_launch.sh" &>> "$LOG_FILE"
+chmod +x "$PACKAGE_DIR/bin/wp_context_menu.sh" &>> "$LOG_FILE"
 chmod +x "$PACKAGE_DIR/bin/toggle_autohide.sh" &>> "$LOG_FILE"
 find "$PACKAGE_DIR/config/rofi/bin" -type f -exec chmod +x {} + &>> "$LOG_FILE"
 find "$PACKAGE_DIR/config/polybar" -type f -name "*.sh" -exec chmod +x {} + &>> "$LOG_FILE"
@@ -505,6 +515,48 @@ if command -v gsettings &> /dev/null; then
     gsettings set org.gnome.desktop.interface icon-theme "Papirus-Dark" 2>/dev/null || true
     gsettings set org.gnome.desktop.interface cursor-theme "Layan-border-cursors" 2>/dev/null || true
     print_sub_ok "Tema oscuro y cursores establecidos."
+fi
+
+# 10.5 Integrar Menús Contextuales de Wallpaper en Gestores de Archivos (Si se solicita)
+if [ "$INTEGRATE_FM" != "none" ]; then
+    print_step "Integrando accesos rápidos de Wallpaper en gestores de archivos ($INTEGRATE_FM)..."
+    
+    TEMPLATE_THUNAR="$PACKAGE_DIR/config/thunar/uca-wallpaper.xml"
+    TEMPLATE_PCMANFM="$PACKAGE_DIR/config/file-manager/actions/i3dots-wallpaper.desktop"
+    
+    # A. Thunar Custom Actions (uca.xml)
+    if [ "$INTEGRATE_FM" = "thunar" ] || [ "$INTEGRATE_FM" = "all" ]; then
+        THUNAR_UCA="$HOME/.config/Thunar/uca.xml"
+        if [ -f "$TEMPLATE_THUNAR" ]; then
+            xml_chunk=$(sed "s|@PACKAGE_DIR@|$PACKAGE_DIR|g" "$TEMPLATE_THUNAR")
+            if [ -f "$THUNAR_UCA" ]; then
+                if ! grep -q "i3dots-set-wallpaper" "$THUNAR_UCA"; then
+                    escaped_chunk=$(echo "$xml_chunk" | sed ':a;N;$!ba;s/\n/\\n/g')
+                    sed -i "s|</actions>|\t$escaped_chunk\n</actions>|" "$THUNAR_UCA"
+                    print_sub_ok "Acción de Wallpaper integrada en Thunar."
+                fi
+            else
+                mkdir -p "$(dirname "$THUNAR_UCA")"
+                cat << EOF > "$THUNAR_UCA"
+<?xml version="1.0" encoding="UTF-8"?>
+<actions>
+$(echo "$xml_chunk")
+</actions>
+EOF
+                print_sub_ok "Creado archivo de acciones de Thunar con Wallpaper."
+            fi
+        fi
+    fi
+    
+    # B. pcmanfm-qt / pcmanfm Actions
+    if [ "$INTEGRATE_FM" = "pcmanfm" ] || [ "$INTEGRATE_FM" = "all" ]; then
+        if [ -f "$TEMPLATE_PCMANFM" ]; then
+            PCMANFM_ACTIONS_DIR="$HOME/.local/share/file-manager/actions"
+            mkdir -p "$PCMANFM_ACTIONS_DIR"
+            sed "s|@PACKAGE_DIR@|$PACKAGE_DIR|g" "$TEMPLATE_PCMANFM" > "$PCMANFM_ACTIONS_DIR/i3dots-wallpaper.desktop"
+            print_sub_ok "Acción de Wallpaper integrada en pcmanfm-qt/pcmanfm."
+        fi
+    fi
 fi
 
 # Resumen de backups realizados
