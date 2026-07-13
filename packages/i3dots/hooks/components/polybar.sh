@@ -49,6 +49,7 @@ ICON_PADDING="1"
 OVERRIDE_REDIRECT="dock"
 TRANS_TYPE="real"
 MARGIN_TYPE="floating"
+MODULES_VISIBILITY="hidden"
 
 if [ -f "$STATE_FILE" ]; then
     source "$STATE_FILE"
@@ -64,6 +65,7 @@ if [ -f "$STATE_FILE" ]; then
     OVERRIDE_REDIRECT="${override_redirect:-$OVERRIDE_REDIRECT}"
     TRANS_TYPE="${transparency_type:-$TRANS_TYPE}"
     MARGIN_TYPE="${margin_type:-$MARGIN_TYPE}"
+    MODULES_VISIBILITY="${modules_visibility:-$MODULES_VISIBILITY}"
 fi
 
 OR_VAL=$([ "$OVERRIDE_REDIRECT" == "overlay" ] && echo "true" || echo "false")
@@ -227,6 +229,7 @@ compact-background = $COMPACT_BG_COLOR
 border-top = ${COMP_BORDER_TOP}pt
 border-bottom = ${COMP_BORDER_BOTTOM}pt
 line-size = $COMP_LINE_SIZE
+comp-modules-hidden = $([ "$MODULES_VISIBILITY" == "visible" ] && echo "false" || echo "true")
 font-0 = "JetBrainsMono Nerd Font Mono:style=Bold:size=$F_TEXT;$F_OFFSET_TEXT"
 font-1 = "Symbols Nerd Font:size=$F_CURV;$F_CURV_OFFSET"
 font-2 = "JetBrainsMono Nerd Font Mono:size=$F_TEXT:antialias=false;$F_OFFSET_TEXT"

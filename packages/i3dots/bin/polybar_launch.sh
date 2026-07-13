@@ -108,6 +108,11 @@ if [ -f "$STATE_FILE" ]; then
     export BAR_SOLID_LINE="${solid_line:-false}"
     export BAR_ICON_PADDING="${icon_padding:-1}"
     export BAR_AUTOHIDE="${autohide:-false}"
+    if [ "${modules_visibility:-hidden}" == "visible" ]; then
+        export COMP_MODULES_HIDDEN="false"
+    else
+        export COMP_MODULES_HIDDEN="true"
+    fi
 fi
 
 # 6. Generar Script Estático POSIX para Dash
@@ -131,6 +136,7 @@ export BAR_ROFI_STYLE="$BAR_ROFI_STYLE"
 export BAR_SOLID_LINE="$BAR_SOLID_LINE"
 export BAR_ICON_PADDING="$BAR_ICON_PADDING"
 export BAR_AUTOHIDE="$BAR_AUTOHIDE"
+export COMP_MODULES_HIDDEN="$COMP_MODULES_HIDDEN"
 
 # Variables de Hardware
 export BACKLIGHT_CARD="$BACKLIGHT_CARD"
