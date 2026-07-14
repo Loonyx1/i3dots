@@ -122,8 +122,15 @@ elif [[ $# -eq 2 ]]; then
     esac
     save_state "active_mode" "$ACTIVE_MODE"
 
-    [[ -f "$SELECTION" ]] && FINAL_PATH="$SELECTION" || FINAL_PATH="$WALLPAPER_DIR/$SELECTION"
+    if [[ -f "$SELECTION" ]]; then
+        FINAL_PATH="$SELECTION"
+    elif [[ "$LIVE_ONLY" -eq 1 ]]; then
+        FINAL_PATH="$WALLPAPER_DIR/live/$SELECTION"
+    else
+        FINAL_PATH="$WALLPAPER_DIR/$SELECTION"
+    fi
     FINAL_PATH=$(readlink -f "$FINAL_PATH")
+
 
     color_src="$FINAL_PATH"
     temp_to_clean=""
