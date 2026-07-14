@@ -32,10 +32,29 @@ if ! flock -n 9; then
     exit 0
 fi
 
+# Helper para generar miniatura segun tipo de archivo
+generate_single_thumb() {
+    local input_file="$1"
+    local output_thumb="$2"
+    
+    if [[ "$input_file" =~ \.(mp4|webm|mkv|mov)$ ]]; then
+        if command -v ffmpegthumbnailer &>/dev/null; then
+            nice -n 19 ffmpegthumbnailer -i "$input_file" -o "$output_thumb" -s "$THUMB_SIZE" &>/dev/null
+            return $?
+        fi
+    else
+        if [[ "$HAS_VIPS" -eq 1 ]]; then
+            local vips_args=(-s "$THUMB_SIZE")
+            [[ "$THUMB_CROP_MODE" == "crop" ]] && vips_args=(-s "${THUMB_SIZE}x${THUMB_SIZE}" -m centre)
+            nice -n 19 vipsthumbnail "${vips_args[@]}" -o "$output_thumb" "$input_file" 2>/dev/null
+            return $?
+        fi
+    fi
+    return 1
+}
+
 # 3. Modo: Pre-caché en background (--bg-gen)
 if [[ "$BG_GEN" -eq 1 ]]; then
-    [[ "$HAS_VIPS" -eq 0 ]] && exit 1
-    
     if [[ ! -t 0 ]]; then
         wallpapers_found=$(cat)
     else
@@ -44,9 +63,6 @@ if [[ "$BG_GEN" -eq 1 ]]; then
     [[ -z "$wallpapers_found" ]] && exit 0
     
     [[ -d "$THUMB_DIR" ]] || mkdir -p "$THUMB_DIR"
-    
-    local vips_args=(-s "$THUMB_SIZE")
-    [[ "$THUMB_CROP_MODE" == "crop" ]] && vips_args=(-s "${THUMB_SIZE}x${THUMB_SIZE}" -m centre)
     
     # Bucle secuencial de baja prioridad para wallpapers faltantes
     while IFS= read -r file; do
@@ -59,7 +75,7 @@ if [[ "$BG_GEN" -eq 1 ]]; then
         get_thumb_path "$real_file"
         thumb="$RET_THUMB"
         if [[ ! -f "$thumb" || "$real_file" -nt "$thumb" ]]; then
-            nice -n 19 vipsthumbnail "${vips_args[@]}" -o "$thumb" "$real_file" 2>/dev/null
+            generate_single_thumb "$real_file" "$thumb"
         fi
     done <<< "$wallpapers_found"
     exit 0
@@ -67,8 +83,6 @@ fi
 
 # 4. Modo: Cachear Ahora (--cache-now)
 if [[ "$CACHE_NOW" -eq 1 ]]; then
-    [[ "$HAS_VIPS" -eq 0 ]] && { echo "Error: vipsthumbnail no disponible. Instala libvips." >&2; exit 1; }
-    
     wallpapers_found=$(list_wallpapers)
     [[ -z "$wallpapers_found" ]] && { echo "No se encontraron wallpapers." >&2; exit 0; }
     
@@ -97,17 +111,14 @@ if [[ "$CACHE_NOW" -eq 1 ]]; then
         exit 0
     fi
     
-    local vips_args=(-s "$THUMB_SIZE")
-    [[ "$THUMB_CROP_MODE" == "crop" ]] && vips_args=(-s "${THUMB_SIZE}x${THUMB_SIZE}" -m centre)
-
-    echo "Generando caché de miniaturas (Calidad: ${THUMB_SIZE}px, Recorte: $THUMB_CROP_MODE) para $total imágenes..."
+    echo "Generando caché de miniaturas (Calidad: ${THUMB_SIZE}px) para $total wallpapers..."
     count=0
     for file in "${pending[@]}"; do
         count=$((count+1))
         echo -e "\e[1A\e[K[$count/$total] Procesando: ${file##*/}"
         get_thumb_path "$file"
         thumb="$RET_THUMB"
-        vipsthumbnail "${vips_args[@]}" -o "$thumb" "$file" 2>/dev/null
+        generate_single_thumb "$file" "$thumb"
     done
     
     if command -v notify-send &>/dev/null; then
@@ -116,6 +127,7 @@ if [[ "$CACHE_NOW" -eq 1 ]]; then
     echo "Caché de miniaturas completado."
     exit 0
 fi
+
 
 # 5. Modo: Limpiar Caché (--clean-cache)
 if [[ "$CLEAN_CACHE" -eq 1 ]]; then

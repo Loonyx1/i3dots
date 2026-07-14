@@ -457,9 +457,9 @@ hook_query() {
 }
 
 hook_post_apply() {
-    # Ajustar wallpaper
-    if command -v feh >/dev/null && [ -f "$HOME/.config/i3/wall" ]; then
-        feh --bg-fill "$(cat "$HOME/.config/i3/wall")" &
+    # Ajustar wallpaper usando el motor activo (si no se pide omitir)
+    if [ "$NO_WALLPAPER" != "true" ] && [ -f "$HOME/.config/i3/wall" ]; then
+        ( wp_select.sh -C "$(cat "$HOME/.config/i3/wall")" & )
     fi
     
     # Relanzar Polybar de forma directa

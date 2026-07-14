@@ -3,6 +3,12 @@
 # wp_select.sh - Gestor de Wallpaper (Backend Core)
 # Uso: wp_select.sh -C <ruta_o_nombre> | -L (listar)
 
+# Definir variables de entorno del Rice por defecto si no están en la shell
+WALLPAPER_DIR="${WALLPAPER_DIR:-$HOME/wall}"
+CURRENT_WALLPAPER_LINK="${CURRENT_WALLPAPER_LINK:-$HOME/.config/i3/current}"
+LAST_WALLPAPER_PATH_FILE="${LAST_WALLPAPER_PATH_FILE:-$HOME/.config/i3/wall}"
+WP_ENGINE="${WP_ENGINE:-}"
+
 W_PATH=""
 LIST_MODE=0
 
@@ -53,10 +59,23 @@ if [[ -n "$W_PATH" ]]; then
     ln -sf "$FINAL_PATH" "$CURRENT_WALLPAPER_LINK"
     echo "$FINAL_PATH" > "$LAST_WALLPAPER_PATH_FILE"
 
+    # Autodetectar motor si no se ha forzado en el entorno
+    if [[ -z "$WP_ENGINE" ]]; then
+        mime_type=""
+        if command -v file &>/dev/null; then
+            mime_type=$(file -b --mime-type "$FINAL_PATH" 2>/dev/null)
+        fi
+        if [[ "$mime_type" =~ ^video/ || "$FINAL_PATH" =~ \.(mp4|webm|mkv|gif)$ ]]; then
+            WP_ENGINE="live"
+        else
+            WP_ENGINE="feh"
+        fi
+    fi
+
     # Aplicar motor de wallpaper
     if [[ -z "$CORE_DIR" ]]; then
-        local real_script=$(readlink -f "${BASH_SOURCE[0]}")
-        local script_dir=$(dirname "$real_script")
+        real_script=$(readlink -f "${BASH_SOURCE[0]}")
+        script_dir=$(dirname "$real_script")
         CORE_DIR=$(dirname "$script_dir")
     fi
     local_engine="$CORE_DIR/engines/${WP_ENGINE}.sh"

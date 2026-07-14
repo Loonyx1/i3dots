@@ -407,6 +407,14 @@ for b in xic polybar_autohide; do
             print_sub_ok "$b compilado." || print_sub_err "Fallo al compilar $b."
     fi
 done
+
+if [ -f "$PACKAGE_DIR/src/live_wp_daemon.c" ] && [ -z "$SKIP_SYSTEM_PKGS" ]; then
+    print_sub "Compilando daemon de live wallpaper (C)..."
+    gcc -O3 "$PACKAGE_DIR/src/live_wp_daemon.c" -o "$PACKAGE_DIR/bin/live_wp_daemon" 2>> "$LOG_FILE" && \
+        chmod +x "$PACKAGE_DIR/bin/live_wp_daemon" && \
+        print_sub_ok "live_wp_daemon compilado con éxito." || print_sub_err "Fallo al compilar live_wp_daemon."
+fi
+
 safe_link "$PACKAGE_DIR/bin/toggle_autohide.sh" "$HOME/.local/bin/toggle_autohide.sh"
 
 export PATH="$HOME/.local/bin:$PATH"
@@ -428,6 +436,7 @@ fi
 print_sub "Asegurando permisos de ejecución en scripts..."
 chmod +x "$PACKAGE_DIR/bin/polybar_launch.sh" &>> "$LOG_FILE"
 chmod +x "$PACKAGE_DIR/bin/wp_context_menu.sh" &>> "$LOG_FILE"
+chmod +x "$PACKAGE_DIR/bin/live_wp_daemon" &>> "$LOG_FILE"
 chmod +x "$PACKAGE_DIR/bin/toggle_autohide.sh" &>> "$LOG_FILE"
 find "$PACKAGE_DIR/config/rofi/bin" -type f -exec chmod +x {} + &>> "$LOG_FILE"
 find "$PACKAGE_DIR/config/polybar" -type f -name "*.sh" -exec chmod +x {} + &>> "$LOG_FILE"

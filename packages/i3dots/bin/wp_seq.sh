@@ -179,7 +179,7 @@ elif [[ $# -eq 2 ]]; then
     ln -sf "$color_src" "$WP_STATE_DIR/color_source"
 
     (
-        wp_select.sh -C "$FINAL_PATH"
+        "$BASE_DIR/core/bin/wp_select.sh" -C "$FINAL_PATH"
         (polybar-msg cmd hide ; pkill -u $UID -x polybar) &>/dev/null &
         
         if [[ "$ACTIVE_MODE" == "light" ]]; then
@@ -189,6 +189,7 @@ elif [[ $# -eq 2 ]]; then
         fi
         
         [[ -n "$temp_to_clean" && -f "$temp_to_clean" ]] && rm -f "$temp_to_clean"
+        export NO_WALLPAPER="true"
         apply_dots.sh
     ) &>/dev/null &
     exit 0

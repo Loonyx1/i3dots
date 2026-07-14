@@ -816,7 +816,7 @@ if [[ -n "$SELECTION" ]]; then
     ln -sf "$color_src" "$WP_STATE_DIR/color_source"
     
     # Aplicar wallpaper en pantalla
-    wp_select.sh -C "$FINAL_PATH"
+    "$BIN_DIR/wp_select.sh" -C "$FINAL_PATH"
     exit $?
 else
     exit 1

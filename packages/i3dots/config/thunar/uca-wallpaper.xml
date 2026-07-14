@@ -8,4 +8,5 @@
 	<range></range>
 	<patterns>*</patterns>
 	<image-files/>
+	<video-files/>
 </action>

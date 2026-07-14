@@ -99,7 +99,12 @@ get_thumb_path() {
 }
 
 list_wallpapers() {
-    find -L "$WALLPAPER_DIR" -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.gif" -o -iname "*.webp" \) | sort
+    if [[ "$LIVE_ONLY" -eq 1 ]]; then
+        [[ -d "$WALLPAPER_DIR/live" ]] || mkdir -p "$WALLPAPER_DIR/live"
+        find -L "$WALLPAPER_DIR/live" -type f \( -iname "*.gif" -o -iname "*.mp4" -o -iname "*.webm" -o -iname "*.mkv" -o -iname "*.mov" \) | sort
+    else
+        find -L "$WALLPAPER_DIR" -maxdepth 1 -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.webp" \) | sort
+    fi
 }
 
 # 5. Generador centralizado y optimizado de listas para Rofi
@@ -107,6 +112,15 @@ generate_rofi_list() {
     local line_tmpl="${1:-%f\x00icon\x1f%p}"
     local out=""
     local wallpapers_to_gen=""
+
+    # Definir find command segun modo
+    local find_cmd
+    if [[ "$LIVE_ONLY" -eq 1 ]]; then
+        [[ -d "$WALLPAPER_DIR/live" ]] || mkdir -p "$WALLPAPER_DIR/live"
+        find_cmd=(find -L "$WALLPAPER_DIR/live" -type f \( -iname "*.gif" -o -iname "*.mp4" -o -iname "*.webm" -o -iname "*.mkv" -o -iname "*.mov" \))
+    else
+        find_cmd=(find -L "$WALLPAPER_DIR" -maxdepth 1 -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.webp" \))
+    fi
 
     # 1. Obtener rutas reales en bloque (un solo fork inicial)
     # 2. Bucle de procesamiento (0 forks internos usando builtins de bash)
@@ -131,13 +145,20 @@ generate_rofi_list() {
             fi
         fi
 
-        local rel_path="${file#$WALLPAPER_DIR/}"
+        # Para wallpapers en live/ usar ruta relativa respecto a wall/live
+        local rel_path
+        if [[ "$LIVE_ONLY" -eq 1 ]]; then
+            rel_path="${file#$WALLPAPER_DIR/live/}"
+        else
+            rel_path="${file#$WALLPAPER_DIR/}"
+        fi
+        
         local line="$line_tmpl"
         line="${line//%f/${file##*/}}"
         line="${line//%r/$rel_path}"
         line="${line//%p/$thumb_to_use}"
         out+="$line"$'\n'
-    done < <(find -L "$WALLPAPER_DIR" -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.gif" -o -iname "*.webp" \) -print0 | xargs -0 realpath | sort -u)
+    done < <("${find_cmd[@]}" -print0 | xargs -0 realpath | sort -u)
 
     # Lanzar pre-caché async de fondo (Totalmente desacoplado para no bloquear Rofi)
     if [[ "$THUMB_MODE" == "enabled" ]] && [[ "$BG_GENERATION" == "true" ]] && [[ -n "$wallpapers_to_gen" ]]; then
@@ -147,4 +168,5 @@ generate_rofi_list() {
 
     echo -ne "$out"
 }
+
 
