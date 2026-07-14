@@ -134,7 +134,15 @@ elif [[ $# -eq 2 ]]; then
 
     color_src="$FINAL_PATH"
     temp_to_clean=""
-    if [[ "$MATUGEN_USE_THUMB" == "true" ]]; then
+    
+    # Si es video o gif, forzar el uso de miniaturas para Matugen
+    force_thumb=0
+    if [[ "$FINAL_PATH" =~ \.(mp4|webm|mkv|mov|gif)$ ]]; then
+        force_thumb=1
+    fi
+
+
+    if [[ "$MATUGEN_USE_THUMB" == "true" || "$force_thumb" -eq 1 ]]; then
         if [[ "$THUMB_CROP_MODE" == "crop" && "$MATUGEN_USE_FIT" == "true" ]]; then
             safe_name="${FINAL_PATH//\//_}"
             get_thumb_path "$FINAL_PATH" "fit"
@@ -143,15 +151,25 @@ elif [[ $# -eq 2 ]]; then
             if [[ -f "$fit_thumb" ]]; then
                 color_src="$fit_thumb"
             else
-                if [[ "$MATUGEN_CLEAN_TEMP" == "true" ]]; then
-                    color_src="/tmp/matugen_fit_${safe_name}.jpg"
-                    temp_to_clean="$color_src"
-                    vipsthumbnail -s "$THUMB_SIZE" -o "$color_src" "$FINAL_PATH" 2>/dev/null
+                if [[ "$force_thumb" -eq 1 ]]; then
+                    # Generar miniatura de video on-the-fly si no existe
+                    if command -v ffmpegthumbnailer &>/dev/null; then
+                        fit_dir="$WP_STATE_DIR/thumbs/${THUMB_SIZE}_fit"
+                        [[ -d "$fit_dir" ]] || mkdir -p "$fit_dir"
+                        ffmpegthumbnailer -i "$FINAL_PATH" -o "$fit_thumb" -s "$THUMB_SIZE" 2>/dev/null
+                        color_src="$fit_thumb"
+                    fi
                 else
-                    fit_dir="$WP_STATE_DIR/thumbs/${THUMB_SIZE}_fit"
-                    [[ -d "$fit_dir" ]] || mkdir -p "$fit_dir"
-                    color_src="$fit_thumb"
-                    vipsthumbnail -s "$THUMB_SIZE" -o "$color_src" "$FINAL_PATH" 2>/dev/null
+                    if [[ "$MATUGEN_CLEAN_TEMP" == "true" ]]; then
+                        color_src="/tmp/matugen_fit_${safe_name}.jpg"
+                        temp_to_clean="$color_src"
+                        vipsthumbnail -s "$THUMB_SIZE" -o "$color_src" "$FINAL_PATH" 2>/dev/null
+                    else
+                        fit_dir="$WP_STATE_DIR/thumbs/${THUMB_SIZE}_fit"
+                        [[ -d "$fit_dir" ]] || mkdir -p "$fit_dir"
+                        color_src="$fit_thumb"
+                        vipsthumbnail -s "$THUMB_SIZE" -o "$color_src" "$FINAL_PATH" 2>/dev/null
+                    fi
                 fi
             fi
         else
@@ -162,27 +180,38 @@ elif [[ $# -eq 2 ]]; then
             if [[ -f "$normal_thumb" ]]; then
                 color_src="$normal_thumb"
             else
-                if [[ "$MATUGEN_CLEAN_TEMP" == "true" ]]; then
-                    color_src="/tmp/matugen_thumb_${safe_name}.jpg"
-                    temp_to_clean="$color_src"
-                    if [[ "$THUMB_CROP_MODE" == "crop" ]]; then
-                        vipsthumbnail -s "${THUMB_SIZE}x${THUMB_SIZE}" -m centre -o "$color_src" "$FINAL_PATH" 2>/dev/null
-                    else
-                        vipsthumbnail -s "$THUMB_SIZE" -o "$color_src" "$FINAL_PATH" 2>/dev/null
+                if [[ "$force_thumb" -eq 1 ]]; then
+                    # Generar miniatura de video on-the-fly si no existe
+                    if command -v ffmpegthumbnailer &>/dev/null; then
+                        crop_dir="$WP_STATE_DIR/thumbs/${THUMB_SIZE}_${THUMB_CROP_MODE}"
+                        [[ -d "$crop_dir" ]] || mkdir -p "$crop_dir"
+                        ffmpegthumbnailer -i "$FINAL_PATH" -o "$normal_thumb" -s "$THUMB_SIZE" 2>/dev/null
+                        color_src="$normal_thumb"
                     fi
                 else
-                    crop_dir="$WP_STATE_DIR/thumbs/${THUMB_SIZE}_${THUMB_CROP_MODE}"
-                    [[ -d "$crop_dir" ]] || mkdir -p "$crop_dir"
-                    color_src="$normal_thumb"
-                    if [[ "$THUMB_CROP_MODE" == "crop" ]]; then
-                        vipsthumbnail -s "${THUMB_SIZE}x${THUMB_SIZE}" -m centre -o "$color_src" "$FINAL_PATH" 2>/dev/null
+                    if [[ "$MATUGEN_CLEAN_TEMP" == "true" ]]; then
+                        color_src="/tmp/matugen_thumb_${safe_name}.jpg"
+                        temp_to_clean="$color_src"
+                        if [[ "$THUMB_CROP_MODE" == "crop" ]]; then
+                            vipsthumbnail -s "${THUMB_SIZE}x${THUMB_SIZE}" -m centre -o "$color_src" "$FINAL_PATH" 2>/dev/null
+                        else
+                            vipsthumbnail -s "$THUMB_SIZE" -o "$color_src" "$FINAL_PATH" 2>/dev/null
+                        fi
                     else
-                        vipsthumbnail -s "$THUMB_SIZE" -o "$color_src" "$FINAL_PATH" 2>/dev/null
+                        crop_dir="$WP_STATE_DIR/thumbs/${THUMB_SIZE}_${THUMB_CROP_MODE}"
+                        [[ -d "$crop_dir" ]] || mkdir -p "$crop_dir"
+                        color_src="$normal_thumb"
+                        if [[ "$THUMB_CROP_MODE" == "crop" ]]; then
+                            vipsthumbnail -s "${THUMB_SIZE}x${THUMB_SIZE}" -m centre -o "$color_src" "$FINAL_PATH" 2>/dev/null
+                        else
+                            vipsthumbnail -s "$THUMB_SIZE" -o "$color_src" "$FINAL_PATH" 2>/dev/null
+                        fi
                     fi
                 fi
             fi
         fi
     fi
+
     ln -sf "$color_src" "$WP_STATE_DIR/color_source"
 
     (
