@@ -213,6 +213,8 @@ elif [[ $# -eq 2 ]]; then
     fi
 
     ln -sf "$color_src" "$WP_STATE_DIR/color_source"
+    ln -sf "$color_src" "$HOME/.config/i3/current_static"
+
 
     (
         "$BASE_DIR/core/bin/wp_select.sh" -C "$FINAL_PATH"
