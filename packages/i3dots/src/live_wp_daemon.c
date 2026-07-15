@@ -49,7 +49,7 @@ int send_i3_message(int sock, uint32_t type, const char *payload) {
 // Enviar pausa/reproducción a mpv con reintentos si el socket no está listo en el arranque
 void set_mpv_pause(bool pause_val) {
     int sock = -1;
-    int retries = 5;
+    int retries = 30;
     while (retries > 0) {
         sock = connect_unix_socket(MPV_SOCKET);
         if (sock >= 0) break;
@@ -63,6 +63,33 @@ void set_mpv_pause(bool pause_val) {
     
     write(sock, cmd, strlen(cmd));
     close(sock);
+}
+
+// Enviar comando loadfile a mpv para hot-reload instantaneo
+// Retorna 0 en exito, 1 si no se pudo conectar al socket
+int send_mpv_loadfile(const char *path) {
+    int sock = connect_unix_socket(MPV_SOCKET);
+    if (sock < 0) return 1;
+
+    char cmd[4096];
+    snprintf(cmd, sizeof(cmd),
+        "{\"command\": [\"loadfile\", \"%s\", \"replace\"]}\n", path);
+
+    write(sock, cmd, strlen(cmd));
+
+    // Leer respuesta para confirmar que mpv la procesó
+    char resp[512];
+    ssize_t n = read(sock, resp, sizeof(resp) - 1);
+    close(sock);
+
+    if (n > 0) {
+        resp[n] = '\0';
+        // Verificar que no hubo error en la respuesta JSON
+        if (strstr(resp, "\"error\":\"success\"") || strstr(resp, "\"error\": \"success\"")) {
+            return 0;
+        }
+    }
+    return 1;
 }
 
 
@@ -326,56 +353,64 @@ const char *get_i3_socket_path(void) {
     return "/run/user/1000/i3/ipc-socket";
 }
 
-int main(void) {
+int main(int argc, char *argv[]) {
     signal(SIGPIPE, SIG_IGN);
-    
+
+    // Modo --loadfile <ruta>: hot-reload instantaneo, luego salir
+    if (argc == 3 && strcmp(argv[1], "--loadfile") == 0) {
+        int result = send_mpv_loadfile(argv[2]);
+        return result;
+    }
+
+    // Modo daemon: monitorear i3wm y pausar/reanudar mpv segun ventanas
     const char *i3_socket_path = get_i3_socket_path();
-    
+
     bool pause_on_window = true;
     const char *env_pause = getenv("LIVE_WP_PAUSE_ON_WINDOW");
     if (env_pause && strcmp(env_pause, "false") == 0) {
         pause_on_window = false;
     }
-    
+
     char buffer[4096];
     query_and_process_tree(i3_socket_path, pause_on_window);
-    
+
     while (true) {
         int i3_sock = connect_unix_socket(i3_socket_path);
         if (i3_sock < 0) {
             sleep(2);
             continue;
         }
-        
+
         if (send_i3_message(i3_sock, I3_IPC_SUBSCRIBE, "[\"window\", \"workspace\"]") < 0) {
             close(i3_sock);
             sleep(2);
             continue;
         }
-        
+
         while (true) {
             uint8_t head[14];
             ssize_t n = read(i3_sock, head, sizeof(head));
             if (n <= 0) break;
-            
+
             uint32_t payload_len;
             memcpy(&payload_len, head + I3_IPC_MAGIC_LEN, sizeof(payload_len));
-            
+
             size_t total_read = 0;
             while (total_read < payload_len) {
-                size_t to_read = (payload_len - total_read) > sizeof(buffer) ? sizeof(buffer) : (payload_len - total_read);
+                size_t to_read = (payload_len - total_read) > sizeof(buffer)
+                    ? sizeof(buffer) : (payload_len - total_read);
                 n = read(i3_sock, buffer, to_read);
                 if (n <= 0) break;
                 total_read += n;
             }
             if (n <= 0) break;
-            
+
             query_and_process_tree(i3_socket_path, pause_on_window);
         }
-        
+
         close(i3_sock);
         sleep(1);
     }
-    
+
     return 0;
 }

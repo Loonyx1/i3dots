@@ -815,9 +815,12 @@ if [[ -n "$SELECTION" ]]; then
     fi
     ln -sf "$color_src" "$WP_STATE_DIR/color_source"
     
-    # Aplicar wallpaper en pantalla
-    "$BIN_DIR/wp_select.sh" -C "$FINAL_PATH"
-    exit $?
+    # Asegurar que BIN_DIR esté definida si se ejecuta de forma externa (Rofi/Gestores)
+    [[ -z "$BIN_DIR" ]] && BIN_DIR="$(cd "$SCRIPT_DIR/../../../core/bin" && pwd)"
+
+    # Aplicar wallpaper en pantalla de forma desvinculada para no morir por SIGHUP al cerrarse Rofi
+    setsid "$BIN_DIR/wp_select.sh" -C "$FINAL_PATH" < /dev/null > /dev/null 2>&1 &
+    exit 0
 else
     exit 1
 fi
