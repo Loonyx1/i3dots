@@ -72,7 +72,25 @@ if [[ -n "$W_PATH" ]]; then
         fi
     fi
 
+    # Evitar reinstanciar si ya es el mismo wallpaper y el estado es coherente (evita doble llamada en reload de i3)
+    local current_wall=""
+    [[ -f "$LAST_WALLPAPER_PATH_FILE" ]] && current_wall=$(cat "$LAST_WALLPAPER_PATH_FILE")
+    
+    if [[ "$current_wall" == "$FINAL_PATH" ]]; then
+        if [[ "$WP_ENGINE" == "live" ]]; then
+            if pgrep -f "mpv.*--x11-name=mpv-wallpaper" &>/dev/null; then
+                exit 0
+            fi
+        else
+            # Si es estático y no hay wallpaper dinámico activo residual
+            if ! pgrep -f "mpv.*--x11-name=mpv-wallpaper" &>/dev/null; then
+                exit 0
+            fi
+        fi
+    fi
+
     # Aplicar motor de wallpaper
+
     if [[ -z "$CORE_DIR" ]]; then
         real_script=$(readlink -f "${BASH_SOURCE[0]}")
         script_dir=$(dirname "$real_script")
