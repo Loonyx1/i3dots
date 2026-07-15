@@ -86,8 +86,13 @@ engine_set() {
             mpv -wid %WID \
                 --x11-name=mpv-wallpaper \
                 --really-quiet \
-                --vo=x11 \
-                --hwdec=no \
+                --vo=gpu,xv,x11 \
+                --hwdec=auto-safe \
+                --cache=no \
+                --demuxer-max-bytes=256KiB \
+                --demuxer-max-back-bytes=0 \
+                --vd-queue-max-bytes=512KiB \
+                --vd-queue-max-secs=0.05 \
                 --loop \
                 --no-audio \
                 --no-border \
