@@ -46,9 +46,16 @@ int send_i3_message(int sock, uint32_t type, const char *payload) {
     return 0;
 }
 
-// Enviar pausa/reproducción a mpv
+// Enviar pausa/reproducción a mpv con reintentos si el socket no está listo en el arranque
 void set_mpv_pause(bool pause_val) {
-    int sock = connect_unix_socket(MPV_SOCKET);
+    int sock = -1;
+    int retries = 5;
+    while (retries > 0) {
+        sock = connect_unix_socket(MPV_SOCKET);
+        if (sock >= 0) break;
+        usleep(100000); // Esperar 100ms
+        retries--;
+    }
     if (sock < 0) return;
     
     char cmd[128];
@@ -57,6 +64,7 @@ void set_mpv_pause(bool pause_val) {
     write(sock, cmd, strlen(cmd));
     close(sock);
 }
+
 
 // Buscar de forma robusta la cadena "focused": true independiente de espacios
 const char *find_focused_node(const char *json) {

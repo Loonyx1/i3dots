@@ -16,7 +16,9 @@ engine_init() {
     done
     
     rm -f /tmp/mpv-live-wp.sock
+    sleep 0.15
     return 0
+
 }
 
 engine_set() {
@@ -62,10 +64,11 @@ engine_set() {
     local repo_root=$(dirname "$CORE_DIR")
     local daemon_path="${PACKAGE_DIR:-$repo_root/packages/i3dots}/bin/live_wp_daemon"
     chmod +x "$daemon_path" &>/dev/null || true
-    # Iniciar daemon solo si no está corriendo actualmente (redireccionando stdin/stdout/stderr por completo)
-    pgrep -x live_wp_daemon &>/dev/null || nohup "$daemon_path" < /dev/null &>/dev/null &
+    # Iniciar daemon solo si no está corriendo actualmente (redireccionando a log en /tmp)
+    pgrep -x live_wp_daemon &>/dev/null || nohup "$daemon_path" < /dev/null &>/tmp/live_wp_daemon.log 2>&1 &
     
-    # 5. Lanzar xwinwrap + mpv en segundo plano con socket IPC y buffers al mínimo absoluto
+    # 5. Lanzar xwinwrap + mpv en segundo plano con socket IPC y logs en /tmp/mpv-live-wp.log
+    echo "--- Lanzando nuevo Wallpaper Dinámico ---" > /tmp/mpv-live-wp.log
     nohup xwinwrap -g "$geom" -ov -ni -b -nf -s -st -sp -- \
         mpv -wid %WID --x11-name=mpv-wallpaper --really-quiet --vo=gpu,xv,x11 --hwdec=auto --cache=no \
         --demuxer-max-bytes=512KiB --demuxer-max-back-bytes=0 \
@@ -73,5 +76,6 @@ engine_set() {
         --vf=fps=30 --terminal=no --no-config --no-border --loop --no-audio \
         --input-ipc-server=/tmp/mpv-live-wp.sock \
         --no-window-dragging --no-input-default-bindings --no-osd-bar --no-sub \
-        "$wp_path" < /dev/null &>/dev/null &
+        "$wp_path" < /dev/null >>/tmp/mpv-live-wp.log 2>&1 &
 }
+
