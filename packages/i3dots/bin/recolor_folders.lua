@@ -51,6 +51,77 @@ local function link_icon_subdirs(backup_dir, ram_dir, disk_dir)
     end
 end
 
+-- Recolorea o enlaza todos los SVGs simbólicos de un directorio fuente al destino.
+-- src_abs: path absoluto de la carpeta con los *-symbolic.svg
+-- dst_abs: path absoluto del directorio destino (se crea si no existe)
+-- sym_sed: tabla de expresiones { patron, reemplazo } o nil para enlace simbólico
+local function recolor_symbolic_dir(src_abs, dst_abs, sym_sed)
+    if not common.path_exists(src_abs) then return end
+    os.execute("mkdir -p " .. dst_abs)
+
+    local p = io.popen("find " .. src_abs .. " -maxdepth 1 -type f -name '*-symbolic.svg' 2>/dev/null")
+    if not p then return end
+
+    for path in p:lines() do
+        local file = path:match("([^/]+)$")
+        local name = file:match("^(.+)-symbolic%.svg$")
+        if name then
+            local dst = dst_abs .. "/" .. name .. ".svg"
+            if not common.path_exists(dst) then
+                if sym_sed then
+                    local s = common.read_file(path)
+                    if s then
+                        for _, expr in ipairs(sym_sed) do s = s:gsub(expr[1], expr[2]) end
+                        common.write_file(dst, s)
+                    end
+                else
+                    os.execute("ln -sfn " .. path .. " " .. dst)
+                end
+            end
+        end
+    end
+    p:close()
+end
+
+local function link_symbolic_icons(original_dir, ram_dir, disk_dir, sym_sed)
+    -- Enlazar directorios 'symbolic' del original al ram_dir
+    local p = io.popen("find " .. original_dir .. " -maxdepth 2 \\( -type d -o -type l \\) -name 'symbolic' 2>/dev/null")
+    if p then
+        for path in p:lines() do
+            local rel = path:sub(#original_dir + 2)
+            local dst = ram_dir .. "/" .. rel
+            if not common.path_exists(dst) then
+                os.execute("mkdir -p " .. (dst:match("^(.*)/") or "") .. " && ln -sfn " .. path .. " " .. dst)
+            end
+        end
+        p:close()
+    end
+
+    local function ensure_disk_link(subdir)
+        if not common.path_exists(disk_dir .. "/" .. subdir) and common.path_exists(ram_dir .. "/" .. subdir) then
+            os.execute("ln -sfn " .. ram_dir .. "/" .. subdir .. " " .. disk_dir .. "/" .. subdir)
+        end
+    end
+
+    local pi_sz = { "16x16", "22x22", "24x24" }
+    local cd_sz = { "16", "22", "24" }
+
+    for _, s in ipairs(pi_sz) do
+        recolor_symbolic_dir(ram_dir .. "/" .. s .. "/symbolic/places",     ram_dir .. "/" .. s .. "/places",  sym_sed)
+        recolor_symbolic_dir(ram_dir .. "/" .. s .. "/symbolic/categories", ram_dir .. "/" .. s .. "/places",  sym_sed)
+        recolor_symbolic_dir(ram_dir .. "/" .. s .. "/symbolic/devices",    ram_dir .. "/" .. s .. "/places",  sym_sed)
+        ensure_disk_link(s)
+    end
+
+    for _, s in ipairs(cd_sz) do
+        recolor_symbolic_dir(ram_dir .. "/places/symbolic",     ram_dir .. "/places/" .. s, sym_sed)
+        recolor_symbolic_dir(ram_dir .. "/devices/symbolic",    ram_dir .. "/places/" .. s, sym_sed)
+        recolor_symbolic_dir(ram_dir .. "/categories/symbolic", ram_dir .. "/places/" .. s, sym_sed)
+        -- Colloid: categories/{size}/*-symbolic.svg directos (no bajo symbolic/)
+        recolor_symbolic_dir(original_dir .. "/categories/" .. s, ram_dir .. "/places/" .. s, sym_sed)
+    end
+end
+
 -- ── Main ──────────────────────────────────────────────────────────────────────
 
 local function main()
@@ -112,21 +183,24 @@ local function main()
     local dark_color = common.hex_darken(color)
     local sed_exprs  = theme_mod.get_sed_expressions(color, dark_color)
 
+    local sym_sed = theme_mod.get_symbolic_sed_expressions and theme_mod.get_symbolic_sed_expressions(color) or nil
+
     if not common.path_exists(physical_icon_dir .. "/icon-theme.cache") then
-        -- Primera vez: crear estructura en disco + enlaces a RAM
         os.execute("rm -rf " .. physical_icon_dir)
         os.execute("mkdir -p " .. physical_icon_dir)
         common.setup_index_theme(original_dir .. "/index.theme",
             physical_icon_dir .. "/index.theme", custom_icon_theme, base_theme)
         link_icon_subdirs(backup_dir, ram_icon_dir, physical_icon_dir)
         common.copy_and_recolor(backup_dir, ram_icon_dir, sed_exprs)
+        link_symbolic_icons(original_dir, ram_icon_dir, physical_icon_dir, sym_sed)
         common.update_icon_cache(physical_icon_dir)
     else
-        -- Subsiguientes: solo repoblar RAM si es necesario
         if not common.is_ram_populated(ram_icon_dir) or color ~= prev_color then
             os.execute("rm -rf " .. ram_icon_dir)
             os.execute("mkdir -p " .. ram_icon_dir)
             common.copy_and_recolor(backup_dir, ram_icon_dir, sed_exprs)
+            link_symbolic_icons(original_dir, ram_icon_dir, physical_icon_dir, sym_sed)
+            common.update_icon_cache(physical_icon_dir)
         end
     end
 

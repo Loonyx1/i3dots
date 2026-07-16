@@ -69,7 +69,7 @@ function common.detect_base_theme(settings_ini, base_file)
     if s then
         -- simpler line-by-line
         for line in s:gmatch("[^\n]+") do
-            val = line:match("^gtk%-icon%-theme%-name%s*=%s*(.*)")
+            local val = line:match("^gtk%-icon%-theme%-name%s*=%s*(.*)")
             if val then
                 val = val:gsub('^"', ''):gsub('"$', ''):gsub("%s+$", "")
                 current_theme = val
@@ -192,21 +192,15 @@ function common.is_ram_populated(ram_dir)
 end
 
 function common.copy_and_recolor(backup_dir, ram_dir, sed_exprs)
-    os.execute("cp -rd " .. backup_dir .. "/. " .. ram_dir .. "/")
+    os.execute("cp -rd --remove-destination " .. backup_dir .. "/. " .. ram_dir .. "/")
 
-    local p = io.popen("find " .. ram_dir .. " -type f -name '*.svg' 2>/dev/null")
-    if not p then return end
-
-    for path in p:lines() do
-        local s = common.read_file(path)
-        if s then
-            for _, expr in ipairs(sed_exprs) do
-                s = s:gsub(expr[1], expr[2])
-            end
-            common.write_file(path, s)
-        end
+    local parts = {}
+    for _, expr in ipairs(sed_exprs) do
+        table.insert(parts, "-e 's|" .. expr[1] .. "|" .. expr[2] .. "|g'")
     end
-    p:close()
+    local sed_args = table.concat(parts, " ")
+    os.execute("find " .. ram_dir .. " -type f -name '*.svg' -print0 2>/dev/null"
+        .. " | xargs -0 -r sed -i " .. sed_args .. " 2>/dev/null")
 end
 
 function common.setup_index_theme(src, dest, custom_theme, base_theme)

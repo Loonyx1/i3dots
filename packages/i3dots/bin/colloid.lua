@@ -42,4 +42,10 @@ function colloid.get_sed_expressions(color, dark_color)
     }
 end
 
+function colloid.get_symbolic_sed_expressions(color)
+    return {
+        { "currentColor", "#" .. color },
+    }
+end
+
 return colloid
