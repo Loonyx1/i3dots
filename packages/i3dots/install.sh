@@ -19,7 +19,8 @@ CLI_WALL=""
 CLI_WALL_SRC=""
 
 EXCLUDE_SERVICES="${EXCLUDE_SERVICES:-}"
-INTEGRATE_FM="none"
+INTEGRATE_FM=""
+DEFAULT_FILE_MANAGER="pcmanfm"
 ENABLE_LIVE=true
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -284,13 +285,14 @@ echo "set \$dots_cmd $PROJECT_ROOT/dots" > "$PACKAGE_DIR/config/i3/conf.d/vars.g
 echo "set \$current_env $CURRENT_ENV" >> "$PACKAGE_DIR/config/i3/conf.d/vars.generated"
 echo "set \$polkit_agent ${POLKIT_AGENT:-lxpolkit}" >> "$PACKAGE_DIR/config/i3/conf.d/vars.generated"
 echo "set \$i3_font \"${I3_FONT:-JetBrainsMono Nerd Font}\"" >> "$PACKAGE_DIR/config/i3/conf.d/vars.generated"
-DEFAULT_FM="pcmanfm"
-if [ "$INTEGRATE_FM" = "thunar" ]; then
-    DEFAULT_FM="thunar"
-elif [ "$INTEGRATE_FM" = "pcmanfm-qt" ]; then
-    DEFAULT_FM="pcmanfm-qt"
+INTEGRATE_FM="${INTEGRATE_FM:-$DEFAULT_FILE_MANAGER}"
+if [ "$INTEGRATE_FM" = "none" ]; then
+    echo "# set \$file_manager <tu-gestor>" >> "$PACKAGE_DIR/config/i3/conf.d/vars.generated"
+else
+    DEFAULT_FM="$INTEGRATE_FM"
+    [ "$DEFAULT_FM" = "all" ] && DEFAULT_FM="$DEFAULT_FILE_MANAGER"
+    echo "set \$file_manager $DEFAULT_FM" >> "$PACKAGE_DIR/config/i3/conf.d/vars.generated"
 fi
-echo "set \$file_manager $DEFAULT_FM" >> "$PACKAGE_DIR/config/i3/conf.d/vars.generated"
 
 # Bashrc
 add_rc() {
