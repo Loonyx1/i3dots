@@ -111,7 +111,7 @@ local function ensure_xsettingsd()
     -- Si no corre o no usa nuestra config, reiniciar con -c correcto.
     if not running or not xsettingsd_uses_our_config() then
         if running then
-            os.execute("killall -q xsettingsd 2>/dev/null || true")
+            os.execute("pkill -x xsettingsd 2>/dev/null || true")
             os.execute("sleep 0.1")
         end
         start_xsettingsd_with_config()
@@ -140,7 +140,7 @@ local function apply_xsettingsd(path, icon_theme, widget_theme)
 
     common.write_file(path, s)
     ensure_xsettingsd()
-    os.execute("killall -HUP xsettingsd 2>/dev/null || true")
+    os.execute("pkill -HUP xsettingsd 2>/dev/null || true")
 end
 
 -- ── API pública ───────────────────────────────────────────────────────────────

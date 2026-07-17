@@ -132,7 +132,6 @@ local function main()
 
     local prev_color = common.read_prev_color(persist_file)
     local color      = common.resolve_color(arg[1], persist_file)
-    if not color then os.exit(1) end
 
     local base_theme   = common.detect_base_theme(settings_ini, base_file)
     local original_dir = common.find_theme_dir(base_theme)
@@ -148,6 +147,7 @@ local function main()
         and common.is_ram_populated("/dev/shm/" .. active_icon_theme)
         and get_current_icon_theme(settings_ini) == active_icon_theme
     then
+        gtk.apply(nil, nil)
         os.exit(0)
     end
 
