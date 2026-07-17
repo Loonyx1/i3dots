@@ -471,6 +471,11 @@ if [ -f "$WALLPAPER_FILE" ]; then
         # Pasar la ruta de config de matugen explícitamente
         if matugen --config "$PACKAGE_DIR/config/matugen/config.toml" image "$WALLPAPER_FILE" --prefer saturation &>> "$LOG_FILE"; then
             print_sub_ok "Paleta de colores Matugen generada ($DEFAULT_WALL)."
+            # Ejecutar recolor_folders para crear xsettingsd.conf y last_icon_color
+            if [ -f "$HOME/.cache/matugen/recolor_folders-apply.sh" ]; then
+                bash "$HOME/.cache/matugen/recolor_folders-apply.sh" &>> "$LOG_FILE" && \
+                    print_sub_ok "Iconos y xsettingsd inicializados."
+            fi
         else
             print_sub_err "Fallo al ejecutar Matugen."
         fi
