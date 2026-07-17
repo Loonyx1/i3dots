@@ -77,8 +77,8 @@ export POLY_RIGHT="left cpu-temperature right"
 export POLY_RIGHT="$POLY_RIGHT space left tray right space"
 
 # Para tema compact
-export POLY_COMPACT_LEFT="rofi space xwindow space filesystem filesystem-value space cpu cpu-value space memory memory-value"
-[ -n "$HWMON_PATH" ] && export POLY_COMPACT_LEFT="$POLY_COMPACT_LEFT space temp temp-value"
+export POLY_COMPACT_LEFT="rofi space filesystem filesystem-value space cpu cpu-value space memory memory-value"
+[ -n "$HWMON_PATH" ] && export POLY_COMPACT_LEFT="$POLY_COMPACT_LEFT space temp temp-value space xwindow"
 
 export POLY_COMPACT_CENTER="i3"
 
