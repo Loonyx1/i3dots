@@ -32,11 +32,7 @@ source "$SCRIPT_DIR/wp_shared.sh"
 # Si habilitado, pero no hay vips, desactivar
 if [[ "$THUMB_MODE" == "enabled" && "$HAS_VIPS" -eq 0 ]]; then
     THUMB_MODE="disabled"
-    if command -v notify-send &>/dev/null; then
-        notify-send "Wallpaper" "Advertencia: Instala libvips (vipsthumbnail) para optimización de caché." -i dialog-warning -t 5000
-    else
         echo "Advertencia: Comando 'vipsthumbnail' no encontrado. Desactivando caché de miniaturas." >&2
-    fi
 fi
 
 # Cargar traducciones e iconos del entorno con fallbacks
@@ -403,9 +399,7 @@ EOF
                     local cur_rfilter=$(get_state "matugen_resize_filter" "gaussian")
 
                     write_preset_file "$presets_dir/$name.env" "$cur_type" "$cur_contrast" "$cur_prefer" "$cur_index" "$cur_ldark" "$cur_rfilter"
-                    if command -v notify-send &>/dev/null; then
-                        notify-send "Presets de Matugen" "Preset '$name' guardado" -i check -t 2000
-                    fi
+
                 fi
 
             elif [[ "$choice" == "Eliminar Preset..." ]]; then
@@ -423,9 +417,7 @@ EOF
                 del_choice=$(ask_selection "Eliminar Preset" "$del_opts")
                 if [[ -n "$del_choice" && "$del_choice" != "Atrás" ]]; then
                     rm -f "$presets_dir/$del_choice.env"
-                    if command -v notify-send &>/dev/null; then
-                        notify-send "Presets de Matugen" "Preset '$del_choice' eliminado" -i edit-delete -t 2000
-                    fi
+
                 fi
 
             else
@@ -451,17 +443,17 @@ EOF
                     if [[ -f "$cur_wall" ]]; then
                         local cur_active_mode
                         cur_active_mode=$(get_state "active_mode" "dark")
-                        if [[ "$cur_active_mode" == "light" ]]; then
-                            engine_matugen.sh -m light
-                        else
-                            engine_matugen.sh -m dark
-                        fi
-                        apply_dots.sh
+                        (
+                            if [[ "$cur_active_mode" == "light" ]]; then
+                                engine_matugen.sh -m light
+                            else
+                                engine_matugen.sh -m dark
+                            fi
+                            apply_dots.sh
+                        ) &>/dev/null &
                     fi
 
-                    if command -v notify-send &>/dev/null; then
-                        notify-send "Presets de Matugen" "Preset '$choice' aplicado" -i preferences-desktop-color -t 2000
-                    fi
+
 
                     if [[ "$standalone" -eq 1 ]]; then
                         exit 0
@@ -479,44 +471,12 @@ EOF
             cur_active_mode=$(get_state "active_mode" "dark")
             [[ "$cur_active_mode" == "settings" ]] && cur_active_mode=$(get_state "active_mode_real" "dark")
 
-            engine_matugen.sh -m "$cur_active_mode"
-            apply_dots.sh
+            (
+                engine_matugen.sh -m "$cur_active_mode"
+                apply_dots.sh
+            ) &>/dev/null &
         fi
-    }
 
-    ask_and_apply_loop() {
-        local prompt="$1"
-        local options="$2"
-        local state_key="$3"
-        local prefix="$4"
-
-        while true; do
-            local sel=$(ask_selection "$prompt" "$options")
-            [[ -z "$sel" || "$sel" == "Atrás" ]] && break
-
-            local val="$sel"
-            if [[ "$val" == "Ninguna (Por defecto)" ]]; then
-                val="default"
-            elif [[ "$state_key" == "matugen_resize_filter" || "$state_key" == "matugen_lightness_dark" ]]; then
-                val="${sel%% *}"
-            elif [[ "$state_key" == "matugen_source_color_index" ]]; then
-                val="${sel:0:1}"
-            fi
-
-            local final_val="${prefix}${val}"
-            save_state "$state_key" "$final_val"
-
-            case "$state_key" in
-                "matugen_scheme_type")       cur_matugen_scheme="$final_val" ;;
-                "matugen_source_color_index") cur_source_color_index="$final_val" ;;
-                "matugen_contrast")           cur_matugen_contrast="$final_val" ;;
-                "matugen_lightness_dark")     cur_matugen_lightness_dark="$final_val" ;;
-                "matugen_prefer")             cur_matugen_prefer="$final_val" ;;
-                "matugen_resize_filter")      cur_matugen_resize_filter="$final_val" ;;
-            esac
-
-            reload_matugen_preview
-        done
     }
 
     menu_color_advanced() {
@@ -654,9 +614,7 @@ EOF
                     else
                         echo "${rule_key}=\"${rule_val}\"" >> "$rules_file"
                     fi
-                    if command -v notify-send &>/dev/null; then
-                        notify-send "Matugen" "Configuración fijada para este wallpaper" -i check -t 2500
-                    fi
+
                 fi
 
             elif [[ "$color_choice" == "Desfijar de este wallpaper" ]]; then
@@ -665,9 +623,7 @@ EOF
                     if [[ -f "$rules_file" ]]; then
                         sed -i "/^${rule_key}=/d" "$rules_file"
                     fi
-                    if command -v notify-send &>/dev/null; then
-                        notify-send "Matugen" "Configuración liberada para este wallpaper" -i edit-clear -t 2500
-                    fi
+
                     trigger_reload=1
                 fi
             fi
@@ -689,9 +645,7 @@ EOF
             [[ -z "$cache_choice" || "$cache_choice" == "Atrás" ]] && break
 
             if [[ "$cache_choice" == "Generar Caché de Miniaturas Ahora" ]]; then
-                if command -v notify-send &>/dev/null; then
-                    notify-send "Caché de Wallpaper" "Generando miniaturas en background..." -i image-x-generic -t 1500
-                fi
+
                 wp_cache.sh --cache-now &
 
             elif [[ "$cache_choice" == "$PROM_CLEAN"* ]]; then
@@ -710,9 +664,7 @@ EOF
                     esac
                     
                     wp_cache.sh --clean-cache "$clean_opt"
-                    if command -v notify-send &>/dev/null; then
-                        notify-send "Limpieza de Caché" "Operación completada: $selected_cl" -i system-file-manager -t 2000
-                    fi
+
                 fi
             fi
         done

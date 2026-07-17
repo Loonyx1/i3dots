@@ -121,9 +121,7 @@ if [[ "$CACHE_NOW" -eq 1 ]]; then
         generate_single_thumb "$file" "$thumb"
     done
     
-    if command -v notify-send &>/dev/null; then
-        notify-send "Caché de Wallpaper" "Generación de miniaturas completada (${THUMB_SIZE}px)." -i image-x-generic -t 2000
-    fi
+
     echo "Caché de miniaturas completado."
     exit 0
 fi
