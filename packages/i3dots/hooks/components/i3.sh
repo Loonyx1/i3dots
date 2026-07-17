@@ -26,7 +26,7 @@ if [ "$dex" = "true" ]; then
 fi
 
 if [ "$xsettingsd" = "true" ]; then
-    echo "exec --no-startup-id xsettingsd" >> "$AUTOSTART_FILE"
+    echo "exec --no-startup-id xsettingsd -c \$HOME/.config/xsettingsd/xsettingsd.conf" >> "$AUTOSTART_FILE"
 fi
 
 if [ "$polkit" = "true" ]; then
