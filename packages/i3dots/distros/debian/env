@@ -4,6 +4,7 @@ export PKG_UPDATE_CMD="update"
 export PKG_INSTALL_CMD="install -y"
 export PKG_QUERY_CMD="dpkg-query -W -f='\${Package}\n'"
 export PKG_LIST="i3-wm pcmanfm polybar rofi kitty picom qt6ct lxappearance feh dex lxpolkit pipewire wireplumber fonts-jetbrains-mono fonts-font-awesome git curl wget unzip fontconfig imagemagick papirus-icon-theme fastfetch lua5.3 xsettingsd dash"
+export PKG_LIVE="mpv xwinwrap ffmpegthumbnailer"
 export PKG_BUILD="gcc libx11-dev"
 
 export POLKIT_AGENT="lxpolkit"

@@ -20,9 +20,11 @@ CLI_WALL_SRC=""
 
 EXCLUDE_SERVICES="${EXCLUDE_SERVICES:-}"
 INTEGRATE_FM="none"
+ENABLE_LIVE=true
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --offline) IS_OFFLINE=true; shift ;;
+        --no-live|-nl) ENABLE_LIVE=false; shift ;;
         --wallpaper) CLI_WALL="$2"; shift 2 ;;
         --wallpaper-src) CLI_WALL_SRC="$2"; shift 2 ;;
         --exclude|-e) EXCLUDE_SERVICES="$2"; shift 2 ;;
@@ -84,6 +86,11 @@ if [ "$dex_enabled" = "false" ] && [ -n "$PKG_SERVICE_DEX" ]; then
     PKG_LIST=$(echo " $PKG_LIST " | sed "s/ $PKG_SERVICE_DEX / /g" | sed 's/^ *//;s/ *$//')
 fi
 
+# Agregar dependencias de live wallpaper si se solicita
+if [ "$ENABLE_LIVE" = "true" ] && [ -n "$PKG_LIVE" ]; then
+    PKG_LIST="$PKG_LIST $PKG_LIVE"
+    print_sub "Live wallpaper habilitado (mpv + xwinwrap)."
+fi
 
 # Cargar dependencias de compilación si falta algún precompilado
 BINS_SRC="$PACKAGE_DIR/distros/${VARIANT_NAME}/bins"
