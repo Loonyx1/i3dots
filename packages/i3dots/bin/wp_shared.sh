@@ -53,10 +53,6 @@ save_state() {
     
     [[ -f "$env_file" ]] || touch "$env_file"
     
-    local cur_val
-    cur_val=$(source "$env_file" 2>/dev/null; echo "${!key}")
-    [[ "$cur_val" == "$val" ]] && return
-    
     if grep -q "^${key}=" "$env_file"; then
         sed -i "s|^${key}=.*|${key}=\"${val}\"|" "$env_file"
     else
