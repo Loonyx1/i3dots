@@ -96,8 +96,8 @@ fi
 # Cargar dependencias de compilación si falta algún precompilado
 BINS_SRC="$PACKAGE_DIR/distros/${VARIANT_NAME}/bins"
 if [ -n "$PKG_BUILD" ]; then
-    if { [ ! -f "$BINS_SRC/xic" ] && [ -f "$PACKAGE_DIR/bin/xic.c" ]; } || \
-       { [ ! -f "$BINS_SRC/polybar_autohide" ] && [ -f "$PACKAGE_DIR/bin/polybar_autohide.c" ]; }; then
+    if { [ ! -f "$BINS_SRC/xic" ] && [ -f "$PACKAGE_DIR/src/xic.c" ]; } || \
+       { [ ! -f "$BINS_SRC/polybar_autohide" ] && [ -f "$PACKAGE_DIR/src/polybar_autohide.c" ]; }; then
         PKG_LIST="$PKG_LIST $PKG_BUILD"
     fi
 fi
@@ -408,10 +408,10 @@ BINS_SRC="$PACKAGE_DIR/distros/${VARIANT_NAME}/bins"
 for b in xic polybar_autohide; do
     if [ -f "$BINS_SRC/$b" ]; then
         safe_link "$BINS_SRC/$b" "$HOME/.local/bin/$b"
-    elif [ -f "$PACKAGE_DIR/bin/$b.c" ] && [ -z "$SKIP_SYSTEM_PKGS" ]; then
+    elif [ -f "$PACKAGE_DIR/src/$b.c" ] && [ -z "$SKIP_SYSTEM_PKGS" ]; then
         print_sub "Compilando $b..."
         gcc -Os -s -ffunction-sections -fdata-sections -Wl,--gc-sections \
-            "$PACKAGE_DIR/bin/$b.c" -o /tmp/"$b" -lX11 2>> "$LOG_FILE" && \
+            "$PACKAGE_DIR/src/$b.c" -o /tmp/"$b" -lX11 2>> "$LOG_FILE" && \
             mv /tmp/"$b" "$HOME/.local/bin/$b" && chmod +x "$HOME/.local/bin/$b" && \
             print_sub_ok "$b compilado." || print_sub_err "Fallo al compilar $b."
     fi
