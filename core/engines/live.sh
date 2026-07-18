@@ -8,6 +8,11 @@ _mpv_ipc() {
     echo "$1" | socat - "UNIX-CONNECT:$MPV_SOCKET" 2>/dev/null | head -1
 }
 
+# Helper: setea una propiedad de mpv vía IPC
+_mpv_set_prop() {
+    _mpv_ipc "{\"command\":[\"set_property\",\"$1\",$2]}" >/dev/null
+}
+
 _resolve_daemon_path() {
     local script_dir repo_root
     script_dir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"   # .../core/engines
@@ -58,25 +63,13 @@ engine_set() {
     [[ "$base_noext" == *_noskip* ]] && skip_level="none"
     [[ "$base_noext" =~ _fps([0-9]+) ]] && fps_cap="${BASH_REMATCH[1]}"
 
-    # Hot-reload vía socket IPC: actualiza propiedades en caliente y carga el archivo
-    local daemon_path
-    daemon_path="$(_resolve_daemon_path)"
+    # Hot-reload vía socket IPC
+    local daemon_path="$(_resolve_daemon_path)"
     if [[ -S "$MPV_SOCKET" ]] && pgrep -f 'mpv.*--x11-name=mpv-wallpaper' &>/dev/null && [[ -x "$daemon_path" ]]; then
-        # Cambiar skip level si es distinto al actual
-        local current_skip
-        current_skip=$(_mpv_ipc '{"command":["get_property","vd-lavc-skipframe"]}' | grep -oP '"data": *\K"[^"]*"' | tr -d '"')
-        [[ "$skip_level" != "$current_skip" && -n "$current_skip" ]] && _mpv_ipc "{\"command\":[\"set_property\",\"vd-lavc-skipframe\",\"$skip_level\"]}" >/dev/null
-
-        # Cambiar fps cap si es distinto al actual
-        local current_fps
-        current_fps=$(_mpv_ipc '{"command":["get_property","vf"]}' | grep -oP '"fps":"\K[^"]*')
-        local vf_cmd='{"command":["set_property","vf",[]]}'
-        if [[ "$fps_cap" != "$current_fps" ]]; then
-            [[ -n "$fps_cap" ]] && printf -v vf_cmd '{"command":["set_property","vf",[{"name":"fps","params":{"fps":"%s"}}]]}' "$fps_cap"
-            _mpv_ipc "$vf_cmd" >/dev/null
-        fi
-
-        # Cargar nuevo archivo
+        _mpv_set_prop "vd-lavc-skipframe" "\"$skip_level\""
+        local vf_val="[]"
+        [[ -n "$fps_cap" ]] && printf -v vf_val '[{"name":"fps","params":{"fps":"%s"}}]' "$fps_cap"
+        _mpv_set_prop "vf" "$vf_val"
         "$daemon_path" --loadfile "$wp_path" 2>/dev/null && return 0
     fi
 
