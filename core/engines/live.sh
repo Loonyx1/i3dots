@@ -3,26 +3,20 @@
 
 MPV_SOCKET="/tmp/mpv-live-wp.sock"
 
+# Helper: envía un comando JSON al socket IPC de mpv y devuelve la primera línea de respuesta
+_mpv_ipc() {
+    echo "$1" | socat - "UNIX-CONNECT:$MPV_SOCKET" 2>/dev/null | head -1
+}
+
 _resolve_daemon_path() {
-    local script_dir repo_root path
+    local script_dir repo_root
     script_dir="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"   # .../core/engines
     repo_root="$(dirname "$(dirname "$script_dir")")"               # .../i3dots
 
-    # 1. Validar PACKAGE_DIR del entorno
-    if [[ -n "$PACKAGE_DIR" && -x "$PACKAGE_DIR/bin/live_wp_daemon" ]]; then
-        echo "$PACKAGE_DIR/bin/live_wp_daemon"
-        return
-    fi
+    local pkg="${PACKAGE_DIR:+$PACKAGE_DIR/bin/live_wp_daemon}"
+    local std="$repo_root/packages/i3dots/bin/live_wp_daemon"
 
-    # 2. Validar ruta estándar en la raíz del repositorio
-    path="$repo_root/packages/i3dots/bin/live_wp_daemon"
-    if [[ -x "$path" ]]; then
-        echo "$path"
-        return
-    fi
-
-    # Fallback por defecto
-    echo "$path"
+    [[ -x "$pkg" ]] && echo "$pkg" || echo "$std"
 }
 
 engine_init() {
@@ -56,21 +50,42 @@ engine_set() {
         return 0
     fi
 
-    # Hot-reload: mpv ya activo → cambiar archivo instantáneamente vía socket IPC
+    # Parsear nombre del archivo para configuración
+    local base_name="$(basename "$wp_path")"
+    local base_noext="${base_name%.*}"
+
+    local skip_level="nonref" fps_cap=""
+    [[ "$base_noext" == *_noskip* ]] && skip_level="none"
+    [[ "$base_noext" =~ _fps([0-9]+) ]] && fps_cap="${BASH_REMATCH[1]}"
+
+    # Hot-reload vía socket IPC: actualiza propiedades en caliente y carga el archivo
     local daemon_path
     daemon_path="$(_resolve_daemon_path)"
-    if [[ -S "$MPV_SOCKET" ]] && pgrep -f 'mpv.*--x11-name=mpv-wallpaper' &>/dev/null; then
-        if [[ -x "$daemon_path" ]] && "$daemon_path" --loadfile "$wp_path" 2>/dev/null; then
-            return 0
+    if [[ -S "$MPV_SOCKET" ]] && pgrep -f 'mpv.*--x11-name=mpv-wallpaper' &>/dev/null && [[ -x "$daemon_path" ]]; then
+        # Cambiar skip level si es distinto al actual
+        local current_skip
+        current_skip=$(_mpv_ipc '{"command":["get_property","vd-lavc-skipframe"]}' | grep -oP '"data": *\K"[^"]*"' | tr -d '"')
+        [[ "$skip_level" != "$current_skip" && -n "$current_skip" ]] && _mpv_ipc "{\"command\":[\"set_property\",\"vd-lavc-skipframe\",\"$skip_level\"]}" >/dev/null
+
+        # Cambiar fps cap si es distinto al actual
+        local current_fps
+        current_fps=$(_mpv_ipc '{"command":["get_property","vf"]}' | grep -oP '"fps":"\K[^"]*')
+        local vf_cmd='{"command":["set_property","vf",[]]}'
+        if [[ "$fps_cap" != "$current_fps" ]]; then
+            [[ -n "$fps_cap" ]] && printf -v vf_cmd '{"command":["set_property","vf",[{"name":"fps","params":{"fps":"%s"}}]]}' "$fps_cap"
+            _mpv_ipc "$vf_cmd" >/dev/null
         fi
+
+        # Cargar nuevo archivo
+        "$daemon_path" --loadfile "$wp_path" 2>/dev/null && return 0
     fi
 
     # Inicio frío: limpiar procesos y lanzar nueva sesión desvinculada
     engine_init
 
     local geom
-    geom=$(xrandr | grep " connected" | grep -oP '\d+x\d+\+\d+\+\d+' | head -1)
-    [[ -z "$geom" ]] && geom="1920x1080+0+0"
+    geom="$(xrandr | grep " connected" | grep -oP '\d+x\d+\+\d+\+\d+' | head -1)"
+    geom="${geom:-1920x1080+0+0}"
 
     # Lanzar xwinwrap+mpv en segundo plano de forma desvinculada usando setsid -f (fork)
     # Se pasan las variables de entorno de X11 de forma explícita para evitar fallas de conexión al display.
@@ -81,37 +96,119 @@ engine_set() {
             geom="$3"
             socket="$4"
             path="$5"
+            skip="${6:-none}"
+            fps_cap="$7"
             sleep 0.3
             exec xwinwrap -g "$geom" -ov -ni -b -nf -s -st -sp -- \
-            mpv -wid %WID \
+            mpv --wid=%WID \
+                            ${fps_cap:+--vf=fps=fps=$fps_cap} \
                             --x11-name=mpv-wallpaper \
+                            --msg-level=all=no \
                             --really-quiet \
-                            --profile=fast \
+                            --no-config \
+                            --load-scripts=no \
+                            --no-osc \
+                            --no-osd-bar \
+                            --osd-level=0 \
+                            --no-sub \
+                            --no-sub-auto \
+                            --no-sub-visibility \
+                            --subs-with-matching-audio=no \
+                            --no-audio \
+                            --ao=null \
+                            --no-audio-display \
+                            --no-keep-open \
+                            --no-resume-playback \
+                            --no-sid \
+                            --no-aid \
+                            --no-save-position-on-quit \
+                            --no-keepaspect-window \
+                            --keepaspect=no \
+                            --no-border \
+                            --no-window-dragging \
+                            --no-show-in-taskbar \
+                            --no-taskbar-progress \
+                            --no-stop-screensaver \
+                            --no-terminal \
+                            --no-input-default-bindings \
+                            --no-input-builtin-bindings \
+                            --no-media-controls \
+                            --input-conf=/dev/null \
+                            --input-test=no \
+                            --no-input-cursor \
+                            --no-input-vo-keyboard \
+                            --no-input-media-keys \
+                            --no-input-terminal \
+                            --input-ipc-client= \
+                            --no-ontop \
+                            --no-fullscreen \
+                            --no-fs \
+                            --native-fs=no \
+                            --no-auto-window-resize \
+                            --x11-bypass-compositor=yes \
                             --vo=gpu \
-                            --hwdec=auto \
-                            --vf=fps=fps=30 \
-                            --dither=no \
-                            --sws-fast=yes \
-                            --vd-lavc-threads=2 \
+                            --gpu-context=x11egl \
+                            --gpu-dumb-mode=yes \
+                            --opengl-pbo=no \
+                            --opengl-swapinterval=0 \
+                            --opengl-early-flush=no \
+                            --swapchain-depth=1 \
+                            --sws-scaler=fast-bilinear \
+                            --sws-fast \
                             --scale=bilinear \
                             --dscale=bilinear \
                             --cscale=bilinear \
+                            --dither=no \
+                            --correct-downscaling=no \
+                            --sigmoid-upscaling=no \
+                            --deband=no \
+                            --interpolation=no \
+                            --tscale=nearest \
+                            --video-unscaled=downscale-big \
+                            --cover-art-auto=no \
+                            --cache-pause=no \
                             --cache=no \
+                            --cache-on-disk=no \
+                            --demuxer-cache-wait=no \
                             --demuxer-max-bytes=100KiB \
                             --demuxer-max-back-bytes=0 \
-                            --no-audio \
-                            --ao=null \
-                            --no-sub \
-                            --no-border \
-                            --no-config \
-                            --no-osc \
-                            --no-osd-bar \
-                            --no-terminal \
-                            --loop \
-                            --x11-bypass-compositor=yes \
+                            --demuxer-readahead-secs=0 \
+                            --demuxer-seekable-cache=no \
+                            --no-demuxer-thread \
+                            --no-untimed \
+                            --script-opts= \
+                            --scripts= \
+                            --glsl-shaders= \
+                            --no-cookies \
+                            --user-agent=" " \
+                            --no-ytdl \
+                            --no-audio-pitch-correction \
+                            --edition=auto \
+                            --title= \
+                            --video-aspect-override=-2 \
+                            --video-rotate=no \
+                            --video-pan-x=0 \
+                            --video-pan-y=0 \
+                            --video-zoom=0 \
+                            --video-align-x=0 \
+                            --video-align-y=0 \
+                            --deinterlace=no \
+                            --framedrop=no \
+                            --video-sync=desync \
+                            --vd-lavc-fast \
+                            --vd-lavc-dr=yes \
+                            --vd-lavc-threads=1 \
+                            --vd-lavc-skiploopfilter="$skip" \
+                            --vd-lavc-skipidct="$skip" \
+                            --vd-lavc-skipframe="$skip" \
+                            --hwdec=auto-safe \
+                            --hwdec-codecs=h264,hevc,mpeg4 \
+                            --hwdec-extra-frames=0 \
+                            --hwdec-image-format=no \
+                            --loop-file=inf \
                             --input-ipc-server="$socket" \
                             "$path"
-    ' bash "${DISPLAY:-:0}" "${XAUTHORITY:-$HOME/.Xauthority}" "$geom" "$MPV_SOCKET" "$wp_path" >/tmp/xwinwrap.log 2>&1
+    ' bash "${DISPLAY:-:0}" "${XAUTHORITY:-$HOME/.Xauthority}" "$geom" "$MPV_SOCKET" "$wp_path" "$skip_level" "$fps_cap" >/tmp/xwinwrap.log 2>&1
 
     # Lanzar daemon si no está corriendo de forma desvinculada con nohup
     if ! pgrep -x live_wp_daemon &>/dev/null && [[ -x "$daemon_path" ]]; then
