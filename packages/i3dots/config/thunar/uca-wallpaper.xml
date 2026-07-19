@@ -1,10 +1,10 @@
 <action>
 	<icon>background</icon>
-	<name>Establecer como Wallpaper (i3dots)</name>
+	<name>Wallpaper i3</name>
 	<submenu></submenu>
 	<unique-id>i3dots-set-wallpaper</unique-id>
 	<command>@PACKAGE_DIR@/bin/wp_context_menu.sh %f</command>
-	<description>Aplica el wallpaper y regenera la paleta de colores de i3dots</description>
+	<description>Aplica el wallpaper y regenera la paleta de colores</description>
 	<range></range>
 	<patterns>*</patterns>
 	<image-files/>
