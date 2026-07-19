@@ -107,6 +107,9 @@ print_step "Iniciando instalación para variante: ${VARIANT_NAME} (Offline: ${IS
 # (Lógica del elevador importada desde utils.sh)
 ask_privileges
 
+# Hook pre-instalación específico de la variante (si existe)
+declare -f variant_pre_install > /dev/null && variant_pre_install
+
 # 3. Instalar dependencias
 if [ -n "$PKG_LIST" ] && [ -z "$SKIP_SYSTEM_PKGS" ]; then
     print_step "Verificando dependencias del sistema..."
