@@ -76,3 +76,23 @@ cd i3dots
 |<kbd>Shift</kbd> + <kbd>print</kbd>|Selection|
 |<kbd>super</kbd> + <kbd>Ctrl</kbd> + <kbd>print</kbd>|Active Window
 |<kbd>Ctrl</kbd> + <kbd>Print</kbd> |Full Screen|
+
+# Live Wallpaper
+
+El motor detecta configuración desde el nombre del archivo:
+
+| Nombre                          | Skip          | FPS  |
+|---------------------------------|---------------|------|
+| `video.mp4`                     | `nonref`      |  ∞   |
+| `video_noskip.mp4`              | `none`        |  ∞   |
+| `video_fps30.mp4`               | `nonref`      |  30  |
+| `video_noskip_fps60.mp4`        | `none`        |  60  |
+
+- `_noskip` → desactiva el skip de frames. Por defecto mpv salta frames no-referencia (`nonref`) para reducir CPU. Con `_noskip` se renderiza cada frame, mayor calidad pero más consumo.
+- `_fps<N>` → limita los FPS (ej. `_fps30`, `_fps60`). Reduce consumo en videos de alta tasa.
+- Se pueden combinar: `video_noskip_fps30.mp4`.
+
+### Uso
+
+- **Selector Rofi**: los wallpapers se ponen en `~/wall/live/` y aparecen automáticamente en el menú (<kbd>Super</kbd> + <kbd>Ctrl</kbd> + <kbd>W</kbd>).
+- **Gestor de archivos**: botón derecho sobre el archivo → `Wallpaper i3` (se integra solo en Thunar y pcmanfm).
