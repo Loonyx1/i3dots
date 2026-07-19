@@ -252,8 +252,6 @@ rofi-underline = $MOD_ROFI_UND
 rofi-font = $MOD_ROFI_FONT
 launcher-icon = $LAUNCH_ICON
 launcher-icon-raw = ${OS_ICON:-󰣆}
-dots-cmd = ${BASE_DIR:-$PROJECT_ROOT}/dots
-current-env = $CURRENT_ENV
 
 ; Icon Library
 icon-cpu = 

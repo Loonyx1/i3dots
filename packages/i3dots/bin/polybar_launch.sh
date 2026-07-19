@@ -18,6 +18,8 @@ export STATE_DIR="${STATE_DIR:-$PROJECT_ROOT/core/state}"
 export CURRENT_ENV="${CURRENT_ENV:-i3dots}"
 BAR_STATE_DIR="$STATE_DIR/$CURRENT_ENV/bar"
 STATE_FILE="$BAR_STATE_DIR/state.env"
+export dots_cmd="${PROJECT_ROOT}/dots"
+export current_env="${CURRENT_ENV:-i3dots}"
 
 # 2. Apagado Limpio y Rápido
 polybar-msg cmd hide 2>/dev/null &
@@ -137,6 +139,8 @@ export BAR_SOLID_LINE="$BAR_SOLID_LINE"
 export BAR_ICON_PADDING="$BAR_ICON_PADDING"
 export BAR_AUTOHIDE="$BAR_AUTOHIDE"
 export COMP_MODULES_HIDDEN="$COMP_MODULES_HIDDEN"
+export dots_cmd="${PROJECT_ROOT}/dots"
+export current_env="${CURRENT_ENV:-i3dots}"
 
 # Variables de Hardware
 export BACKLIGHT_CARD="$BACKLIGHT_CARD"

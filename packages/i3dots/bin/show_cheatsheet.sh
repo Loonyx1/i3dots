@@ -28,5 +28,6 @@ read -r W H < <(xrandr | awk '/\*/ {print $1; exit}' | tr 'x' ' ')
 w=$(( W * 70 / 100 ))
 h=$(( H * 70 / 100 ))
 
-# 5. Ejecutar feh flotante de forma asíncrona y desacoplada
-setsid feh --title "$TITLE" -g "${w}x${h}" --auto-zoom "$IMG_PATH" >/dev/null 2>&1 &
+# 5. Ejecutar feh en primer plano con exec para evitar que Polybar lo mate al salir
+exec feh --title "$TITLE" -g "${w}x${h}" --auto-zoom "$IMG_PATH"
+
