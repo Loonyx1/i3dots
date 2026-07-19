@@ -22,7 +22,7 @@ _resolve_daemon_path() {
     local pkg="${PACKAGE_DIR:+$PACKAGE_DIR/bin/live_wp_daemon}"
     local std="$repo_root/packages/i3dots/bin/live_wp_daemon"
 
-    [[ -x "$local_bin" ]] && echo "$local_bin" || [[ -x "$pkg" ]] && echo "$pkg" || echo "$std"
+    [[ -x "$local_bin" ]] && echo "$local_bin" || { [[ -x "$pkg" ]] && echo "$pkg" || echo "$std"; }
 }
 
 engine_init() {
