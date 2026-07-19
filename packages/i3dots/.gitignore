@@ -58,3 +58,4 @@ packages/i3dots/config/i3/icon_theme.base
 # Los bins locales compilados en bin/ no se trackean
 packages/i3dots/bin/xic
 packages/i3dots/bin/polybar_autohide
+packages/i3dots/bin/live_wp_daemon

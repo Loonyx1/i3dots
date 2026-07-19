@@ -405,24 +405,20 @@ safe_link "$PACKAGE_DIR/bin/recolor_folders.lua" "$HOME/.local/bin/recolor_folde
 
 # Binarios precompilados o compilación
 BINS_SRC="$PACKAGE_DIR/distros/${VARIANT_NAME}/bins"
-for b in xic polybar_autohide; do
+for b in xic polybar_autohide live_wp_daemon; do
     if [ -f "$BINS_SRC/$b" ]; then
         safe_link "$BINS_SRC/$b" "$HOME/.local/bin/$b"
     elif [ -f "$PACKAGE_DIR/src/$b.c" ] && [ -z "$SKIP_SYSTEM_PKGS" ]; then
         print_sub "Compilando $b..."
-        gcc -Os -s -ffunction-sections -fdata-sections -Wl,--gc-sections \
-            "$PACKAGE_DIR/src/$b.c" -o /tmp/"$b" -lX11 2>> "$LOG_FILE" && \
-            mv /tmp/"$b" "$HOME/.local/bin/$b" && chmod +x "$HOME/.local/bin/$b" && \
+        if [ "$b" = "live_wp_daemon" ]; then
+            gcc -O3 "$PACKAGE_DIR/src/$b.c" -o "/tmp/$b" 2>> "$LOG_FILE"
+        else
+            gcc -Os -s -ffunction-sections -fdata-sections -Wl,--gc-sections \
+                "$PACKAGE_DIR/src/$b.c" -o "/tmp/$b" -lX11 2>> "$LOG_FILE"
+        fi && mv "/tmp/$b" "$HOME/.local/bin/$b" && chmod +x "$HOME/.local/bin/$b" && \
             print_sub_ok "$b compilado." || print_sub_err "Fallo al compilar $b."
     fi
 done
-
-if [ -f "$PACKAGE_DIR/src/live_wp_daemon.c" ] && [ -z "$SKIP_SYSTEM_PKGS" ]; then
-    print_sub "Compilando daemon de live wallpaper (C)..."
-    gcc -O3 "$PACKAGE_DIR/src/live_wp_daemon.c" -o "$PACKAGE_DIR/bin/live_wp_daemon" 2>> "$LOG_FILE" && \
-        chmod +x "$PACKAGE_DIR/bin/live_wp_daemon" && \
-        print_sub_ok "live_wp_daemon compilado con éxito." || print_sub_err "Fallo al compilar live_wp_daemon."
-fi
 
 safe_link "$PACKAGE_DIR/bin/toggle_autohide.sh" "$HOME/.local/bin/toggle_autohide.sh"
 safe_link "$PACKAGE_DIR/bin/toggle_borders.sh" "$HOME/.local/bin/toggle_borders.sh"
@@ -446,7 +442,7 @@ fi
 print_sub "Asegurando permisos de ejecución en scripts..."
 chmod +x "$PACKAGE_DIR/bin/polybar_launch.sh" &>> "$LOG_FILE"
 chmod +x "$PACKAGE_DIR/bin/wp_context_menu.sh" &>> "$LOG_FILE"
-chmod +x "$PACKAGE_DIR/bin/live_wp_daemon" &>> "$LOG_FILE"
+# live_wp_daemon se enlaza desde distros/*/bins/ o se compila en el loop de arriba
 chmod +x "$PACKAGE_DIR/bin/toggle_autohide.sh" &>> "$LOG_FILE"
 chmod +x "$PACKAGE_DIR/bin/toggle_borders.sh" &>> "$LOG_FILE"
 find "$PACKAGE_DIR/config/rofi/bin" -type f -exec chmod +x {} + &>> "$LOG_FILE"
