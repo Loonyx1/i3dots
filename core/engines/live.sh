@@ -139,7 +139,7 @@ engine_set() {
                             --no-fs \
                             --native-fs=no \
                             --no-auto-window-resize \
-                            --x11-bypass-compositor=yes \
+                            --x11-bypass-compositor=no \
                             --vo=gpu \
                             --gpu-context=x11egl \
                             --gpu-dumb-mode=yes \

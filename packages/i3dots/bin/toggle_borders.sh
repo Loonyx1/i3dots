@@ -58,8 +58,8 @@ fi
 BORDERS_FILE="$HOME/.config/i3/conf.d/borders_override.conf"
 
 if [ "$NEW_VAL" = "true" ]; then
-    i3-msg '[class=".*"] border pixel 2' >/dev/null 2>&1
-    echo 'for_window [class=".*"] border pixel 2' > "$BORDERS_FILE"
+    i3-msg '[class=".*"] border pixel 1' >/dev/null 2>&1
+    echo 'for_window [class=".*"] border pixel 1' > "$BORDERS_FILE"
 else
     i3-msg '[class=".*"] border none' >/dev/null 2>&1
     echo 'for_window [class=".*"] border none' > "$BORDERS_FILE"
