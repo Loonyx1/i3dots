@@ -117,7 +117,7 @@ engine_set() {
                             --no-aid \
                             --no-save-position-on-quit \
                             --no-keepaspect-window \
-                            --keepaspect=no \
+                            --keepaspect=yes \
                             --no-border \
                             --no-window-dragging \
                             --no-show-in-taskbar \
