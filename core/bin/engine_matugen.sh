@@ -124,6 +124,11 @@ if [[ "$MATUGEN_PREFER" != "default" && -n "$MATUGEN_PREFER" ]]; then
     has_arg "--prefer" || ARGS+=("--prefer" "$MATUGEN_PREFER")
 fi
 
+# Si no se pasó -m explícitamente, usar el modo del state
+if ! has_arg "-m" && ! has_arg "--mode"; then
+    ARGS+=("-m" "${active_mode:-dark}")
+fi
+
 # 4. Ejecución de Matugen
 cmd=("matugen")
 

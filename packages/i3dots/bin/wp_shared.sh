@@ -45,6 +45,9 @@ get_state() {
     fi
 }
 
+# Helper de modo claro/oscuro: persiste y señaliza al sistema
+set_theme_mode() { save_state "active_mode" "$1"; command -v gsettings &>/dev/null && gsettings set org.gnome.desktop.interface color-scheme "prefer-$1"; }
+
 # Helper para persistir estados en un único archivo de configuración
 save_state() {
     local key="$1"

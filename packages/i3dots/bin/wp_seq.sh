@@ -120,7 +120,7 @@ elif [[ $# -eq 2 ]]; then
         "--mode-light")  ACTIVE_MODE="light"  ;;
         *)               ACTIVE_MODE="dark"   ;;
     esac
-    save_state "active_mode" "$ACTIVE_MODE"
+    set_theme_mode "$ACTIVE_MODE"
 
     if [[ -f "$SELECTION" ]]; then
         FINAL_PATH="$SELECTION"
