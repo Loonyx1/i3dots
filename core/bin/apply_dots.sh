@@ -12,15 +12,26 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# 2. Aplicar Componentes (hereda MANAGED_COMPONENTS de .env como string)
+# 2. Aplicar Componentes Secuenciales (pesados, sin competencia)
+for component in $SEQUENTIAL_COMPONENTS; do
+    var_name="COMPONENT_${component^^}"
+    value="${!var_name}"
+    [[ -z "$value" ]] && continue
+
+    component_hook="$HOOK_DIR/components/${component}.sh"
+    if [ -f "$component_hook" ]; then
+        source "$component_hook" "$value"
+    fi
+done
+
+# 3. Aplicar Componentes Paralelos (ligeros, tras los secuenciales)
 for component in $MANAGED_COMPONENTS; do
     var_name="COMPONENT_${component^^}"
     value="${!var_name}"
     [[ -z "$value" ]] && continue
-    
+
     component_hook="$HOOK_DIR/components/${component}.sh"
     if [ -f "$component_hook" ]; then
-        # Ejecutar todos los hooks en paralelo para velocidad extrema
         source "$component_hook" "$value" &
     fi
 done
