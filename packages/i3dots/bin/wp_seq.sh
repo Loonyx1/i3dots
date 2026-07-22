@@ -97,6 +97,9 @@ if [[ $# -eq 0 ]]; then
         extra_invisible_css="element-text selected{text-color:transparent;} element-text{text-color:transparent;} "
     fi
 
+    # Limpiar temporales acumulados de sesiones pasadas antes de lanzar Rofi
+    rm -f /tmp/gdk-pixbuf-glycin-tmp.* 2>/dev/null
+
     export ROFI_LIST_MODE=1
     exec rofi -show "$show_mode" \
         -modi "$L_DARK:$0 --mode-dark,$L_LIGHT:$0 --mode-light" \
@@ -227,6 +230,7 @@ elif [[ $# -eq 2 ]]; then
         fi
         
         [[ -n "$temp_to_clean" && -f "$temp_to_clean" ]] && rm -f "$temp_to_clean"
+        rm -f /tmp/gdk-pixbuf-glycin-tmp.* 2>/dev/null
         export NO_WALLPAPER="true"
         apply_dots.sh
     ) &>/dev/null &
