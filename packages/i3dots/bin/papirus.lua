@@ -49,6 +49,8 @@ end
 function papirus.get_symbolic_sed_expressions(color)
     return {
         { "currentColor", "#" .. color },
+        { "color:#444444", "color:#" .. color },
+        { "color:#4285f4", "color:#" .. color },
     }
 end
 

@@ -191,21 +191,72 @@ function common.is_ram_populated(ram_dir)
     return res and res ~= ""
 end
 
+function common.ensure_persistent_symlink_tree(original_dir, ram_dir, backup_dir, custom_theme, base_theme)
+    if common.path_exists(ram_dir .. "/index.theme") then return end
+
+    os.execute("mkdir -p " .. ram_dir)
+    common.setup_index_theme(original_dir .. "/index.theme", ram_dir .. "/index.theme", custom_theme, base_theme)
+
+    local ln_cmds = {}
+    local p = io.popen("find " .. original_dir .. " -maxdepth 1 -mindepth 1 2>/dev/null")
+    if p then
+        for path in p:lines() do
+            local name = path:match("([^/]+)$")
+            if name and name ~= "index.theme" then
+                local ram_item  = ram_dir .. "/" .. name
+                local orig_item = path
+                if common.path_exists(orig_item) then
+                    table.insert(ln_cmds, "mkdir -p " .. ram_item)
+                    local p2 = io.popen("find " .. orig_item .. " -maxdepth 1 -mindepth 1 2>/dev/null")
+                    if p2 then
+                        for sub_path in p2:lines() do
+                            local sub_name = sub_path:match("([^/]+)$")
+                            if sub_name == "places" then
+                                table.insert(ln_cmds, "mkdir -p " .. ram_item .. "/places")
+                            elseif sub_name then
+                                table.insert(ln_cmds, "ln -sfn " .. sub_path .. " " .. ram_item .. "/" .. sub_name)
+                            end
+                        end
+                        p2:close()
+                    end
+                end
+            end
+        end
+        p:close()
+    end
+
+    if #ln_cmds > 0 then
+        os.execute(table.concat(ln_cmds, " && "))
+    end
+end
+
 function common.copy_and_recolor(backup_dir, ram_dir, sed_exprs)
     os.execute("cp -rd --remove-destination " .. backup_dir .. "/. " .. ram_dir .. "/")
 
-    local p = io.popen("find " .. ram_dir .. " -type f -name '*.svg' 2>/dev/null")
-    if not p then return end
-    for path in p:lines() do
-        local s = common.read_file(path)
-        if s then
-            for _, expr in ipairs(sed_exprs) do
-                s = s:gsub(expr[1], expr[2])
-            end
-            common.write_file(path, s)
+    local script_dir = debug.getinfo(1).source:match("@(.*)/") or ""
+    local bin_c = script_dir .. "/recolor_svg"
+
+    if common.path_exists(bin_c) then
+        local args = { string.format("%q", bin_c), string.format("%q", ram_dir) }
+        for _, expr in ipairs(sed_exprs or {}) do
+            table.insert(args, string.format("%q", expr[1]))
+            table.insert(args, string.format("%q", expr[2]))
         end
+        os.execute(table.concat(args, " ") .. " 2>/dev/null")
+    else
+        local p = io.popen("find " .. ram_dir .. " -type f -name '*.svg' 2>/dev/null")
+        if not p then return end
+        for path in p:lines() do
+            local s = common.read_file(path)
+            if s then
+                for _, expr in ipairs(sed_exprs or {}) do
+                    s = s:gsub(expr[1], expr[2])
+                end
+                common.write_file(path, s)
+            end
+        end
+        p:close()
     end
-    p:close()
 end
 
 function common.setup_index_theme(src, dest, custom_theme, base_theme)

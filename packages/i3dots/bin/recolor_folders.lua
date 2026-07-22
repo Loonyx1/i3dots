@@ -62,25 +62,30 @@ local function recolor_symbolic_dir(src_abs, dst_abs, sym_sed)
     local p = io.popen("find " .. src_abs .. " -maxdepth 1 -type f -name '*-symbolic.svg' 2>/dev/null")
     if not p then return end
 
+    local ln_cmds = {}
     for path in p:lines() do
         local file = path:match("([^/]+)$")
         local name = file:match("^(.+)-symbolic%.svg$")
         if name then
             local dst = dst_abs .. "/" .. name .. ".svg"
-            if not common.path_exists(dst) then
-                if sym_sed then
-                    local s = common.read_file(path)
-                    if s then
-                        for _, expr in ipairs(sym_sed) do s = s:gsub(expr[1], expr[2]) end
-                        common.write_file(dst, s)
-                    end
-                else
-                    os.execute("ln -sfn " .. path .. " " .. dst)
+            if sym_sed then
+                local s = common.read_file(path)
+                if s then
+                    for _, expr in ipairs(sym_sed) do s = s:gsub(expr[1], expr[2]) end
+                    common.write_file(dst, s)
+                end
+            else
+                if not common.path_exists(dst) then
+                    table.insert(ln_cmds, "ln -sfn " .. path .. " " .. dst)
                 end
             end
         end
     end
     p:close()
+
+    if #ln_cmds > 0 then
+        os.execute(table.concat(ln_cmds, " && "))
+    end
 end
 
 local function link_symbolic_icons(original_dir, ram_dir, disk_dir, sym_sed)
@@ -159,7 +164,7 @@ local function main()
 
     -- Early exit: mismo color ya aplicado en RAM
     local active_variant    = common.detect_active_variant(xsettings_cfg)
-    local active_icon_theme = base_theme .. "-Custom-" .. active_variant
+    local active_icon_theme = base_theme .. "-Custom"
     if color == prev_color
         and common.is_ram_populated("/dev/shm/" .. active_icon_theme)
         and get_current_icon_theme(settings_ini) == active_icon_theme
@@ -199,34 +204,40 @@ local function main()
 
     local dark_color = common.hex_darken(color)
     local sed_exprs  = theme_mod.get_sed_expressions(color, dark_color)
+    local sym_sed    = theme_mod.get_symbolic_sed_expressions and theme_mod.get_symbolic_sed_expressions(color) or nil
 
-    local sym_sed = theme_mod.get_symbolic_sed_expressions and theme_mod.get_symbolic_sed_expressions(color) or nil
-
-    if not common.path_exists(physical_icon_dir .. "/icon-theme.cache") then
-        os.execute("rm -rf " .. physical_icon_dir)
-        os.execute("mkdir -p " .. physical_icon_dir)
+    if not common.is_ram_populated(ram_icon_dir) or not common.path_exists(physical_icon_dir .. "/index.theme") then
+        os.execute("rm -rf " .. ram_icon_dir .. " " .. physical_icon_dir)
+        os.execute("mkdir -p " .. ram_icon_dir .. " " .. physical_icon_dir)
         common.setup_index_theme(original_dir .. "/index.theme",
             physical_icon_dir .. "/index.theme", custom_icon_theme, base_theme)
         link_icon_subdirs(backup_dir, ram_icon_dir, physical_icon_dir)
-        common.copy_and_recolor(backup_dir, ram_icon_dir, sed_exprs)
-        link_symbolic_icons(original_dir, ram_icon_dir, physical_icon_dir, sym_sed)
-        common.update_icon_cache(physical_icon_dir)
-    else
-        if not common.is_ram_populated(ram_icon_dir) or color ~= prev_color then
-            os.execute("rm -rf " .. ram_icon_dir)
-            os.execute("mkdir -p " .. ram_icon_dir)
-            common.copy_and_recolor(backup_dir, ram_icon_dir, sed_exprs)
-            link_symbolic_icons(original_dir, ram_icon_dir, physical_icon_dir, sym_sed)
-            common.update_icon_cache(physical_icon_dir)
+
+        -- Clonación rápida (1.8ms) de la estructura de enlaces a la otra variante
+        local other_variant  = (target_variant == "A") and "B" or "A"
+        local other_ram_dir  = "/dev/shm/" .. base_theme .. "-Custom-" .. other_variant
+        local other_phys_dir = common.home .. "/.icons/" .. base_theme .. "-Custom-" .. other_variant
+        if not common.path_exists(other_ram_dir) then
+            os.execute("cp -rd " .. ram_icon_dir .. " " .. other_ram_dir .. " 2>/dev/null")
+            os.execute("mkdir -p " .. common.home .. "/.icons && ln -sfn " .. other_ram_dir .. " " .. other_phys_dir .. " 2>/dev/null")
         end
     end
 
-    -- ── FASE 3: señalizar iconos GTK listos ──────────────────────────────────
+    -- Actualizar glifos simbólicos de lugares y carpetas en RAM
+    link_symbolic_icons(original_dir, ram_icon_dir, physical_icon_dir, sym_sed)
+
+    -- Recolorear las carpetas en RAM
+    common.copy_and_recolor(backup_dir, ram_icon_dir, sed_exprs)
+    common.update_icon_cache(physical_icon_dir)
+
+    -- ── FASE 3: señalizar iconos GTK listos (Alternar variante A/B para forzar recarga en GTK) ──────────────────────────────────
     gtk.apply(custom_icon_theme, nil)
 
-    -- Liberar RAM de variante de icono inactiva
-    -- (widget theme vive en disco, no en RAM)
-    os.execute("rm -rf /dev/shm/" .. base_theme  .. "-Custom-" .. active_variant)
+    -- Liberar SVGs de la variante inactiva en RAM manteniendo su estructura de enlaces simbólicos
+    local inactive_ram_dir = "/dev/shm/" .. base_theme .. "-Custom-" .. active_variant
+    if common.path_exists(inactive_ram_dir) then
+        os.execute("find " .. inactive_ram_dir .. " -type f -name '*.svg' -delete 2>/dev/null")
+    end
 end
 
 main()
