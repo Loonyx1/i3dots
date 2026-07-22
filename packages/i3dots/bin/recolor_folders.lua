@@ -107,18 +107,35 @@ local function link_symbolic_icons(original_dir, ram_dir, disk_dir, sym_sed)
     local cd_sz = { "16", "22", "24" }
 
     for _, s in ipairs(pi_sz) do
-        recolor_symbolic_dir(ram_dir .. "/" .. s .. "/symbolic/places",     ram_dir .. "/" .. s .. "/places",  sym_sed)
-        recolor_symbolic_dir(ram_dir .. "/" .. s .. "/symbolic/categories", ram_dir .. "/" .. s .. "/places",  sym_sed)
-        recolor_symbolic_dir(ram_dir .. "/" .. s .. "/symbolic/devices",    ram_dir .. "/" .. s .. "/places",  sym_sed)
+        recolor_symbolic_dir(ram_dir .. "/" .. s .. "/symbolic/places",     ram_dir .. "/" .. s .. "/places",     sym_sed)
+        recolor_symbolic_dir(ram_dir .. "/" .. s .. "/symbolic/categories", ram_dir .. "/" .. s .. "/categories", sym_sed)
+        recolor_symbolic_dir(ram_dir .. "/" .. s .. "/symbolic/devices",    ram_dir .. "/" .. s .. "/devices",    sym_sed)
+        recolor_symbolic_dir(ram_dir .. "/" .. s .. "/symbolic/apps",       ram_dir .. "/" .. s .. "/apps",       sym_sed)
         ensure_disk_link(s)
     end
 
     for _, s in ipairs(cd_sz) do
-        recolor_symbolic_dir(ram_dir .. "/places/symbolic",     ram_dir .. "/places/" .. s, sym_sed)
-        recolor_symbolic_dir(ram_dir .. "/devices/symbolic",    ram_dir .. "/places/" .. s, sym_sed)
-        recolor_symbolic_dir(ram_dir .. "/categories/symbolic", ram_dir .. "/places/" .. s, sym_sed)
+        recolor_symbolic_dir(ram_dir .. "/places/symbolic",     ram_dir .. "/places/" .. s,     sym_sed)
+        recolor_symbolic_dir(ram_dir .. "/devices/symbolic",    ram_dir .. "/devices/" .. s,    sym_sed)
+        recolor_symbolic_dir(ram_dir .. "/categories/symbolic", ram_dir .. "/categories/" .. s, sym_sed)
+        recolor_symbolic_dir(ram_dir .. "/apps/symbolic",       ram_dir .. "/apps/" .. s,       sym_sed)
         -- Colloid: categories/{size}/*-symbolic.svg directos (no bajo symbolic/)
-        recolor_symbolic_dir(original_dir .. "/categories/" .. s, ram_dir .. "/places/" .. s, sym_sed)
+        recolor_symbolic_dir(original_dir .. "/categories/" .. s, ram_dir .. "/categories/" .. s, sym_sed)
+    end
+
+    -- Aliases: nombres de icono que algunos gestores de archivos usan pero Papirus no provee
+    local icon_aliases = {
+        { "applications-accessories", "applications-utilities" },
+        { "preferences-desktop",      "preferences-system" },
+    }
+    for _, s in ipairs(pi_sz) do
+        for _, alias in ipairs(icon_aliases) do
+            local src = ram_dir .. "/" .. s .. "/categories/" .. alias[2] .. ".svg"
+            local dst = ram_dir .. "/" .. s .. "/categories/" .. alias[1] .. ".svg"
+            if common.path_exists(src) and not common.path_exists(dst) then
+                os.execute("ln -sfn " .. src .. " " .. dst)
+            end
+        end
     end
 end
 

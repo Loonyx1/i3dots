@@ -31,6 +31,7 @@ Thumbs.db
 
 # i3dots: Archivos dinámicos de colores (Matugen)
 packages/i3dots/config/gtk-3.0/colors.css
+packages/i3dots/config/gtk-3.0/bookmarks
 packages/i3dots/config/gtk-4.0/colors.css
 packages/i3dots/config/i3/*.generated
 packages/i3dots/config/kitty/colors.conf

@@ -157,8 +157,8 @@ element normal.active {
     text-color:                  @background;
 }
 element selected.normal {
-    background-color:            @selected;
-    text-color:                  @background;
+    background-color:            transparent;
+    text-color:                  @foreground;
 }
 element selected.urgent {
     background-color:            @urgent;
@@ -180,6 +180,9 @@ element-text {
     cursor:                      inherit;
     vertical-align:              0.5;
     horizontal-align:            0.0;
+}
+element-text selected.normal {
+    text-color:                  @selected;
 }
 
 /*****----- Message -----*****/
