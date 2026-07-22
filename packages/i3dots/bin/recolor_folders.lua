@@ -37,69 +37,110 @@ local function get_widget_base(settings_ini)
 end
 
 local function link_icon_subdirs(backup_dir, ram_dir, disk_dir)
-    os.execute("mkdir -p " .. ram_dir)
-    local p = io.popen("find " .. backup_dir .. " -maxdepth 1 -mindepth 1 -type d 2>/dev/null")
-    if p then
-        for line in p:lines() do
-            local name = line:match("([^/]+)$")
-            if name then
-                os.execute("mkdir -p "  .. ram_dir  .. "/" .. name)
-                os.execute("ln -sfn "   .. ram_dir  .. "/" .. name .. " " .. disk_dir .. "/" .. name)
-            end
-        end
-        p:close()
-    end
+    local cmds = {
+        'for path in "' .. backup_dir .. '"/*; do',
+        '    if [ -d "$path" ]; then',
+        '        name="${path##*/}"',
+        '        if [ "$name" != "Papirus-Dark-Custom-backup" ]; then',
+        '            ln -sfn "' .. ram_dir .. '/$name" "' .. disk_dir .. '/$name"',
+        '        fi',
+        '    fi',
+        'done'
+    }
+    common.sh_batch(cmds)
 end
 
 -- Recolorea o enlaza todos los SVGs simbólicos de un directorio fuente al destino.
 -- src_abs: path absoluto de la carpeta con los *-symbolic.svg
 -- dst_abs: path absoluto del directorio destino (se crea si no existe)
 -- sym_sed: tabla de expresiones { patron, reemplazo } o nil para enlace simbólico
-local function recolor_symbolic_dir(src_abs, dst_abs, sym_sed)
-    if not common.path_exists(src_abs) then return end
-    os.execute("mkdir -p " .. dst_abs)
+-- Recolorea todos los *-symbolic.svg de src_dirs en sus dst_dirs correspondientes.
+-- src_dirs: lista de {src_abs, dst_abs}
+-- sym_sed: tabla de { patron, reemplazo }
+local function recolor_symbolic_dirs_batch(src_dst_pairs, sym_sed, ln_cmds)
+    if not src_dst_pairs or #src_dst_pairs == 0 then return end
 
-    local p = io.popen("find " .. src_abs .. " -maxdepth 1 -type f -name '*-symbolic.svg' 2>/dev/null")
+    -- Construir paths de búsqueda (solo los que existen)
+    local valid_pairs = {}
+    local search_paths = {}
+    for _, pair in ipairs(src_dst_pairs) do
+        if common.path_exists(pair[1]) then
+            table.insert(valid_pairs, pair)
+            table.insert(search_paths, pair[1])
+        end
+    end
+    if #search_paths == 0 then return end
+
+    -- Un solo find para todos los directorios fuente
+    local cmd = "find " .. table.concat(search_paths, " ") ..
+                " -maxdepth 1 -type f -name '*-symbolic.svg' 2>/dev/null"
+    local p = io.popen(cmd)
     if not p then return end
 
-    local ln_cmds = {}
+    -- Preparar mkdir en batch
+    local mkdirs = {}
+    for _, pair in ipairs(valid_pairs) do
+        mkdirs[pair[1]] = pair[2]
+    end
+
+    local writes = {}  -- { dst, content }
     for path in p:lines() do
-        local file = path:match("([^/]+)$")
-        local name = file:match("^(.+)-symbolic%.svg$")
-        if name then
-            local dst = dst_abs .. "/" .. name .. ".svg"
-            if sym_sed then
-                local s = common.read_file(path)
-                if s then
-                    for _, expr in ipairs(sym_sed) do s = s:gsub(expr[1], expr[2]) end
-                    common.write_file(dst, s)
-                end
-            else
-                if not common.path_exists(dst) then
-                    table.insert(ln_cmds, "ln -sfn " .. path .. " " .. dst)
+        -- Determinar dst_abs del par correspondiente
+        local src_dir = path:match("^(.*)/[^/]+$")
+        local dst_abs = mkdirs[src_dir]
+        if dst_abs then
+            local file = path:match("([^/]+)$")
+            local name = file:match("^(.+)-symbolic%.svg$")
+            if name then
+                local dst = dst_abs .. "/" .. name .. ".svg"
+                if sym_sed then
+                    local s = common.read_file(path)
+                    if s then
+                        for _, expr in ipairs(sym_sed) do s = s:gsub(expr[1], expr[2]) end
+                        table.insert(writes, { dst, s })
+                    end
+                else
+                    if not common.path_exists(dst) then
+                        table.insert(ln_cmds, "ln -sfn " .. path .. " " .. dst)
+                    end
                 end
             end
         end
     end
     p:close()
 
-    if #ln_cmds > 0 then
-        os.execute(table.concat(ln_cmds, " && "))
+    -- mkdir batch único para todos los dst_abs necesarios
+    local mkdir_list = {}
+    for _, pair in ipairs(valid_pairs) do
+        table.insert(mkdir_list, pair[2])
+    end
+    if #mkdir_list > 0 then
+        os.execute("mkdir -p " .. table.concat(mkdir_list, " "))
+    end
+
+    -- Escribir todos los SVGs recoloreados
+    for _, w in ipairs(writes) do
+        common.write_file(w[1], w[2])
     end
 end
 
+
 local function link_symbolic_icons(original_dir, ram_dir, disk_dir, sym_sed)
-    -- Enlazar directorios 'symbolic' del original al ram_dir
+    -- Enlazar directorios 'symbolic' del original al ram_dir (batch: un solo os.execute)
     local p = io.popen("find " .. original_dir .. " -maxdepth 2 \\( -type d -o -type l \\) -name 'symbolic' 2>/dev/null")
+    local sym_link_cmds = {}
     if p then
         for path in p:lines() do
             local rel = path:sub(#original_dir + 2)
             local dst = ram_dir .. "/" .. rel
             if not common.path_exists(dst) then
-                os.execute("mkdir -p " .. (dst:match("^(.*)/") or "") .. " && ln -sfn " .. path .. " " .. dst)
+                table.insert(sym_link_cmds, "mkdir -p " .. (dst:match("^(.*)/") or "") .. " && ln -sfn " .. path .. " " .. dst)
             end
         end
         p:close()
+    end
+    if #sym_link_cmds > 0 then
+        os.execute(table.concat(sym_link_cmds, " && "))
     end
 
     local function ensure_disk_link(subdir)
@@ -110,37 +151,52 @@ local function link_symbolic_icons(original_dir, ram_dir, disk_dir, sym_sed)
 
     local pi_sz = { "16x16", "22x22", "24x24" }
     local cd_sz = { "16", "22", "24" }
+    local ln_cmds = {}
 
+    -- Papirus: symbolic/places, symbolic/categories, symbolic/devices, symbolic/apps (batch: 1 find para todos)
+    local pi_pairs = {}
     for _, s in ipairs(pi_sz) do
-        recolor_symbolic_dir(ram_dir .. "/" .. s .. "/symbolic/places",     ram_dir .. "/" .. s .. "/places",     sym_sed)
-        recolor_symbolic_dir(ram_dir .. "/" .. s .. "/symbolic/categories", ram_dir .. "/" .. s .. "/categories", sym_sed)
-        recolor_symbolic_dir(ram_dir .. "/" .. s .. "/symbolic/devices",    ram_dir .. "/" .. s .. "/devices",    sym_sed)
-        recolor_symbolic_dir(ram_dir .. "/" .. s .. "/symbolic/apps",       ram_dir .. "/" .. s .. "/apps",       sym_sed)
+        local base = ram_dir .. "/" .. s
+        table.insert(pi_pairs, { base .. "/symbolic/places",     base .. "/places"     })
+        table.insert(pi_pairs, { base .. "/symbolic/categories", base .. "/categories" })
+        table.insert(pi_pairs, { base .. "/symbolic/devices",    base .. "/devices"    })
+        table.insert(pi_pairs, { base .. "/symbolic/apps",       base .. "/apps"       })
         ensure_disk_link(s)
     end
+    recolor_symbolic_dirs_batch(pi_pairs, sym_sed, ln_cmds)
 
+    -- Colloid: places/symbolic, devices/symbolic, categories/symbolic, apps/symbolic (batch: 1 find para todos)
+    local cd_pairs = {}
     for _, s in ipairs(cd_sz) do
-        recolor_symbolic_dir(ram_dir .. "/places/symbolic",     ram_dir .. "/places/" .. s,     sym_sed)
-        recolor_symbolic_dir(ram_dir .. "/devices/symbolic",    ram_dir .. "/devices/" .. s,    sym_sed)
-        recolor_symbolic_dir(ram_dir .. "/categories/symbolic", ram_dir .. "/categories/" .. s, sym_sed)
-        recolor_symbolic_dir(ram_dir .. "/apps/symbolic",       ram_dir .. "/apps/" .. s,       sym_sed)
-        -- Colloid: categories/{size}/*-symbolic.svg directos (no bajo symbolic/)
-        recolor_symbolic_dir(original_dir .. "/categories/" .. s, ram_dir .. "/categories/" .. s, sym_sed)
+        table.insert(cd_pairs, { ram_dir .. "/places/symbolic",     ram_dir .. "/places/" .. s     })
+        table.insert(cd_pairs, { ram_dir .. "/devices/symbolic",    ram_dir .. "/devices/" .. s    })
+        table.insert(cd_pairs, { ram_dir .. "/categories/symbolic", ram_dir .. "/categories/" .. s })
+        table.insert(cd_pairs, { ram_dir .. "/apps/symbolic",       ram_dir .. "/apps/" .. s       })
+        table.insert(cd_pairs, { original_dir .. "/categories/" .. s, ram_dir .. "/categories/" .. s })
+    end
+    recolor_symbolic_dirs_batch(cd_pairs, sym_sed, ln_cmds)
+
+    if #ln_cmds > 0 then
+        os.execute(table.concat(ln_cmds, " && "))
     end
 
-    -- Aliases: nombres de icono que algunos gestores de archivos usan pero Papirus no provee
+    -- Aliases: nombres de icono que algunos gestores usan pero Papirus no provee
     local icon_aliases = {
         { "applications-accessories", "applications-utilities" },
         { "preferences-desktop",      "preferences-system" },
     }
+    local alias_cmds = {}
     for _, s in ipairs(pi_sz) do
         for _, alias in ipairs(icon_aliases) do
             local src = ram_dir .. "/" .. s .. "/categories/" .. alias[2] .. ".svg"
             local dst = ram_dir .. "/" .. s .. "/categories/" .. alias[1] .. ".svg"
             if common.path_exists(src) and not common.path_exists(dst) then
-                os.execute("ln -sfn " .. src .. " " .. dst)
+                table.insert(alias_cmds, "ln -sfn " .. src .. " " .. dst)
             end
         end
+    end
+    if #alias_cmds > 0 then
+        os.execute(table.concat(alias_cmds, " && "))
     end
 end
 
@@ -223,21 +279,15 @@ local function main()
         end
     end
 
+    -- Recolorear carpetas en RAM (cp backup + parallel sed con xargs -P$(nproc))
+    common.copy_and_recolor(backup_dir, ram_icon_dir, sed_exprs)
+
     -- Actualizar glifos simbólicos de lugares y carpetas en RAM
     link_symbolic_icons(original_dir, ram_icon_dir, physical_icon_dir, sym_sed)
 
-    -- Recolorear las carpetas en RAM
-    common.copy_and_recolor(backup_dir, ram_icon_dir, sed_exprs)
-    common.update_icon_cache(physical_icon_dir)
-
-    -- ── FASE 3: señalizar iconos GTK listos (Alternar variante A/B para forzar recarga en GTK) ──────────────────────────────────
+    -- ── FASE 3: señalizar iconos GTK (primero), luego cache en background ────────────────────────
     gtk.apply(custom_icon_theme, nil)
-
-    -- Liberar SVGs de la variante inactiva en RAM manteniendo su estructura de enlaces simbólicos
-    local inactive_ram_dir = "/dev/shm/" .. base_theme .. "-Custom-" .. active_variant
-    if common.path_exists(inactive_ram_dir) then
-        os.execute("find " .. inactive_ram_dir .. " -type f -name '*.svg' -delete 2>/dev/null")
-    end
+    common.update_icon_cache(physical_icon_dir) -- no bloqueante (&)
 end
 
 main()

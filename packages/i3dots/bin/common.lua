@@ -35,6 +35,31 @@ function common.write_file(path, content)
     if f then f:write(content); f:close() end
 end
 
+-- Ejecuta una lista de comandos shell en un SOLO fork de bash.
+-- Reemplaza N os.execute separados por 1, eliminando N-1 fork()s.
+function common.sh_batch(cmds)
+    if not cmds or #cmds == 0 then return end
+    local p = io.popen("bash", "w")
+    if p then
+        p:write("set -e\n")
+        p:write(table.concat(cmds, "\n"))
+        p:close()
+    end
+end
+
+-- Itera entradas de un directorio sin fork (Lua nativo vía io.popen con un solo find).
+-- Devuelve una tabla de paths absolutos.
+function common.dir_list(path, maxdepth, pattern)
+    local depth = maxdepth or 1
+    local pat   = pattern and (" -name '" .. pattern .. "'") or ""
+    local p = io.popen("find " .. path .. " -maxdepth " .. depth .. " -mindepth 1" .. pat .. " 2>/dev/null")
+    if not p then return {} end
+    local entries = {}
+    for line in p:lines() do table.insert(entries, line) end
+    p:close()
+    return entries
+end
+
 -- ── Color persistence ─────────────────────────────────────────────────────────
 
 function common.resolve_color(color_arg, persist_file)
@@ -146,21 +171,20 @@ function common.cleanup_old_themes(keep_icon_theme, keep_widget_theme)
     local icon_prefix   = keep_icon_theme   and keep_icon_theme:match("^(.*%-Custom%-)[AB]$")   or keep_icon_theme
     local widget_prefix = keep_widget_theme and keep_widget_theme:match("^(.*%-Custom%-)[AB]$") or keep_widget_theme
 
+    local rm_cmds = {}
     for _, dir in ipairs({ "/dev/shm", common.home .. "/.icons", common.home .. "/.themes" }) do
-        local p = io.popen('find ' .. dir .. ' -maxdepth 1 -name "*-Custom*" 2>/dev/null')
-        if p then
-            for path in p:lines() do
-                local name = path:match("([^/]+)$")
-                if name then
-                    local keep = false
-                    if icon_prefix   and name:sub(1, #icon_prefix)   == icon_prefix   then keep = true end
-                    if widget_prefix and name:sub(1, #widget_prefix) == widget_prefix then keep = true end
-                    if not keep then os.execute("rm -rf " .. path) end
-                end
+        local paths = common.dir_list(dir, 1, "*-Custom*")
+        for _, path in ipairs(paths) do
+            local name = path:match("([^/]+)$")
+            if name then
+                local keep = false
+                if icon_prefix   and name:sub(1, #icon_prefix)   == icon_prefix   then keep = true end
+                if widget_prefix and name:sub(1, #widget_prefix) == widget_prefix then keep = true end
+                if not keep then table.insert(rm_cmds, "rm -rf " .. path) end
             end
-            p:close()
         end
     end
+    common.sh_batch(rm_cmds)
 end
 
 -- ── Icon backup ───────────────────────────────────────────────────────────────
@@ -197,66 +221,84 @@ function common.ensure_persistent_symlink_tree(original_dir, ram_dir, backup_dir
     os.execute("mkdir -p " .. ram_dir)
     common.setup_index_theme(original_dir .. "/index.theme", ram_dir .. "/index.theme", custom_theme, base_theme)
 
+    -- Un solo find depth=2 reemplaza N find anidados (elimina N-1 forks de bash)
     local ln_cmds = {}
-    local p = io.popen("find " .. original_dir .. " -maxdepth 1 -mindepth 1 2>/dev/null")
+    local mkdir_cmds = {}
+    local p = io.popen("find " .. original_dir .. " -maxdepth 2 -mindepth 1 2>/dev/null")
     if p then
         for path in p:lines() do
-            local name = path:match("([^/]+)$")
-            if name and name ~= "index.theme" then
-                local ram_item  = ram_dir .. "/" .. name
-                local orig_item = path
-                if common.path_exists(orig_item) then
-                    table.insert(ln_cmds, "mkdir -p " .. ram_item)
-                    local p2 = io.popen("find " .. orig_item .. " -maxdepth 1 -mindepth 1 2>/dev/null")
-                    if p2 then
-                        for sub_path in p2:lines() do
-                            local sub_name = sub_path:match("([^/]+)$")
-                            if sub_name == "places" then
-                                table.insert(ln_cmds, "mkdir -p " .. ram_item .. "/places")
-                            elseif sub_name then
-                                table.insert(ln_cmds, "ln -sfn " .. sub_path .. " " .. ram_item .. "/" .. sub_name)
-                            end
-                        end
-                        p2:close()
-                    end
+            local depth1, depth2 = path:match(original_dir .. "/([^/]+)$"), path:match(original_dir .. "/([^/]+)/([^/]+)$")
+            if depth1 and not depth2 and depth1 ~= "index.theme" then
+                -- Nivel 1: tamaños (16x16, 22x22, etc.)
+                table.insert(mkdir_cmds, "mkdir -p " .. ram_dir .. "/" .. depth1)
+            elseif depth2 then
+                local size = path:match(original_dir .. "/([^/]+)/[^/]+$")
+                local sub  = path:match("([^/]+)$")
+                local ram_item = ram_dir .. "/" .. size
+                if sub == "places" then
+                    table.insert(mkdir_cmds, "mkdir -p " .. ram_item .. "/places")
+                elseif sub then
+                    table.insert(ln_cmds, "ln -sfn " .. path .. " " .. ram_item .. "/" .. sub)
                 end
             end
         end
         p:close()
     end
 
-    if #ln_cmds > 0 then
-        os.execute(table.concat(ln_cmds, " && "))
+    local all_cmds = {}
+    for _, c in ipairs(mkdir_cmds) do table.insert(all_cmds, c) end
+    for _, c in ipairs(ln_cmds)   do table.insert(all_cmds, c) end
+    if #all_cmds > 0 then
+        os.execute(table.concat(all_cmds, " && "))
     end
 end
 
 function common.copy_and_recolor(backup_dir, ram_dir, sed_exprs)
     os.execute("cp -rd --remove-destination " .. backup_dir .. "/. " .. ram_dir .. "/")
 
+    if not sed_exprs or #sed_exprs == 0 then return end
+
     local script_dir = debug.getinfo(1).source:match("@(.*)/") or ""
     local bin_c = script_dir .. "/recolor_svg"
 
     if common.path_exists(bin_c) then
         local args = { string.format("%q", bin_c), string.format("%q", ram_dir) }
-        for _, expr in ipairs(sed_exprs or {}) do
+        for _, expr in ipairs(sed_exprs) do
             table.insert(args, string.format("%q", expr[1]))
             table.insert(args, string.format("%q", expr[2]))
         end
         os.execute(table.concat(args, " ") .. " 2>/dev/null")
     else
-        local p = io.popen("find " .. ram_dir .. " -type f -name '*.svg' 2>/dev/null")
-        if not p then return end
-        for path in p:lines() do
-            local s = common.read_file(path)
-            if s then
-                for _, expr in ipairs(sed_exprs or {}) do
-                    s = s:gsub(expr[1], expr[2])
-                end
-                common.write_file(path, s)
-            end
-        end
-        p:close()
+        common.parallel_sed(ram_dir, sed_exprs)
     end
+end
+
+-- Recolorea SVGs ya existentes en RAM reemplazando old_exprs → new_exprs sin re-copiar desde backup.
+-- old_exprs: tabla { {patron, reemplazo} } con el color ANTERIOR
+-- new_exprs: tabla { {patron, reemplazo} } con el color NUEVO
+-- Cae a copy_and_recolor si no hay SVGs en RAM.
+function common.recolor_in_place(backup_dir, ram_dir, new_exprs)
+    if not common.is_ram_populated(ram_dir) then
+        -- Fallback: sin SVGs en RAM, copiar desde backup completo
+        common.copy_and_recolor(backup_dir, ram_dir, new_exprs)
+        return
+    end
+    common.parallel_sed(ram_dir, new_exprs)
+end
+
+function common.parallel_sed(ram_dir, sed_exprs)
+    if not sed_exprs or #sed_exprs == 0 then return end
+    local sed_args = {}
+    for _, expr in ipairs(sed_exprs) do
+        local pat = expr[1]:gsub("/", "\\/")
+        local rep = expr[2]:gsub("/", "\\/")
+        table.insert(sed_args, string.format("-e 's/%s/%s/g'", pat, rep))
+    end
+    local sed_expr_str = table.concat(sed_args, " ")
+    os.execute(
+        "find " .. ram_dir .. " -type f -name '*.svg' -print0 2>/dev/null" ..
+        " | xargs -0 -P$(nproc) sed -i " .. sed_expr_str .. " 2>/dev/null"
+    )
 end
 
 function common.setup_index_theme(src, dest, custom_theme, base_theme)
@@ -271,7 +313,7 @@ function common.setup_index_theme(src, dest, custom_theme, base_theme)
 end
 
 function common.update_icon_cache(dir)
-    os.execute("gtk-update-icon-cache -f -q -t " .. dir .. " 2>/dev/null || true")
+    os.execute("gtk-update-icon-cache -f -q -t " .. dir .. " 2>/dev/null &")
 end
 
 return common

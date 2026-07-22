@@ -86,37 +86,16 @@ local function apply_gtkrc(path, icon_theme, widget_theme)
     common.write_file(path, s)
 end
 
-local xsettingsd_conf = common.home .. "/.config/xsettingsd/xsettingsd.conf"
-
-local function start_xsettingsd_with_config()
-    os.execute("xsettingsd -c " .. xsettingsd_conf .. " >/dev/null 2>&1 &")
-end
-
--- Verifica que el proceso xsettingsd activo fue lanzado con -c y la ruta correcta.
-local function xsettingsd_uses_our_config()
-    local p = io.popen("pgrep -a -x xsettingsd 2>/dev/null")
-    if not p then return false end
-    local out = p:read("*a") or ""; p:close()
-    return out:find("%.config/xsettingsd/xsettingsd%.conf") ~= nil
-end
-
-local function ensure_xsettingsd()
-    local running = false
-    local p = io.popen("pgrep -x xsettingsd 2>/dev/null")
-    if p then
-        local res = p:read("*a"); p:close()
-        running = res and res ~= ""
-    end
-
-    -- Si no corre o no usa nuestra config, reiniciar con -c correcto.
-    if not running or not xsettingsd_uses_our_config() then
-        if running then
-            os.execute("pkill -x xsettingsd 2>/dev/null || true")
-            os.execute("sleep 0.1")
-        end
-        start_xsettingsd_with_config()
-        os.execute("sleep 0.3")
-    end
+local function signal_xsettingsd()
+    local sh = [[
+if pgrep -a -x xsettingsd 2>/dev/null | grep -q "\.config/xsettingsd/xsettingsd\.conf"; then
+    pkill -HUP xsettingsd 2>/dev/null || true
+else
+    pkill -x xsettingsd 2>/dev/null || true
+    xsettingsd -c "$HOME/.config/xsettingsd/xsettingsd.conf" >/dev/null 2>&1 &
+fi
+]]
+    os.execute("bash -c " .. string.format("%q", sh))
 end
 
 local function apply_xsettingsd(path, icon_theme, widget_theme)
@@ -139,8 +118,7 @@ local function apply_xsettingsd(path, icon_theme, widget_theme)
     end
 
     common.write_file(path, s)
-    ensure_xsettingsd()
-    os.execute("pkill -HUP xsettingsd 2>/dev/null || true")
+    signal_xsettingsd()
 end
 
 -- ── API pública ───────────────────────────────────────────────────────────────
@@ -167,7 +145,6 @@ function gtk.apply(icon_theme, widget_theme)
         os.execute('command -v gsettings &>/dev/null && gsettings set org.gnome.desktop.interface gtk-theme "' .. widget_theme .. '" || true')
     end
 
-    ensure_xsettingsd()
     apply_xsettingsd(xconf, icon_theme, widget_theme)
 end
 
