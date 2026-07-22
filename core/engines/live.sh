@@ -26,16 +26,16 @@ _resolve_daemon_path() {
 }
 
 engine_init() {
-    pkill -9 -f 'xwinwrap' &>/dev/null || true
-    pkill -9 -f 'mpv.*--x11-name=mpv-wallpaper' &>/dev/null || true
-    pkill -9 -f 'live_wp_daemon' &>/dev/null || true
+    pkill -15 -f 'xwinwrap' &>/dev/null || true
+    pkill -15 -f 'mpv.*--x11-name=mpv-wallpaper' &>/dev/null || true
+    pkill -15 -f 'live_wp_daemon' &>/dev/null || true
 
     # Esperar de forma activa a que todos los procesos mueran por completo antes de continuar
     local count=0
     while pgrep -f 'xwinwrap' &>/dev/null || pgrep -f 'mpv.*--x11-name=mpv-wallpaper' &>/dev/null; do
         sleep 0.05
         count=$((count+1))
-        [[ $count -ge 20 ]] && break
+        [[ $count -ge 10 ]] && break
     done
 
     rm -f "$MPV_SOCKET"
@@ -77,8 +77,13 @@ engine_set() {
     # Inicio frío: limpiar procesos y lanzar nueva sesión desvinculada
     engine_init
 
-    local geom
-    geom="$(xrandr | grep " connected" | grep -oP '\d+x\d+\+\d+\+\d+' | head -1)"
+    local geom dim
+    dim="$(xdpyinfo 2>/dev/null | grep -oP 'dimensions:\s+\K\d+x\d+')"
+    if [[ -n "$dim" ]]; then
+        geom="${dim}+0+0"
+    else
+        geom="$(xrandr 2>/dev/null | grep " connected" | grep -oP '\d+x\d+\+\d+\+\d+' | head -1)"
+    fi
     geom="${geom:-1920x1080+0+0}"
 
     # Lanzar xwinwrap+mpv en segundo plano de forma desvinculada usando setsid -f (fork)
@@ -92,7 +97,6 @@ engine_set() {
             path="$5"
             skip="${6:-none}"
             fps_cap="$7"
-            sleep 0.3
             exec xwinwrap -g "$geom" -ov -ni -b -nf -s -st -sp -- \
             mpv --wid=%WID \
                             ${fps_cap:+--vf=fps=fps=$fps_cap} \
