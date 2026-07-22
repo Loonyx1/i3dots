@@ -220,7 +220,7 @@ local function main()
 
     -- Early exit: mismo color ya aplicado en RAM
     local active_variant    = common.detect_active_variant(xsettings_cfg)
-    local active_icon_theme = base_theme .. "-Custom"
+    local active_icon_theme = base_theme .. "-Custom-" .. active_variant
     if color == prev_color
         and common.is_ram_populated("/dev/shm/" .. active_icon_theme)
         and get_current_icon_theme(settings_ini) == active_icon_theme
