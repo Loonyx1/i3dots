@@ -162,7 +162,7 @@ engine_set() {
                             --deband=no \
                             --interpolation=no \
                             --tscale=nearest \
-                            --video-unscaled=downscale-big \
+                            --video-unscaled=no \
                             --cover-art-auto=no \
                             --cache-pause=no \
                             --cache=no \
