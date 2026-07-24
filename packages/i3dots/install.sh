@@ -425,6 +425,7 @@ done
 
 safe_link "$PACKAGE_DIR/bin/toggle_autohide.sh" "$HOME/.local/bin/toggle_autohide.sh"
 safe_link "$PACKAGE_DIR/bin/toggle_borders.sh" "$HOME/.local/bin/toggle_borders.sh"
+safe_link "$PACKAGE_DIR/bin/sys_control.sh" "$HOME/.local/bin/sys_control.sh"
 
 export PATH="$HOME/.local/bin:$PATH"
 
@@ -448,6 +449,7 @@ chmod +x "$PACKAGE_DIR/bin/wp_context_menu.sh" &>> "$LOG_FILE"
 # live_wp_daemon se enlaza desde distros/*/bins/ o se compila en el loop de arriba
 chmod +x "$PACKAGE_DIR/bin/toggle_autohide.sh" &>> "$LOG_FILE"
 chmod +x "$PACKAGE_DIR/bin/toggle_borders.sh" &>> "$LOG_FILE"
+chmod +x "$PACKAGE_DIR/bin/sys_control.sh" &>> "$LOG_FILE"
 find "$PACKAGE_DIR/config/rofi/bin" -type f -exec chmod +x {} + &>> "$LOG_FILE"
 find "$PACKAGE_DIR/config/polybar" -type f -name "*.sh" -exec chmod +x {} + &>> "$LOG_FILE"
 
