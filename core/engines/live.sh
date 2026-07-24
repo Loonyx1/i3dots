@@ -64,9 +64,27 @@ engine_set() {
     [[ "$base_noext" == *_noskip* ]] && skip_level="none"
     [[ "$base_noext" =~ _fps([0-9]+) ]] && fps_cap="${BASH_REMATCH[1]}"
 
-    # Hot-reload vía socket IPC
+    # Calcular geometría actual
+    local geom dim
+    dim="$(xdpyinfo 2>/dev/null | grep -oP 'dimensions:\s+\K\d+x\d+')"
+    if [[ -n "$dim" ]]; then
+        geom="${dim}+0+0"
+    else
+        geom="$(xrandr 2>/dev/null | grep " connected" | grep -oP '\d+x\d+\+\d+\+\d+' | head -1)"
+    fi
+    geom="${geom:-1920x1080+0+0}"
+
+    # Hot-reload vía socket IPC (solo si la resolución no cambió)
+    local hot_reload=false
     local daemon_path="$(_resolve_daemon_path)"
     if [[ -S "$MPV_SOCKET" ]] && pgrep -f 'mpv.*--x11-name=mpv-wallpaper' &>/dev/null && [[ -x "$daemon_path" ]]; then
+        local xwin_geom=$(pgrep -a xwinwrap | grep -oP -- '-g \K\S+' | head -1)
+        if [[ "$xwin_geom" == "$geom" ]]; then
+            hot_reload=true
+        fi
+    fi
+
+    if [[ "$hot_reload" == true ]]; then
         _mpv_set_prop "vd-lavc-skipframe" "\"$skip_level\""
         local vf_val="[]"
         [[ -n "$fps_cap" ]] && printf -v vf_val '[{"name":"fps","params":{"fps":"%s"}}]' "$fps_cap"
@@ -76,15 +94,6 @@ engine_set() {
 
     # Inicio frío: limpiar procesos y lanzar nueva sesión desvinculada
     engine_init
-
-    local geom dim
-    dim="$(xdpyinfo 2>/dev/null | grep -oP 'dimensions:\s+\K\d+x\d+')"
-    if [[ -n "$dim" ]]; then
-        geom="${dim}+0+0"
-    else
-        geom="$(xrandr 2>/dev/null | grep " connected" | grep -oP '\d+x\d+\+\d+\+\d+' | head -1)"
-    fi
-    geom="${geom:-1920x1080+0+0}"
 
     # Lanzar xwinwrap+mpv en segundo plano de forma desvinculada usando setsid -f (fork)
     # Se pasan las variables de entorno de X11 de forma explícita para evitar fallas de conexión al display.
