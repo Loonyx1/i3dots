@@ -68,7 +68,7 @@ if [ -z "$HWMON_PATH" ]; then
 fi
 
 # 4. Construir Listas de Módulos (Prevención de Islas/Píldoras Vacías)
-export POLY_LEFT="space left launcher right space left help-keys right space left cpu-usage space-alt cpu-memory right space left i3-workspaces right"
+export POLY_LEFT="space left launcher right space left cpu-usage space-alt cpu-memory right space left i3-workspaces right"
 [ -n "$BACKLIGHT_CARD" ] && POLY_LEFT="$POLY_LEFT space left backlight right"
 
 export POLY_CENTER="left date right"
@@ -115,6 +115,11 @@ if [ -f "$STATE_FILE" ]; then
     else
         export COMP_MODULES_HIDDEN="true"
     fi
+fi
+
+# 5.5 Conditional Module Injection (Atajos)
+if [ "$type" == "polybar_underline" ] && [ "${BAR_MODE}" == "solid" ]; then
+    export POLY_LEFT="${POLY_LEFT/launcher right/launcher right space left help-keys right}"
 fi
 
 # 6. Generar Script Estático POSIX para Dash
