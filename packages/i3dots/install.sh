@@ -64,7 +64,6 @@ fi
 # Procesar exclusión de servicios
 polkit_enabled="true"
 xsettingsd_enabled="true"
-dex_enabled="true"
 
 if [ -n "$EXCLUDE_SERVICES" ]; then
     IFS=',' read -ra ADDR <<< "$EXCLUDE_SERVICES"
@@ -72,7 +71,6 @@ if [ -n "$EXCLUDE_SERVICES" ]; then
         case "$svc" in
             polkit) polkit_enabled="false" ;;
             xsettingsd) xsettingsd_enabled="false" ;;
-            dex) dex_enabled="false" ;;
         esac
     done
 fi
@@ -82,9 +80,6 @@ if [ "$polkit_enabled" = "false" ] && [ -n "$PKG_SERVICE_POLKIT" ]; then
 fi
 if [ "$xsettingsd_enabled" = "false" ] && [ -n "$PKG_SERVICE_XSETTINGSD" ]; then
     PKG_LIST=$(echo " $PKG_LIST " | sed "s/ $PKG_SERVICE_XSETTINGSD / /g" | sed 's/^ *//;s/ *$//')
-fi
-if [ "$dex_enabled" = "false" ] && [ -n "$PKG_SERVICE_DEX" ]; then
-    PKG_LIST=$(echo " $PKG_LIST " | sed "s/ $PKG_SERVICE_DEX / /g" | sed 's/^ *//;s/ *$//')
 fi
 
 # Agregar dependencias de live wallpaper si se solicita
@@ -504,7 +499,6 @@ print_step "Inicializando estado de servicios en disco..."
 mkdir -p "$STATE_DIR/i3dots/services"
 echo "polkit=\"$polkit_enabled\"" > "$STATE_DIR/i3dots/services/state.env"
 echo "xsettingsd=\"$xsettingsd_enabled\"" >> "$STATE_DIR/i3dots/services/state.env"
-echo "dex=\"$dex_enabled\"" >> "$STATE_DIR/i3dots/services/state.env"
 
 # 9.6 Inicializar logo de fastfetch
 mkdir -p "$PACKAGE_DIR/config/fastfetch"
