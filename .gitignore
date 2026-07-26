@@ -40,6 +40,7 @@ packages/i3dots/config/rofi/themes/shared/colors.rasi
 packages/i3dots/config/i3/current
 packages/i3dots/config/i3/current_static
 packages/i3dots/config/i3/wall
+packages/i3dots/config/dunst/dunstrc
 packages/i3dots/config/qt6ct/qt6ct.conf
 packages/i3dots/config/fastfetch/logo.txt
 # i3dots: Configuración de hardware dinámica
