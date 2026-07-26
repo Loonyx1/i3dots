@@ -61,25 +61,22 @@ fi
 # Cargar configuraciones del paquete
 [ -f "$PACKAGE_DIR/config.env" ] && source "$PACKAGE_DIR/config.env"
 
-# Procesar exclusión de servicios
+# Excluir servicios del autostart y la instalación
 AUTOSTART_CONF="$PACKAGE_DIR/config/i3/conf.d/autostart.conf"
-AUTOSTART_POLKIT_LINE='exec --no-startup-id $polkit_agent &'
-AUTOSTART_XSETTINGSD_LINE='exec --no-startup-id xsettingsd -c $HOME/.config/xsettingsd/xsettingsd.conf'
 
-for svc in ${EXCLUDE_SERVICES//,/ }; do
-    case "$svc" in
-        polkit)
-            PKG_LIST=${PKG_LIST/ $PKG_SERVICE_POLKIT / }
-            sed -i "\|$AUTOSTART_POLKIT_LINE|d" "$AUTOSTART_CONF"
-            print_sub "polkit excluido (línea eliminada de autostart.conf)"
-            ;;
-        xsettingsd)
-            PKG_LIST=${PKG_LIST/ $PKG_SERVICE_XSETTINGSD / }
-            sed -i "\|$AUTOSTART_XSETTINGSD_LINE|d" "$AUTOSTART_CONF"
-            print_sub "xsettingsd excluido (línea eliminada de autostart.conf)"
-            ;;
-    esac
-done
+if [[ ",$EXCLUDE_SERVICES," == *,polkit,* ]]; then
+    PKG_LIST=${PKG_LIST/ $PKG_SERVICE_POLKIT / }
+    sed -i '/polkit_agent/d' "$AUTOSTART_CONF"
+else
+    grep -qF 'polkit_agent' "$AUTOSTART_CONF" || echo 'exec --no-startup-id $polkit_agent &' >> "$AUTOSTART_CONF"
+fi
+
+if [[ ",$EXCLUDE_SERVICES," == *,xsettingsd,* ]]; then
+    PKG_LIST=${PKG_LIST/ $PKG_SERVICE_XSETTINGSD / }
+    sed -i '/xsettingsd/d' "$AUTOSTART_CONF"
+else
+    grep -qF 'xsettingsd' "$AUTOSTART_CONF" || echo 'exec --no-startup-id xsettingsd -c $HOME/.config/xsettingsd/xsettingsd.conf' >> "$AUTOSTART_CONF"
+fi
 
 # Agregar dependencias de live wallpaper si se solicita
 if [ "$ENABLE_LIVE" = "true" ] && [ -n "$PKG_LIVE" ]; then
