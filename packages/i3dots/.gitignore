@@ -61,3 +61,10 @@ packages/i3dots/bin/xic
 packages/i3dots/bin/polybar_autohide
 packages/i3dots/bin/live_wp_daemon
 packages/i3dots/config/dunst/dunstrc
+
+# i3dots: Estado y caché local de cmus (no versionar)
+config/cmus/cache
+config/cmus/command-history
+config/cmus/lib.pl
+config/cmus/search-history
+config/cmus/playlists/
