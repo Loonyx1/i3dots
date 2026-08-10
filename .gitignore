@@ -48,6 +48,7 @@ packages/*/config/i3/conf.d/output.conf
 
 # i3dots: Memoria privada del agente
 .gemini/
+.commandcode/
 memory/
 MEMORY.md
 
